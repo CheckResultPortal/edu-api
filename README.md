@@ -1,29 +1,20 @@
-# NestJS Fastify Template
+# Check Result Portal Education API
 
-A production-minded backend starter built as an Nx monorepo with NestJS, Fastify, PostgreSQL/Prisma, Redis, BullMQ, structured logging, health checks, and OpenAPI generation. It deliberately contains no product-domain tables or workflows.
+Backend platform for the Check Result Portal education product. It is an Nx monorepo built with NestJS, Fastify, PostgreSQL/Prisma, Redis, BullMQ, structured logging, health checks, and generated OpenAPI.
 
-## Included applications
+## Applications
 
 | Application  | Purpose                                          | Default port |
 | ------------ | ------------------------------------------------ | ------------ |
-| `public-api` | Internet-facing HTTP API boundary                | 3001         |
-| `admin-api`  | Privileged or internal HTTP API boundary         | 3002         |
+| `public-api` | Public HTTP workflows                            | 3001         |
+| `admin-api`  | Privileged and internal HTTP workflows           | 3002         |
 | `worker`     | Background and scheduled work; no HTTP endpoints | —            |
-
-`public-api` and `admin-api` are example boundaries, not required product domains. Keep the ones your product needs, or add a purpose-specific app.
 
 Both HTTP APIs expose:
 
 - `GET /v1/health/live` for process liveness
 - `GET /v1/health/ready` for PostgreSQL and Redis readiness
 - `GET /v1/openapi.json` for the generated OpenAPI document
-
-## Start a new product
-
-1. Replace the template identity in `package.json`, `.env.example`, Docker Compose values, and the `@template/*` TypeScript aliases in `tsconfig.base.json`.
-2. Copy each application `.env.example` to `.env` and set local credentials.
-3. Create product modules outside `libs/shared/*`; each module owns its models, migrations, application logic, and API contracts.
-4. Retain, rename, or remove the example app boundaries to match the product.
 
 ## Local development
 
@@ -37,6 +28,15 @@ pnpm exec nx serve admin-api
 pnpm exec nx serve worker
 ```
 
+Copy the root and application `.env.example` files to local `.env` files before running an application. Never commit local `.env` files.
+
+## Platform boundaries
+
+- `libs/shared/*` owns reusable technical capabilities, never education business rules or education tables.
+- Education modules own their write operations, constraints, persistence models, and public contracts; controllers remain thin.
+- PostgreSQL is authoritative. Redis and BullMQ are delivery and performance layers, not sources of correctness.
+- Define authentication, authorisation, tenant isolation, privacy, audit, data retention, and recovery requirements before introducing sensitive education data or result workflows.
+
 ## Quality checks
 
 ```bash
@@ -46,9 +46,4 @@ pnpm build
 pnpm format:check
 ```
 
-## Template boundaries
-
-- `libs/shared/*` owns only reusable technical capabilities, never product business rules or product tables.
-- Domain modules own their write operations, constraints, and persistence models; controllers remain thin.
-- PostgreSQL is authoritative. Redis and BullMQ are delivery/performance layers, not sources of correctness.
-- External systems belong behind adapters, and each template copy must define its own authorisation, tenant-isolation, privacy, audit, and recovery policies.
+See [education API foundation notes](docs/education-api-foundation.md) for the architectural standards and verification requirements.

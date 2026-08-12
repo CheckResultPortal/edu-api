@@ -1,4 +1,4 @@
-import { validateWorkerEnvironment } from '@template/config';
+import { validateWorkerEnvironment } from '@edu-api/config';
 
 describe('Worker integration', () => {
   it('accepts its required worker environment', () => {

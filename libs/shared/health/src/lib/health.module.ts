@@ -16,7 +16,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
-import { jsonApiResource } from '@template/http';
+import { jsonApiResource } from '@edu-api/http';
 
 import {
   SERVICE_DEPENDENCIES,

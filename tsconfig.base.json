@@ -16,17 +16,17 @@
     "skipDefaultLibCheck": true,
     "strict": true,
     "paths": {
-      "@template/config": ["./libs/shared/config/src/index.ts"],
-      "@template/database": ["./libs/shared/database/src/index.ts"],
-      "@template/health": ["./libs/shared/health/src/index.ts"],
-      "@template/health/health.module": [
+      "@edu-api/config": ["./libs/shared/config/src/index.ts"],
+      "@edu-api/database": ["./libs/shared/database/src/index.ts"],
+      "@edu-api/health": ["./libs/shared/health/src/index.ts"],
+      "@edu-api/health/health.module": [
         "./libs/shared/health/src/lib/health.module.ts"
       ],
-      "@template/queues": ["./libs/shared/queues/src/index.ts"],
-      "@template/redis": ["./libs/shared/redis/src/index.ts"],
-      "@template/http": ["./libs/shared/http/src/index.ts"],
-      "@template/observability": ["./libs/shared/observability/src/index.ts"],
-      "@template/testing": ["./libs/shared/testing/src/index.ts"]
+      "@edu-api/queues": ["./libs/shared/queues/src/index.ts"],
+      "@edu-api/redis": ["./libs/shared/redis/src/index.ts"],
+      "@edu-api/http": ["./libs/shared/http/src/index.ts"],
+      "@edu-api/observability": ["./libs/shared/observability/src/index.ts"],
+      "@edu-api/testing": ["./libs/shared/testing/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "tmp"]

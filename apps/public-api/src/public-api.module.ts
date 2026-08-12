@@ -1,12 +1,12 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 
-import { validatePublicApiEnvironment } from '@template/config';
-import { HealthModule } from '@template/health/health.module';
+import { validatePublicApiEnvironment } from '@edu-api/config';
+import { HealthModule } from '@edu-api/health/health.module';
 import {
   SERVICE_DEPENDENCIES,
   createServiceDependencies,
-} from '@template/health';
+} from '@edu-api/health';
 
 @Module({
   imports: [

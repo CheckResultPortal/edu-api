@@ -1,6 +1,6 @@
-import type { DatabaseReadinessClient } from '@template/database';
-import { closeDatabaseClient, createPrismaClient } from '@template/database';
-import { closeRedisClient, createRedisClient } from '@template/redis';
+import type { DatabaseReadinessClient } from '@edu-api/database';
+import { closeDatabaseClient, createPrismaClient } from '@edu-api/database';
+import { closeRedisClient, createRedisClient } from '@edu-api/redis';
 
 export const SERVICE_DEPENDENCIES = Symbol('SERVICE_DEPENDENCIES');
 

@@ -1,7 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 
-import { StructuredLogger } from '@template/observability';
+import { StructuredLogger } from '@edu-api/observability';
 
 import { WorkerModule } from './worker.module';
 

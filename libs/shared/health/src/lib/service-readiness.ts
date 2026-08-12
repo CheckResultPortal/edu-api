@@ -1,7 +1,7 @@
-import type { DatabaseReadinessClient } from '@template/database';
-import { isDatabaseReady } from '@template/database';
-import type { RedisReadinessClient } from '@template/redis';
-import { isRedisReady } from '@template/redis';
+import type { DatabaseReadinessClient } from '@edu-api/database';
+import { isDatabaseReady } from '@edu-api/database';
+import type { RedisReadinessClient } from '@edu-api/redis';
+import { isRedisReady } from '@edu-api/redis';
 
 export interface ServiceReadinessDependencies {
   readonly database: DatabaseReadinessClient;

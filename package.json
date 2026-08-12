@@ -1,20 +1,20 @@
 {
-  "name": "nestjs-fastify-template",
+  "name": "edu-api",
   "version": "1.0.0",
-  "description": "Production-minded Nx, NestJS, and Fastify backend template.",
+  "description": "Backend API for the Check Result Portal education platform.",
   "private": true,
   "scripts": {
-    "build": "pnpm exec nx run-many -t build --exclude=nestjs-fastify-template",
-    "lint": "pnpm exec nx run-many -t lint --exclude=nestjs-fastify-template",
-    "test": "pnpm exec nx run-many -t test --exclude=nestjs-fastify-template",
-    "test:coverage": "pnpm exec nx run-many -t test --coverage --exclude=nestjs-fastify-template",
+    "build": "pnpm exec nx run-many -t build --exclude=edu-api",
+    "lint": "pnpm exec nx run-many -t lint --exclude=edu-api",
+    "test": "pnpm exec nx run-many -t test --exclude=edu-api",
+    "test:coverage": "pnpm exec nx run-many -t test --coverage --exclude=edu-api",
     "format": "pnpm exec prettier --write .",
     "format:check": "pnpm exec prettier --check .",
     "graph": "pnpm exec nx graph"
   },
   "keywords": [
-    "template",
-    "voting",
+    "education",
+    "results",
     "nestjs",
     "nx"
   ],

@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 
-import { validateWorkerEnvironment } from '@template/config';
+import { validateWorkerEnvironment } from '@edu-api/config';
 
 @Module({
   imports: [

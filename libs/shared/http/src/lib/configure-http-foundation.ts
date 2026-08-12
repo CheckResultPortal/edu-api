@@ -14,7 +14,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { FastifyReply, FastifyRequest } from 'fastify';
 import { Observable, catchError, map, throwError } from 'rxjs';
 
-import { StructuredLogger } from '@template/observability';
+import { StructuredLogger } from '@edu-api/observability';
 
 interface ApiError {
   readonly code: string;

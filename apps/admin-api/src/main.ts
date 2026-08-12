@@ -7,8 +7,8 @@ import {
 } from '@nestjs/platform-fastify';
 import { randomUUID } from 'node:crypto';
 
-import { configureHttpFoundation, configureOpenApi } from '@template/http';
-import { StructuredLogger } from '@template/observability';
+import { configureHttpFoundation, configureOpenApi } from '@edu-api/http';
+import { StructuredLogger } from '@edu-api/observability';
 
 import { AdminApiModule } from './admin-api.module';
 

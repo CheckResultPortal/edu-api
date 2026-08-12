@@ -39,8 +39,4 @@ Thumbs.db
 # Generated archives
 *.tgz
 
-# External engineering reference material (kept outside the codebase)
-/mould-elections-complete-product-engineering-foundation-v1/
-/mould-elections-product-engineering-foundation-v2/
-
 /generated/prisma
