@@ -39,4 +39,7 @@ Thumbs.db
 # Generated archives
 *.tgz
 
+# Local authoritative product engineering reference material; never commit.
+/eduvoucher-engineering-docs/
+
 /generated/prisma

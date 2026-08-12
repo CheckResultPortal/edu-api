@@ -1,49 +1,38 @@
-# Check Result Portal Education API
+# Check Result Portal / EduVoucher API
 
-Backend platform for the Check Result Portal education product. It is an Nx monorepo built with NestJS, Fastify, PostgreSQL/Prisma, Redis, BullMQ, structured logging, health checks, and generated OpenAPI.
+Backend platform for the EduVoucher voucher-selling product and its future Check Result Portal capabilities. It is an Nx monorepo built with NestJS, Fastify, PostgreSQL/Prisma, Redis, BullMQ, structured logging, health checks, and generated OpenAPI.
+
+Phase 1 is a guest voucher-purchase platform for WAEC result-checker demand: secure inventory import, provider-verified payments, exactly-once fulfilment obligations, concurrent-safe voucher allocation, paid zero-stock backlog, automatic FIFO restock fulfilment, and independent SMS/email delivery. Result checking is a later optional add-on and must never block voucher delivery.
 
 ## Applications
 
-| Application  | Purpose                                          | Default port |
-| ------------ | ------------------------------------------------ | ------------ |
-| `public-api` | Public HTTP workflows                            | 3001         |
-| `admin-api`  | Privileged and internal HTTP workflows           | 3002         |
-| `worker`     | Background and scheduled work; no HTTP endpoints | —            |
+| Application | Purpose                                                                                                 | Default port |
+| ----------- | ------------------------------------------------------------------------------------------------------- | ------------ |
+| public-api  | Guest product, order, payment, status, and public USSD entry workflows                                  | 3001         |
+| admin-api   | Authenticated administration, imports, stock, communication, reconciliation, and audit workflows        | 3002         |
+| worker      | Outbox, allocation, backlog, communication, stock, reconciliation, and recovery work; no HTTP endpoints | —            |
 
-Both HTTP APIs expose:
-
-- `GET /v1/health/live` for process liveness
-- `GET /v1/health/ready` for PostgreSQL and Redis readiness
-- `GET /v1/openapi.json` for the generated OpenAPI document
+Both HTTP APIs expose health/live, health/ready, and openapi.json below /v1.
 
 ## Local development
 
-Install Node.js 22+ and pnpm 10, then:
+Install Node.js 22+ and pnpm 10, then run:
 
-```bash
-pnpm install
-docker compose up -d postgres redis
-pnpm exec nx serve public-api
-pnpm exec nx serve admin-api
-pnpm exec nx serve worker
-```
+    pnpm install
+    docker compose up -d postgres redis
+    pnpm exec nx serve public-api
+    pnpm exec nx serve admin-api
+    pnpm exec nx serve worker
 
-Copy the root and application `.env.example` files to local `.env` files before running an application. Never commit local `.env` files.
+Copy each required .env.example to a local .env file before running an application. Never commit a real .env file.
 
-## Platform boundaries
+## Engineering rules
 
-- `libs/shared/*` owns reusable technical capabilities, never education business rules or education tables.
-- Education modules own their write operations, constraints, persistence models, and public contracts; controllers remain thin.
-- PostgreSQL is authoritative. Redis and BullMQ are delivery and performance layers, not sources of correctness.
-- Define authentication, authorisation, tenant isolation, privacy, audit, data retention, and recovery requirements before introducing sensitive education data or result workflows.
+The detailed product engineering pack may be supplied locally as eduvoucher-engineering-docs. It is intentionally ignored and never pushed from this repository. When present, it is mandatory reading for product work; AGENTS.md contains the binding authority order, core invariants, workflow, and definition of done.
 
 ## Quality checks
 
-```bash
-pnpm lint
-pnpm test
-pnpm build
-pnpm format:check
-```
-
-See [education API foundation notes](docs/education-api-foundation.md) for the architectural standards and verification requirements.
+    pnpm lint
+    pnpm test
+    pnpm build
+    pnpm format:check

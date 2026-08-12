@@ -1,28 +1,26 @@
-# Education API foundation
+# EduVoucher API foundation
 
-## Scope and ownership
+## Scope
 
-The foundation provides configuration, JSON:API-shaped operational responses, structured logging, operational health checks, PostgreSQL/Prisma, Redis, and BullMQ. It owns no education tables, learner data, school data, academic records, or result workflows.
+The shared foundation provides configuration, JSON:API-shaped operational responses, structured logging, health checks, PostgreSQL/Prisma, Redis, and BullMQ. It owns no voucher, order, payment, allocation, communication, stock, or result-checking tables.
 
-## Standards and compliance boundary
+The product engineering pack, when supplied locally as eduvoucher-engineering-docs, is intentionally ignored and never published from this repository. It defines detailed product scope, ADRs, unit specifications, test strategy, security controls, and operational runbooks. Read AGENTS.md before any product change.
 
-- NestJS runs on Fastify. HTTP APIs are versioned under `/v1`.
-- Operational responses use a JSON:API-shaped `data`/`errors` envelope and correlation ID. Feature teams must deliberately implement their selected API contract for product endpoints.
-- `GET /v1/openapi.json` exposes the generated OpenAPI contract.
-- `GET /v1/health/live` verifies process liveness without dependency access.
-- `GET /v1/health/ready` concurrently runs PostgreSQL `SELECT 1` and Redis `PING`. A dependency failure returns `DEPENDENCY_UNAVAILABLE` without connection details.
-- Prisma is the PostgreSQL adapter. Redis is lazily connected with offline queues disabled. BullMQ is the queue abstraction.
+## Compliance boundary
 
-Readiness is O(1) time and O(1) memory: it performs two constant-size checks in parallel, creates no records, and does not scan application data. The health module reuses one client set and shuts down Redis before PostgreSQL.
+- NestJS runs on Fastify. HTTP APIs are versioned under /v1.
+- Operational endpoints use a JSON:API-shaped data/errors envelope with a correlation ID. Product teams must deliberately implement and document the applicable contract for feature endpoints.
+- openapi.json exposes the generated OpenAPI contract.
+- health/live verifies liveness without dependency access.
+- health/ready runs PostgreSQL SELECT 1 and Redis PING concurrently; failure returns DEPENDENCY_UNAVAILABLE without connection details.
+- PostgreSQL is authoritative; Redis/BullMQ are delivery and orchestration layers only.
 
-## Adding an education feature
+Readiness takes O(1) time and O(1) memory: two constant-size checks run in parallel, create no records, and scan no application data.
 
-Before introducing a feature, define its module owner, records it owns, authorisation and tenant boundaries, privacy classification, failure/retry behavior, audit needs, and acceptance tests. For student, guardian, staff, institution, assessment, or result data, also define who may view and amend it, retention expectations, and any publication/release rules.
+## Before implementing a product unit
 
-Keep domain logic in purpose-specific libraries. Controllers are transport adapters; migrations and database constraints belong to the module that owns the data.
-
-Critical writes must use database constraints and short atomic transactions. Make idempotency and retry behavior explicit. Do not rely on in-process locks, Redis, or queue delivery for correctness.
+State its module owner, applicable invariant IDs, authorisation/privacy boundary, data model and constraints, index plan, expected scale/complexity, transaction/concurrency behavior, idempotency, failure/recovery behavior, outbox events, metrics/alerts, and acceptance tests. Preserve the approved sequence: catalog, import, orders, payment, fulfilment, allocation, backlog/restock, communication, stock, administration, and reconciliation.
 
 ## Verification
 
-Run `pnpm exec nx sync:check`, `pnpm lint`, `pnpm test`, `pnpm build`, and `pnpm format:check`. With Compose PostgreSQL and Redis running, also run `pnpm exec nx e2e public-api-e2e` and `pnpm exec nx e2e admin-api-e2e`.
+Run Nx sync check, lint, tests, build, and format check. With Compose PostgreSQL and Redis running, also run the public-api and admin-api end-to-end suites.
