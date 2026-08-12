@@ -32,6 +32,14 @@ export interface JsonApiResource<TAttributes extends Record<string, unknown>> {
 
 export interface JsonApiDocument<TAttributes extends Record<string, unknown>> {
   readonly data: JsonApiResource<TAttributes>;
+  readonly meta?: Record<string, unknown>;
+}
+
+export interface JsonApiCollectionDocument<
+  TAttributes extends Record<string, unknown>,
+> {
+  readonly data: readonly JsonApiResource<TAttributes>[];
+  readonly meta?: Record<string, unknown>;
 }
 
 export function jsonApiResource<TAttributes extends Record<string, unknown>>(
@@ -40,6 +48,17 @@ export function jsonApiResource<TAttributes extends Record<string, unknown>>(
   attributes: TAttributes,
 ): JsonApiDocument<TAttributes> {
   return { data: { type, id, attributes } };
+}
+
+export function jsonApiCollection<TAttributes extends Record<string, unknown>>(
+  type: string,
+  resources: readonly Omit<JsonApiResource<TAttributes>, 'type'>[],
+  meta?: Record<string, unknown>,
+): JsonApiCollectionDocument<TAttributes> {
+  return {
+    data: resources.map((resource) => ({ ...resource, type })),
+    ...(meta === undefined ? {} : { meta }),
+  };
 }
 
 @Injectable()
@@ -52,10 +71,15 @@ class ResponseEnvelopeInterceptor implements NestInterceptor {
       .type('application/vnd.api+json');
 
     return next.handle().pipe(
-      map((document: JsonApiDocument<Record<string, unknown>>) => ({
-        ...document,
-        meta: { correlationId: request.id },
-      })),
+      map(
+        (document: {
+          readonly data: unknown;
+          readonly meta?: Record<string, unknown>;
+        }) => ({
+          ...document,
+          meta: { ...document.meta, correlationId: request.id },
+        }),
+      ),
     );
   }
 }

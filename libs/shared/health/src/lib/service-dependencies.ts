@@ -1,5 +1,4 @@
 import type { DatabaseReadinessClient } from '@edu-api/database';
-import { closeDatabaseClient, createPrismaClient } from '@edu-api/database';
 import { closeRedisClient, createRedisClient } from '@edu-api/redis';
 
 export const SERVICE_DEPENDENCIES = Symbol('SERVICE_DEPENDENCIES');
@@ -10,21 +9,17 @@ export interface ServiceDependencies {
   close(): Promise<void>;
 }
 
-export async function createServiceDependencies(
-  environment: Readonly<Record<'DATABASE_URL' | 'REDIS_URL', string>>,
-): Promise<ServiceDependencies> {
-  const database = await createPrismaClient(environment);
-  const redis = createRedisClient(environment);
+export function createServiceDependencies(input: {
+  readonly database: DatabaseReadinessClient;
+  readonly redisUrl: string;
+}): ServiceDependencies {
+  const redis = createRedisClient({ REDIS_URL: input.redisUrl });
 
   return {
-    database,
+    database: input.database,
     redis,
     async close(): Promise<void> {
-      try {
-        await closeRedisClient(redis);
-      } finally {
-        await closeDatabaseClient(database);
-      }
+      await closeRedisClient(redis);
     },
   };
 }

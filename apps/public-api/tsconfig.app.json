@@ -23,13 +23,19 @@
   ],
   "references": [
     {
+      "path": "../../libs/modules/catalog/tsconfig.lib.json"
+    },
+    {
+      "path": "../../libs/shared/health/tsconfig.lib.json"
+    },
+    {
+      "path": "../../libs/shared/database/tsconfig.lib.json"
+    },
+    {
       "path": "../../libs/shared/config/tsconfig.lib.json"
     },
     {
       "path": "../../libs/shared/observability/tsconfig.lib.json"
-    },
-    {
-      "path": "../../libs/shared/health/tsconfig.lib.json"
     },
     {
       "path": "../../libs/shared/http/tsconfig.lib.json"

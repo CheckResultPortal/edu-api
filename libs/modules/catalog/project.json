@@ -1,0 +1,8 @@
+{
+  "name": "catalog",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/modules/catalog/src",
+  "projectType": "library",
+  "tags": ["scope:catalog", "type:shared"],
+  "targets": {}
+}

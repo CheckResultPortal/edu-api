@@ -16,6 +16,9 @@
       "path": "./libs/platform/outbox"
     },
     {
+      "path": "./libs/modules/catalog"
+    },
+    {
       "path": "./apps/worker-e2e"
     },
     {

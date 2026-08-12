@@ -13,6 +13,41 @@ enum IdempotencyStatus {
   COMPLETED
 }
 
+model CatalogGroup {
+  id        BigInt         @id @default(autoincrement())
+  publicId  String         @unique @default(uuid()) @db.Uuid
+  code      String         @unique
+  name      String
+  parentId  BigInt?
+  sortOrder Int            @default(0)
+  createdAt DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime       @updatedAt @db.Timestamptz(6)
+  parent    CatalogGroup?  @relation("CatalogGroupHierarchy", fields: [parentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  children  CatalogGroup[] @relation("CatalogGroupHierarchy")
+  products  Product[]
+
+  @@index([parentId, sortOrder, id])
+}
+
+model Product {
+  id                BigInt       @id @default(autoincrement())
+  publicId          String       @unique @default(uuid()) @db.Uuid
+  catalogGroupId    BigInt
+  code              String       @unique
+  name              String
+  description       String?
+  sellingPriceMinor BigInt
+  currency          String       @db.Char(3)
+  resultCheckerUrl  String?
+  lowStockThreshold Int          @default(0)
+  isActive          Boolean      @default(true)
+  createdAt         DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime     @updatedAt @db.Timestamptz(6)
+  catalogGroup      CatalogGroup @relation(fields: [catalogGroupId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([catalogGroupId, code, id])
+}
+
 // Platform-owned durable records. Domain modules own their business tables and
 // insert outbox rows in the same transaction as their state transitions.
 model OutboxEvent {

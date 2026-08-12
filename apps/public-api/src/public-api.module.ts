@@ -2,11 +2,17 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 
 import { validatePublicApiEnvironment } from '@edu-api/config';
+import {
+  DATABASE_CLIENT,
+  DatabaseModule,
+  type DatabaseReadinessClient,
+} from '@edu-api/database';
 import { HealthModule } from '@edu-api/health/health.module';
 import {
   SERVICE_DEPENDENCIES,
   createServiceDependencies,
 } from '@edu-api/health';
+import { CatalogModule } from '@edu-api/catalog';
 
 @Module({
   imports: [
@@ -20,16 +26,18 @@ import {
       ],
       validate: validatePublicApiEnvironment,
     }),
+    DatabaseModule,
     HealthModule,
+    CatalogModule,
   ],
   providers: [
     {
       provide: SERVICE_DEPENDENCIES,
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) =>
+      inject: [DATABASE_CLIENT, ConfigService],
+      useFactory: (database: DatabaseReadinessClient, config: ConfigService) =>
         createServiceDependencies({
-          DATABASE_URL: config.getOrThrow<string>('DATABASE_URL'),
-          REDIS_URL: config.getOrThrow<string>('REDIS_URL'),
+          database,
+          redisUrl: config.getOrThrow<string>('REDIS_URL'),
         }),
     },
   ],
