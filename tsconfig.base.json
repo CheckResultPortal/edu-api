@@ -26,7 +26,10 @@
       "@edu-api/redis": ["./libs/shared/redis/src/index.ts"],
       "@edu-api/http": ["./libs/shared/http/src/index.ts"],
       "@edu-api/observability": ["./libs/shared/observability/src/index.ts"],
-      "@edu-api/testing": ["./libs/shared/testing/src/index.ts"]
+      "@edu-api/testing": ["./libs/shared/testing/src/index.ts"],
+      "@edu-api/outbox": ["./libs/platform/outbox/src/index.ts"],
+      "@edu-api/idempotency": ["./libs/platform/idempotency/src/index.ts"],
+      "@edu-api/encryption": ["./libs/platform/encryption/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "tmp"]

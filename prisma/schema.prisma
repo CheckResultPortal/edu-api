@@ -8,5 +8,39 @@ datasource db {
   provider = "postgresql"
 }
 
-// Domain modules own their models and migrations. Do not add shared business
-// tables here without the owning module's feature brief and constraints.
+enum IdempotencyStatus {
+  PROCESSING
+  COMPLETED
+}
+
+// Platform-owned durable records. Domain modules own their business tables and
+// insert outbox rows in the same transaction as their state transitions.
+model OutboxEvent {
+  id              BigInt    @id @default(autoincrement())
+  aggregateType   String
+  aggregateId     BigInt
+  eventType       String
+  payload         Json
+  dedupeKey       String?   @unique
+  occurredAt      DateTime  @default(now()) @db.Timestamptz(6)
+  availableAt     DateTime  @default(now()) @db.Timestamptz(6)
+  publishedAt     DateTime? @db.Timestamptz(6)
+  attempts        Int       @default(0)
+  lastFailureCode String?
+}
+
+model IdempotencyRecord {
+  id                BigInt            @id @default(autoincrement())
+  scope             String
+  key               String
+  requestFingerprint String
+  status            IdempotencyStatus @default(PROCESSING)
+  responseStatus    Int?
+  responseReference String?
+  expiresAt         DateTime          @db.Timestamptz(6)
+  createdAt         DateTime          @default(now()) @db.Timestamptz(6)
+  completedAt       DateTime?         @db.Timestamptz(6)
+
+  @@unique([scope, key])
+  @@index([expiresAt])
+}

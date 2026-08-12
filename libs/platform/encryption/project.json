@@ -1,0 +1,8 @@
+{
+  "name": "encryption",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/platform/encryption/src",
+  "projectType": "library",
+  "tags": ["type:platform", "scope:encryption"],
+  "targets": {}
+}

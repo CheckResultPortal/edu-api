@@ -7,6 +7,15 @@
       "path": "./libs/shared/observability"
     },
     {
+      "path": "./libs/platform/encryption"
+    },
+    {
+      "path": "./libs/platform/idempotency"
+    },
+    {
+      "path": "./libs/platform/outbox"
+    },
+    {
       "path": "./apps/worker-e2e"
     },
     {
