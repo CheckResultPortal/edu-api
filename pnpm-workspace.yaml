@@ -1,0 +1,5 @@
+allowBuilds:
+  '@prisma/engines': true
+  '@parcel/watcher': false
+  less: false
+  prisma: true

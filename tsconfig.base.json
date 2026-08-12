@@ -1,0 +1,33 @@
+{
+  "compileOnSave": false,
+  "compilerOptions": {
+    "rootDir": ".",
+    "sourceMap": true,
+    "composite": true,
+    "declaration": true,
+    "moduleResolution": "bundler",
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "importHelpers": true,
+    "target": "es2015",
+    "module": "esnext",
+    "lib": ["es2020", "dom"],
+    "skipLibCheck": true,
+    "skipDefaultLibCheck": true,
+    "strict": true,
+    "paths": {
+      "@template/config": ["./libs/shared/config/src/index.ts"],
+      "@template/database": ["./libs/shared/database/src/index.ts"],
+      "@template/health": ["./libs/shared/health/src/index.ts"],
+      "@template/health/health.module": [
+        "./libs/shared/health/src/lib/health.module.ts"
+      ],
+      "@template/queues": ["./libs/shared/queues/src/index.ts"],
+      "@template/redis": ["./libs/shared/redis/src/index.ts"],
+      "@template/http": ["./libs/shared/http/src/index.ts"],
+      "@template/observability": ["./libs/shared/observability/src/index.ts"],
+      "@template/testing": ["./libs/shared/testing/src/index.ts"]
+    }
+  },
+  "exclude": ["node_modules", "tmp"]
+}

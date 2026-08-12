@@ -1,0 +1,78 @@
+name: Continuous integration
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/dependency-review-action@v4
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+
+  quality:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: mould_elections
+          POSTGRES_USER: mould_elections
+          POSTGRES_PASSWORD: mould_elections
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mould_elections -d mould_elections"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:8
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec prisma generate
+        env:
+          DATABASE_URL: postgresql://mould_elections:mould_elections@localhost:5432/mould_elections?schema=public
+      - run: pnpm exec prisma validate
+        env:
+          DATABASE_URL: postgresql://mould_elections:mould_elections@localhost:5432/mould_elections?schema=public
+      - run: pnpm exec nx sync:check
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm exec nx run-many -t e2e --projects=voter-api-e2e,management-api-e2e
+        env:
+          DATABASE_URL: postgresql://mould_elections:mould_elections@localhost:5432/mould_elections?schema=public
+          REDIS_URL: redis://localhost:6379
+          NODE_ENV: test
+          LOG_LEVEL: error
+      - run: pnpm build

@@ -1,0 +1,12 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Domain modules own their models and migrations. Do not add shared business
+// tables here without the owning module's feature brief and constraints.

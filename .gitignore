@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+.pnp/
+.pnp.js
+
+# Build and test output
+dist/
+coverage/
+generated/
+*.tsbuildinfo
+
+# Nx workspace data and cache
+.nx/cache/
+.nx/workspace-data/
+
+# Environment files and local secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Logs and runtime files
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.pid
+*.pid.lock
+
+# Local tooling and editor settings
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
+*.swo
+
+# Generated archives
+*.tgz
+
+# External engineering reference material (kept outside the codebase)
+/mould-elections-complete-product-engineering-foundation-v1/
+/mould-elections-product-engineering-foundation-v2/
+
+/generated/prisma

@@ -1,0 +1,49 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compileOnSave": false,
+  "files": [],
+  "references": [
+    {
+      "path": "./libs/shared/observability"
+    },
+    {
+      "path": "./apps/worker-e2e"
+    },
+    {
+      "path": "./apps/admin-api-e2e"
+    },
+    {
+      "path": "./libs/shared/database"
+    },
+    {
+      "path": "./apps/worker"
+    },
+    {
+      "path": "./apps/admin-api"
+    },
+    {
+      "path": "./libs/shared/testing"
+    },
+    {
+      "path": "./libs/shared/config"
+    },
+    {
+      "path": "./libs/shared/health"
+    },
+    {
+      "path": "./libs/shared/queues"
+    },
+    {
+      "path": "./apps/public-api-e2e"
+    },
+    {
+      "path": "./libs/shared/redis"
+    },
+    {
+      "path": "./libs/shared/http"
+    },
+    {
+      "path": "./apps/public-api"
+    }
+  ]
+}

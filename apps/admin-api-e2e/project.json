@@ -1,0 +1,17 @@
+{
+  "name": "admin-api-e2e",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "implicitDependencies": ["admin-api"],
+  "targets": {
+    "e2e": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/{e2eProjectRoot}"],
+      "dependsOn": ["admin-api:build", "admin-api:serve"],
+      "options": {
+        "jestConfig": "apps/admin-api-e2e/jest.config.cts",
+        "passWithNoTests": true
+      }
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "name": "queues",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/shared/queues/src",
+  "projectType": "library",
+  "tags": ["type:shared", "scope:shared"],
+  "targets": {}
+}
