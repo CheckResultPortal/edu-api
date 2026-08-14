@@ -13,6 +13,154 @@ enum IdempotencyStatus {
   COMPLETED
 }
 
+enum AdminRole {
+  SUPER_ADMIN
+  OPERATIONS_ADMIN
+}
+
+enum AdminAuthChallengePurpose {
+  TOTP_ENROLLMENT
+  TOTP_VERIFICATION
+}
+
+enum EmailDeliveryState {
+  PENDING
+  PROCESSING
+  RETRYING
+  SENT
+  NEEDS_ATTENTION
+}
+
+enum EmailAttemptOutcome {
+  PROCESSING
+  SENT
+  TEMPORARY
+  PERMANENT
+  RATE_LIMITED
+  AUTHENTICATION
+  INVALID_REQUEST
+  UNKNOWN_OUTCOME
+}
+
+model AdminInvitation {
+  id                    BigInt    @id @default(autoincrement())
+  publicId              String    @unique @default(uuid()) @db.Uuid
+  email                 String
+  activeEmail           String?   @unique
+  role                  AdminRole
+  tokenFingerprint      String    @unique
+  encryptedToken        Json?
+  expiresAt             DateTime  @db.Timestamptz(6)
+  acceptedAt            DateTime? @db.Timestamptz(6)
+  revokedAt             DateTime? @db.Timestamptz(6)
+  invitedByAdminUserId  BigInt
+  createdAt             DateTime  @default(now()) @db.Timestamptz(6)
+  invitedBy             AdminUser @relation("AdminInvitationSender", fields: [invitedByAdminUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  emailDelivery         AdminInvitationEmailDelivery?
+
+  @@index([email, expiresAt])
+}
+
+model AdminInvitationEmailDelivery {
+  id                BigInt             @id @default(autoincrement())
+  publicId          String             @unique @default(uuid()) @db.Uuid
+  invitationId      BigInt             @unique
+  destinationEmail  String
+  state             EmailDeliveryState @default(PENDING)
+  attemptCount      Int                @default(0)
+  nextAttemptAt     DateTime           @default(now()) @db.Timestamptz(6)
+  processingStartedAt DateTime?        @db.Timestamptz(6)
+  providerMessageId String?
+  lastFailureCategory String?
+  needsAttentionAt  DateTime?          @db.Timestamptz(6)
+  createdAt         DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime           @updatedAt @db.Timestamptz(6)
+  invitation        AdminInvitation    @relation(fields: [invitationId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  attempts          AdminInvitationEmailAttempt[]
+
+  @@index([state, nextAttemptAt, id])
+}
+
+model AdminInvitationEmailAttempt {
+  id              BigInt                      @id @default(autoincrement())
+  deliveryId      BigInt
+  attemptNumber   Int
+  provider        String
+  outcome         EmailAttemptOutcome          @default(PROCESSING)
+  providerMessageId String?
+  providerCode    String?
+  startedAt       DateTime                    @default(now()) @db.Timestamptz(6)
+  completedAt     DateTime?                   @db.Timestamptz(6)
+  delivery        AdminInvitationEmailDelivery @relation(fields: [deliveryId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([deliveryId, attemptNumber])
+  @@index([deliveryId, startedAt])
+}
+
+model AdminUser {
+  id                    BigInt               @id @default(autoincrement())
+  publicId              String               @unique @default(uuid()) @db.Uuid
+  email                 String               @unique
+  passwordHash          String
+  role                  AdminRole
+  isInitialSuperAdmin   Boolean              @default(false)
+  isActive              Boolean              @default(true)
+  failedAuthenticationCount Int               @default(0)
+  lockedUntil           DateTime?            @db.Timestamptz(6)
+  pendingTotpSecret     Json?
+  totpSecret            Json?
+  totpEnabledAt         DateTime?            @db.Timestamptz(6)
+  passwordChangedAt     DateTime             @default(now()) @db.Timestamptz(6)
+  lastAuthenticatedAt   DateTime?            @db.Timestamptz(6)
+  createdAt             DateTime             @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime             @updatedAt @db.Timestamptz(6)
+  sessions              AdminSession[]
+  challenges            AdminAuthChallenge[]
+  securityEvents        AdminSecurityEvent[]
+  invitationsSent       AdminInvitation[]   @relation("AdminInvitationSender")
+}
+
+model AdminAuthChallenge {
+  id               BigInt                    @id @default(autoincrement())
+  adminUserId      BigInt
+  tokenFingerprint String                    @unique
+  purpose          AdminAuthChallengePurpose
+  expiresAt        DateTime                  @db.Timestamptz(6)
+  consumedAt       DateTime?                 @db.Timestamptz(6)
+  failedAttemptCount Int                     @default(0)
+  createdAt        DateTime                  @default(now()) @db.Timestamptz(6)
+  adminUser        AdminUser                 @relation(fields: [adminUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([adminUserId, purpose, expiresAt])
+}
+
+model AdminSession {
+  id               BigInt    @id @default(autoincrement())
+  publicId         String    @unique @default(uuid()) @db.Uuid
+  adminUserId      BigInt
+  tokenFingerprint String    @unique
+  expiresAt        DateTime  @db.Timestamptz(6)
+  revokedAt        DateTime? @db.Timestamptz(6)
+  lastSeenAt       DateTime  @default(now()) @db.Timestamptz(6)
+  createdAt        DateTime  @default(now()) @db.Timestamptz(6)
+  adminUser        AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([adminUserId, expiresAt])
+}
+
+model AdminSecurityEvent {
+  id              BigInt     @id @default(autoincrement())
+  adminUserId     BigInt?
+  eventType       String
+  correlationId   String
+  metadata        Json
+  occurredAt      DateTime   @default(now()) @db.Timestamptz(6)
+  adminUser       AdminUser? @relation(fields: [adminUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([adminUserId, occurredAt])
+  @@index([eventType, occurredAt])
+}
+
 model CatalogGroup {
   id        BigInt         @id @default(autoincrement())
   publicId  String         @unique @default(uuid()) @db.Uuid
@@ -60,6 +208,9 @@ model OutboxEvent {
   occurredAt      DateTime  @default(now()) @db.Timestamptz(6)
   availableAt     DateTime  @default(now()) @db.Timestamptz(6)
   publishedAt     DateTime? @db.Timestamptz(6)
+  lockedAt        DateTime? @db.Timestamptz(6)
+  lockOwner       String?
+  needsAttentionAt DateTime? @db.Timestamptz(6)
   attempts        Int       @default(0)
   lastFailureCode String?
 }

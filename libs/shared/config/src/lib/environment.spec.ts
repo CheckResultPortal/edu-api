@@ -57,9 +57,29 @@ describe('environment validation', () => {
         SERVICE_NAME: 'admin-api',
         DATABASE_URL: 'postgresql://user:password@localhost:5432/database',
         REDIS_URL: 'redis://localhost:6379',
+        ADMIN_APPLICATION_ORIGIN: 'https://admin.example.com',
+        ADMIN_SESSION_HMAC_KEY: '0123456789012345678901234567890123456789012',
+        ADMIN_SECRET_ENCRYPTION_KEY_ID: 'local-v1',
+        ADMIN_SECRET_ENCRYPTION_KEY:
+          '0123456789012345678901234567890123456789012',
       });
 
       expect(configuration.PORT).toBe(3002);
+    });
+
+    it('rejects a short admin cryptographic key', () => {
+      expect(() =>
+        validateAdminApiEnvironment({
+          SERVICE_NAME: 'admin-api',
+          DATABASE_URL: 'postgresql://user:password@localhost:5432/database',
+          REDIS_URL: 'redis://localhost:6379',
+          ADMIN_APPLICATION_ORIGIN: 'https://admin.example.com',
+          ADMIN_SESSION_HMAC_KEY: 'short',
+          ADMIN_SECRET_ENCRYPTION_KEY_ID: 'local-v1',
+          ADMIN_SECRET_ENCRYPTION_KEY:
+            '0123456789012345678901234567890123456789012',
+        }),
+      ).toThrow('ADMIN_SESSION_HMAC_KEY');
     });
   });
 
@@ -71,6 +91,13 @@ describe('environment validation', () => {
         LOG_LEVEL: 'debug',
         DATABASE_URL: 'postgresql://user:password@localhost:5432/database',
         REDIS_URL: 'redis://localhost:6379',
+        ADMIN_APPLICATION_ORIGIN: 'https://admin.example.com',
+        ADMIN_SESSION_HMAC_KEY: '0123456789012345678901234567890123456789012',
+        ADMIN_SECRET_ENCRYPTION_KEY_ID: 'test-v1',
+        ADMIN_SECRET_ENCRYPTION_KEY:
+          '0123456789012345678901234567890123456789012',
+        RESEND_API_KEY: 're_test',
+        RESEND_FROM_EMAIL: 'EduVoucher <admin@example.com>',
       });
 
       expect(configuration).toEqual({
@@ -79,6 +106,16 @@ describe('environment validation', () => {
         LOG_LEVEL: 'debug',
         DATABASE_URL: 'postgresql://user:password@localhost:5432/database',
         REDIS_URL: 'redis://localhost:6379',
+        ADMIN_APPLICATION_ORIGIN: 'https://admin.example.com',
+        ADMIN_SESSION_HMAC_KEY: '0123456789012345678901234567890123456789012',
+        ADMIN_SECRET_ENCRYPTION_KEY_ID: 'test-v1',
+        ADMIN_SECRET_ENCRYPTION_KEY:
+          '0123456789012345678901234567890123456789012',
+        RESEND_API_KEY: 're_test',
+        RESEND_FROM_EMAIL: 'EduVoucher <admin@example.com>',
+        ADMIN_INVITATION_EMAIL_MAX_ATTEMPTS: 5,
+        ADMIN_INVITATION_EMAIL_BATCH_SIZE: 25,
+        ADMIN_INVITATION_EMAIL_POLL_INTERVAL_MS: 5000,
       });
     });
 

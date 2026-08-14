@@ -8,6 +8,7 @@
     "lint": "pnpm exec nx run-many -t lint --exclude=edu-api",
     "test": "pnpm exec nx run-many -t test --exclude=edu-api",
     "test:coverage": "pnpm exec nx run-many -t test --coverage --exclude=edu-api",
+    "admin:create-super-admin": "pnpm exec tsx --tsconfig tsconfig.base.json prisma/create-super-admin.ts",
     "format": "pnpm exec prettier --write .",
     "format:check": "pnpm exec prettier --check .",
     "graph": "pnpm exec nx graph"
@@ -52,6 +53,7 @@
     "ts-jest": "^29.4.7",
     "ts-node": "10.9.1",
     "tslib": "^2.3.0",
+    "tsx": "^4.21.0",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.58.0",
     "webpack": "^5.101.3",
@@ -68,6 +70,7 @@
     "@nestjs/swagger": "^11.4.6",
     "@prisma/adapter-pg": "^7.9.1",
     "@prisma/client": "^7.9.1",
+    "argon2": "^0.45.1",
     "axios": "^1.6.0",
     "bullmq": "^6.0.5",
     "fastify": "^5.11.0",

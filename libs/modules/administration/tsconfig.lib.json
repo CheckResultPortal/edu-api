@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "../../../dist/out-tsc",
+    "declaration": true,
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/**/*.spec.ts"],
+  "references": [
+    { "path": "../../shared/database/tsconfig.lib.json" },
+    { "path": "../../shared/http/tsconfig.lib.json" },
+    { "path": "../../platform/encryption/tsconfig.lib.json" },
+    { "path": "../../platform/outbox/tsconfig.lib.json" }
+  ]
+}

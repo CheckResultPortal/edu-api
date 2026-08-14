@@ -18,11 +18,12 @@ export default [
             '^.*/eslint(\\.base)?\\.config\\.[cm]?[jt]s$',
             '^prisma/config$',
             '^@prisma/adapter-pg$',
+            '^.*/generated/prisma/client$',
           ],
           depConstraints: [
             {
               sourceTag: 'type:app',
-              onlyDependOnLibsWithTags: ['type:shared'],
+              onlyDependOnLibsWithTags: ['type:shared', 'type:module'],
             },
             {
               sourceTag: 'type:shared',

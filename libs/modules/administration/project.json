@@ -1,0 +1,8 @@
+{
+  "name": "administration",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/modules/administration/src",
+  "projectType": "library",
+  "tags": ["scope:administration", "type:module"],
+  "targets": {}
+}

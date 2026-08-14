@@ -19,6 +19,12 @@
       "path": "./libs/modules/catalog"
     },
     {
+      "path": "./libs/modules/communication"
+    },
+    {
+      "path": "./libs/modules/administration"
+    },
+    {
       "path": "./apps/worker-e2e"
     },
     {

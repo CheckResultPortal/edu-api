@@ -8,6 +8,7 @@ import {
   type DatabaseReadinessClient,
 } from '@edu-api/database';
 import { HealthModule } from '@edu-api/health/health.module';
+import { AdministrationModule } from '@edu-api/administration';
 import {
   SERVICE_DEPENDENCIES,
   createServiceDependencies,
@@ -23,6 +24,7 @@ import {
     }),
     DatabaseModule,
     HealthModule,
+    AdministrationModule,
   ],
   providers: [
     {

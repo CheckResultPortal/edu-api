@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "../../../dist/out-tsc",
+    "types": ["jest", "node"]
+  },
+  "include": ["src/**/*.ts"],
+  "references": [
+    { "path": "../../shared/database/tsconfig.lib.json" },
+    { "path": "../../shared/observability/tsconfig.lib.json" },
+    { "path": "../administration/tsconfig.lib.json" }
+  ]
+}

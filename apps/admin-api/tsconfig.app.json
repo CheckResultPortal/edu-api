@@ -36,6 +36,9 @@
     },
     {
       "path": "../../libs/shared/config/tsconfig.lib.json"
+    },
+    {
+      "path": "../../libs/modules/administration/tsconfig.lib.json"
     }
   ]
 }

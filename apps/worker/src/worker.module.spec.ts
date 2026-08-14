@@ -11,6 +11,13 @@ describe('WorkerModule', () => {
       LOG_LEVEL: 'error',
       NODE_ENV: 'test',
       REDIS_URL: 'redis://localhost:6379',
+      ADMIN_APPLICATION_ORIGIN: 'https://admin.example.com',
+      ADMIN_SESSION_HMAC_KEY: '0123456789012345678901234567890123456789012',
+      ADMIN_SECRET_ENCRYPTION_KEY_ID: 'test-v1',
+      ADMIN_SECRET_ENCRYPTION_KEY:
+        '0123456789012345678901234567890123456789012',
+      RESEND_API_KEY: 're_test',
+      RESEND_FROM_EMAIL: 'EduVoucher <admin@example.com>',
       SERVICE_NAME: 'worker',
     };
   });

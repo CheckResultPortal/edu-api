@@ -5,6 +5,7 @@ node_modules/
 
 # Build and test output
 dist/
+out-tsc/
 coverage/
 generated/
 *.tsbuildinfo
