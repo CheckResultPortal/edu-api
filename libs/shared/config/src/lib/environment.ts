@@ -45,6 +45,36 @@ const adminIdentityEnvironmentShape = {
   ADMIN_SECRET_ENCRYPTION_KEY: base64KeySchema,
 } as const;
 
+const voucherImportEnvironmentShape = {
+  VOUCHER_SECRET_ENCRYPTION_KEY_ID: z.string().trim().min(1).max(64),
+  VOUCHER_SECRET_ENCRYPTION_KEY: base64KeySchema,
+  VOUCHER_PIN_FINGERPRINT_KEY: base64KeySchema,
+  VOUCHER_IMPORT_CHUNK_SIZE: z.coerce
+    .number()
+    .int()
+    .min(100)
+    .max(5_000)
+    .default(1_000),
+  VOUCHER_IMPORT_MAX_BYTES: z.coerce
+    .number()
+    .int()
+    .min(1_024 * 1_024)
+    .max(64 * 1_024 * 1_024)
+    .default(64 * 1_024 * 1_024),
+  VOUCHER_IMPORT_STALE_AFTER_MS: z.coerce
+    .number()
+    .int()
+    .min(60_000)
+    .max(24 * 60 * 60 * 1_000)
+    .default(15 * 60 * 1_000),
+  VOUCHER_IMPORT_RECOVERY_POLL_INTERVAL_MS: z.coerce
+    .number()
+    .int()
+    .min(1_000)
+    .max(60 * 60 * 1_000)
+    .default(60_000),
+} as const;
+
 export const publicApiEnvironmentSchema = httpEnvironmentSchema.extend({
   PORT: z.coerce.number().int().min(1).max(65_535).default(3001),
 });
@@ -52,10 +82,12 @@ export const publicApiEnvironmentSchema = httpEnvironmentSchema.extend({
 export const adminApiEnvironmentSchema = httpEnvironmentSchema.extend({
   PORT: z.coerce.number().int().min(1).max(65_535).default(3002),
   ...adminIdentityEnvironmentShape,
+  ...voucherImportEnvironmentShape,
 });
 
 export const workerEnvironmentSchema = commonEnvironmentSchema.extend({
   ...adminIdentityEnvironmentShape,
+  ...voucherImportEnvironmentShape,
   RESEND_API_KEY: z.string().trim().min(1),
   RESEND_FROM_EMAIL: z.string().trim().min(3).max(320),
   ADMIN_INVITATION_EMAIL_MAX_ATTEMPTS: z.coerce

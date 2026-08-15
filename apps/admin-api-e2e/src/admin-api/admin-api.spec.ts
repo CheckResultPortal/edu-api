@@ -67,6 +67,21 @@ describe('GET /v1/health/live', () => {
         '/v1/admin/products/{publicId}/deactivate': expect.objectContaining({
           post: expect.any(Object),
         }),
+        '/v1/admin/voucher-batches/import': expect.objectContaining({
+          post: expect.any(Object),
+        }),
+        '/v1/admin/voucher-batches/{publicId}': expect.objectContaining({
+          get: expect.any(Object),
+        }),
+        '/v1/admin/voucher-batches/{publicId}/activate':
+          expect.objectContaining({
+            post: expect.any(Object),
+          }),
+        '/v1/admin/voucher-batches/{publicId}/discard': expect.objectContaining(
+          {
+            post: expect.any(Object),
+          },
+        ),
       }),
     );
   });
@@ -76,6 +91,24 @@ describe('GET /v1/health/live', () => {
       '/v1/admin/catalog-groups',
       { code: 'WAEC', name: 'WAEC', sortOrder: 0 },
       { validateStatus: () => true },
+    );
+
+    expect(res.status).toBe(401);
+    expect(res.data).toMatchObject({
+      errors: [
+        expect.objectContaining({ code: 'ADMIN_AUTHENTICATION_REQUIRED' }),
+      ],
+    });
+  });
+
+  it('rejects an unauthenticated voucher import before reading credentials', async () => {
+    const res = await axios.post(
+      '/v1/admin/voucher-batches/import?productPublicId=1f39d1f1-0e1b-4d7a-9b3a-fc3adca653a1&reference=test-import',
+      'serialNumber,pin\nSERIAL-1,PIN-MUST-NOT-BE-PROCESSED\n',
+      {
+        headers: { 'content-type': 'text/csv' },
+        validateStatus: () => true,
+      },
     );
 
     expect(res.status).toBe(401);

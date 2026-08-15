@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 
 import { validateWorkerEnvironment } from '@edu-api/config';
 import { CommunicationWorkerModule } from '@edu-api/communication';
+import { VoucherInventoryWorkerModule } from '@edu-api/voucher-inventory';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { CommunicationWorkerModule } from '@edu-api/communication';
       validate: validateWorkerEnvironment,
     }),
     CommunicationWorkerModule,
+    VoucherInventoryWorkerModule,
   ],
 })
 export class WorkerModule {}

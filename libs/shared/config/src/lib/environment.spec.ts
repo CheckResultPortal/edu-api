@@ -62,6 +62,11 @@ describe('environment validation', () => {
         ADMIN_SECRET_ENCRYPTION_KEY_ID: 'local-v1',
         ADMIN_SECRET_ENCRYPTION_KEY:
           '0123456789012345678901234567890123456789012',
+        VOUCHER_SECRET_ENCRYPTION_KEY_ID: 'local-v1',
+        VOUCHER_SECRET_ENCRYPTION_KEY:
+          '0123456789012345678901234567890123456789012',
+        VOUCHER_PIN_FINGERPRINT_KEY:
+          'abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG',
       });
 
       expect(configuration.PORT).toBe(3002);
@@ -78,6 +83,11 @@ describe('environment validation', () => {
           ADMIN_SECRET_ENCRYPTION_KEY_ID: 'local-v1',
           ADMIN_SECRET_ENCRYPTION_KEY:
             '0123456789012345678901234567890123456789012',
+          VOUCHER_SECRET_ENCRYPTION_KEY_ID: 'local-v1',
+          VOUCHER_SECRET_ENCRYPTION_KEY:
+            '0123456789012345678901234567890123456789012',
+          VOUCHER_PIN_FINGERPRINT_KEY:
+            'abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG',
         }),
       ).toThrow('ADMIN_SESSION_HMAC_KEY');
     });
@@ -96,6 +106,11 @@ describe('environment validation', () => {
         ADMIN_SECRET_ENCRYPTION_KEY_ID: 'test-v1',
         ADMIN_SECRET_ENCRYPTION_KEY:
           '0123456789012345678901234567890123456789012',
+        VOUCHER_SECRET_ENCRYPTION_KEY_ID: 'test-v1',
+        VOUCHER_SECRET_ENCRYPTION_KEY:
+          '0123456789012345678901234567890123456789012',
+        VOUCHER_PIN_FINGERPRINT_KEY:
+          'abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG',
         RESEND_API_KEY: 're_test',
         RESEND_FROM_EMAIL: 'EduVoucher <admin@example.com>',
       });
@@ -111,6 +126,15 @@ describe('environment validation', () => {
         ADMIN_SECRET_ENCRYPTION_KEY_ID: 'test-v1',
         ADMIN_SECRET_ENCRYPTION_KEY:
           '0123456789012345678901234567890123456789012',
+        VOUCHER_SECRET_ENCRYPTION_KEY_ID: 'test-v1',
+        VOUCHER_SECRET_ENCRYPTION_KEY:
+          '0123456789012345678901234567890123456789012',
+        VOUCHER_PIN_FINGERPRINT_KEY:
+          'abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG',
+        VOUCHER_IMPORT_CHUNK_SIZE: 1000,
+        VOUCHER_IMPORT_MAX_BYTES: 67108864,
+        VOUCHER_IMPORT_STALE_AFTER_MS: 900000,
+        VOUCHER_IMPORT_RECOVERY_POLL_INTERVAL_MS: 60000,
         RESEND_API_KEY: 're_test',
         RESEND_FROM_EMAIL: 'EduVoucher <admin@example.com>',
         ADMIN_INVITATION_EMAIL_MAX_ATTEMPTS: 5,

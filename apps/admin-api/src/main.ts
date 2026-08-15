@@ -16,11 +16,20 @@ async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestFastifyApplication>(
     AdminApiModule,
     new FastifyAdapter({
-      bodyLimit: 1024 * 1024,
+      // CSV is hard-limited again by the inventory import parser. This limit
+      // lets Fastify accept the configured administrative import maximum.
+      bodyLimit: 64 * 1024 * 1024,
       genReqId: () => randomUUID(),
       trustProxy: true,
     }),
   );
+
+  app
+    .getHttpAdapter()
+    .getInstance()
+    .addContentTypeParser('text/csv', (_request, payload, done) =>
+      done(null, payload),
+    );
 
   const config = app.get(ConfigService);
   const host = config.getOrThrow<string>('HOST');

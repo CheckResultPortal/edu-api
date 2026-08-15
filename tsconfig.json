@@ -62,6 +62,9 @@
     },
     {
       "path": "./apps/public-api"
+    },
+    {
+      "path": "./libs/modules/voucher-inventory"
     }
   ]
 }

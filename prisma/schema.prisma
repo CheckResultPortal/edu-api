@@ -42,6 +42,18 @@ enum EmailAttemptOutcome {
   UNKNOWN_OUTCOME
 }
 
+enum VoucherStatus {
+  AVAILABLE
+  SOLD
+}
+
+enum VoucherBatchImportState {
+  IMPORTING
+  IMPORTED
+  FAILED
+  DISCARDED
+}
+
 model AdminInvitation {
   id                    BigInt    @id @default(autoincrement())
   publicId              String    @unique @default(uuid()) @db.Uuid
@@ -192,8 +204,49 @@ model Product {
   createdAt         DateTime     @default(now()) @db.Timestamptz(6)
   updatedAt         DateTime     @updatedAt @db.Timestamptz(6)
   catalogGroup      CatalogGroup @relation(fields: [catalogGroupId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  voucherBatches    VoucherBatch[]
+  vouchers          Voucher[]
 
   @@index([catalogGroupId, code, id])
+}
+
+model VoucherBatch {
+  id          BigInt                  @id @default(autoincrement())
+  publicId    String                  @unique @default(uuid()) @db.Uuid
+  productId   BigInt
+  reference   String
+  validUntil  DateTime?               @db.Timestamptz(6)
+  importState VoucherBatchImportState @default(IMPORTING)
+  totalQuantity Int                   @default(0)
+  activatedAt DateTime?               @db.Timestamptz(6)
+  createdAt   DateTime                @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime                @updatedAt @db.Timestamptz(6)
+  product     Product                 @relation(fields: [productId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  vouchers    Voucher[]
+
+  @@unique([id, productId])
+  @@index([productId, activatedAt, id])
+  @@index([importState, updatedAt, id])
+}
+
+model Voucher {
+  id             BigInt        @id @default(autoincrement())
+  publicId       String        @unique @default(uuid()) @db.Uuid
+  productId      BigInt
+  batchId        BigInt
+  serialNumber   String
+  encryptedPin   Json
+  pinFingerprint String
+  status         VoucherStatus @default(AVAILABLE)
+  soldAt         DateTime?     @db.Timestamptz(6)
+  createdAt      DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime      @updatedAt @db.Timestamptz(6)
+  product        Product       @relation(fields: [productId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  batch          VoucherBatch  @relation(fields: [batchId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([productId, serialNumber])
+  @@unique([productId, pinFingerprint])
+  @@index([batchId, id])
 }
 
 // Platform-owned durable records. Domain modules own their business tables and

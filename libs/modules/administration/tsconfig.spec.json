@@ -9,6 +9,7 @@
     { "path": "../../shared/database/tsconfig.lib.json" },
     { "path": "../../shared/http/tsconfig.lib.json" },
     { "path": "../catalog/tsconfig.lib.json" },
+    { "path": "../voucher-inventory/tsconfig.lib.json" },
     { "path": "../../platform/encryption/tsconfig.lib.json" },
     { "path": "../../platform/outbox/tsconfig.lib.json" }
   ]

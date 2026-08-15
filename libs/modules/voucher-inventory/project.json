@@ -1,0 +1,8 @@
+{
+  "name": "voucher-inventory",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/modules/voucher-inventory/src",
+  "projectType": "library",
+  "tags": ["scope:voucher-inventory", "type:module"],
+  "targets": {}
+}
