@@ -46,7 +46,51 @@ describe('GET /v1/health/live', () => {
         '/v1/health/ready': expect.objectContaining({
           get: expect.any(Object),
         }),
+        '/v1/admin/catalog-groups': expect.objectContaining({
+          post: expect.any(Object),
+        }),
+        '/v1/admin/catalog-groups/{publicId}': expect.objectContaining({
+          patch: expect.any(Object),
+        }),
+        '/v1/admin/products': expect.objectContaining({
+          post: expect.any(Object),
+        }),
+        '/v1/admin/products/{publicId}': expect.objectContaining({
+          patch: expect.any(Object),
+        }),
+        '/v1/admin/products/{publicId}/price': expect.objectContaining({
+          put: expect.any(Object),
+        }),
+        '/v1/admin/products/{publicId}/activate': expect.objectContaining({
+          post: expect.any(Object),
+        }),
+        '/v1/admin/products/{publicId}/deactivate': expect.objectContaining({
+          post: expect.any(Object),
+        }),
       }),
     );
+  });
+
+  it('rejects an unauthenticated catalog write', async () => {
+    const res = await axios.post(
+      '/v1/admin/catalog-groups',
+      { code: 'WAEC', name: 'WAEC', sortOrder: 0 },
+      { validateStatus: () => true },
+    );
+
+    expect(res.status).toBe(401);
+    expect(res.data).toMatchObject({
+      errors: [
+        expect.objectContaining({ code: 'ADMIN_AUTHENTICATION_REQUIRED' }),
+      ],
+    });
+  });
+
+  it('does not expose public Catalog routes from the Admin API', async () => {
+    const res = await axios.get('/v1/products', {
+      validateStatus: () => true,
+    });
+
+    expect(res.status).toBe(404);
   });
 });

@@ -16,10 +16,16 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
+import {
+  DATABASE_CLIENT,
+  DatabaseModule,
+  type DatabaseReadinessClient,
+} from '@edu-api/database';
 import { jsonApiResource } from '@edu-api/http';
 
 import {
   SERVICE_DEPENDENCIES,
+  createServiceDependencies,
   type ServiceDependencies,
 } from './service-dependencies';
 import { assessServiceReadiness } from './service-readiness';
@@ -102,7 +108,19 @@ export class HealthController {
 }
 
 @Module({
+  imports: [DatabaseModule],
   controllers: [HealthController],
-  providers: [HealthService],
+  providers: [
+    {
+      provide: SERVICE_DEPENDENCIES,
+      inject: [DATABASE_CLIENT, ConfigService],
+      useFactory: (database: DatabaseReadinessClient, config: ConfigService) =>
+        createServiceDependencies({
+          database,
+          redisUrl: config.getOrThrow<string>('REDIS_URL'),
+        }),
+    },
+    HealthService,
+  ],
 })
 export class HealthModule {}

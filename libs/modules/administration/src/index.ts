@@ -5,4 +5,5 @@ export * from './lib/application/admin-identity-errors';
 export * from './lib/application/admin-identity-ports';
 export * from './lib/application/administration-types';
 export * from './lib/application/admin-invitation-delivery';
+export * from './lib/application/admin-catalog-operations';
 export * from './lib/administration.module';

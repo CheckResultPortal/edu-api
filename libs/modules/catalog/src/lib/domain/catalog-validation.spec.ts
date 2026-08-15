@@ -1,6 +1,9 @@
 import {
   assertValidCatalogGroupDraft,
+  assertValidCatalogGroupPatch,
   assertValidCatalogProductDraft,
+  assertValidCatalogProductPatch,
+  assertValidCatalogProductPrice,
 } from './catalog-validation';
 
 const groupPublicId = '1f39d1f1-0e1b-4d7a-9b3a-fc3adca653a1';
@@ -64,5 +67,29 @@ describe('catalog validation', () => {
         sellingPriceMinor: '2500',
       }),
     ).toThrow('credential-free HTTPS');
+  });
+
+  it('validates bounded partial updates and explicit price changes', () => {
+    expect(() =>
+      assertValidCatalogGroupPatch({ parentPublicId: null }),
+    ).not.toThrow();
+    expect(() =>
+      assertValidCatalogProductPatch({
+        description: null,
+        resultCheckerUrl: null,
+      }),
+    ).not.toThrow();
+    expect(() =>
+      assertValidCatalogProductPrice({
+        currency: 'GHS',
+        sellingPriceMinor: '1',
+      }),
+    ).not.toThrow();
+    expect(() => assertValidCatalogGroupPatch({})).toThrow(
+      'at least one field',
+    );
+    expect(() =>
+      assertValidCatalogProductPatch({ description: ' '.repeat(2001) }),
+    ).toThrow('between 1 and 2000');
   });
 });

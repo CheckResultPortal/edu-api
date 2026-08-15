@@ -13,6 +13,9 @@
     },
     {
       "path": "../../shared/database/tsconfig.lib.json"
+    },
+    {
+      "path": "../../platform/outbox/tsconfig.lib.json"
     }
   ]
 }

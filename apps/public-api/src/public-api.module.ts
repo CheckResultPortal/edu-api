@@ -1,17 +1,9 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConfigModule } from '@nestjs/config';
 
 import { validatePublicApiEnvironment } from '@edu-api/config';
-import {
-  DATABASE_CLIENT,
-  DatabaseModule,
-  type DatabaseReadinessClient,
-} from '@edu-api/database';
+import { DatabaseModule } from '@edu-api/database';
 import { HealthModule } from '@edu-api/health/health.module';
-import {
-  SERVICE_DEPENDENCIES,
-  createServiceDependencies,
-} from '@edu-api/health';
 import { CatalogModule } from '@edu-api/catalog';
 
 @Module({
@@ -29,17 +21,6 @@ import { CatalogModule } from '@edu-api/catalog';
     DatabaseModule,
     HealthModule,
     CatalogModule,
-  ],
-  providers: [
-    {
-      provide: SERVICE_DEPENDENCIES,
-      inject: [DATABASE_CLIENT, ConfigService],
-      useFactory: (database: DatabaseReadinessClient, config: ConfigService) =>
-        createServiceDependencies({
-          database,
-          redisUrl: config.getOrThrow<string>('REDIS_URL'),
-        }),
-    },
   ],
 })
 export class PublicApiModule {}

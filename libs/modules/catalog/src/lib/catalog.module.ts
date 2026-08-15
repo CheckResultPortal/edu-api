@@ -6,13 +6,14 @@ import {
   type DatabaseClient,
 } from '@edu-api/database';
 
+import { CATALOG_ADMIN_SERVICE } from './application/catalog-admin-service';
 import { CATALOG_PRODUCT_QUERY } from './application/catalog-product-query';
+import { PrismaCatalogAdminService } from './infrastructure/prisma-catalog-admin.service';
 import { PrismaCatalogProductQuery } from './infrastructure/prisma-catalog-product-query';
 import { PublicCatalogController } from './presentation/public-catalog.controller';
 
 @Module({
   imports: [DatabaseModule],
-  controllers: [PublicCatalogController],
   providers: [
     {
       provide: CATALOG_PRODUCT_QUERY,
@@ -20,7 +21,18 @@ import { PublicCatalogController } from './presentation/public-catalog.controlle
       useFactory: (database: DatabaseClient): PrismaCatalogProductQuery =>
         new PrismaCatalogProductQuery(database),
     },
+    PrismaCatalogAdminService,
+    {
+      provide: CATALOG_ADMIN_SERVICE,
+      useExisting: PrismaCatalogAdminService,
+    },
   ],
-  exports: [CATALOG_PRODUCT_QUERY],
+  exports: [CATALOG_ADMIN_SERVICE, CATALOG_PRODUCT_QUERY],
+})
+export class CatalogCoreModule {}
+
+@Module({
+  imports: [CatalogCoreModule],
+  controllers: [PublicCatalogController],
 })
 export class CatalogModule {}

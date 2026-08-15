@@ -6,16 +6,26 @@ import {
   DatabaseModule,
   type DatabaseClient,
 } from '@edu-api/database';
+import {
+  CATALOG_ADMIN_SERVICE,
+  CatalogCoreModule,
+  type CatalogAdminService,
+} from '@edu-api/catalog';
 
+import {
+  ADMIN_CATALOG_OPERATIONS_SERVICE,
+  PrismaAdminCatalogOperationsService,
+} from './application/admin-catalog-operations';
 import { decodeBase64UrlKey } from './application/admin-identity-configuration';
 import { ADMIN_IDENTITY_SERVICE } from './application/admin-identity-ports';
 import { PrismaAdminIdentityService } from './application/prisma-admin-identity.service';
 import { AdminIdentityController } from './presentation/admin-identity.controller';
+import { AdminCatalogController } from './presentation/admin-catalog.controller';
 import { AdminSessionGuard } from './presentation/admin-session.guard';
 
 @Module({
-  imports: [DatabaseModule],
-  controllers: [AdminIdentityController],
+  imports: [DatabaseModule, CatalogCoreModule],
+  controllers: [AdminIdentityController, AdminCatalogController],
   providers: [
     {
       provide: ADMIN_IDENTITY_SERVICE,
@@ -39,8 +49,21 @@ import { AdminSessionGuard } from './presentation/admin-session.guard';
           ),
         }),
     },
+    {
+      provide: ADMIN_CATALOG_OPERATIONS_SERVICE,
+      inject: [DATABASE_CLIENT, CATALOG_ADMIN_SERVICE],
+      useFactory: (
+        database: DatabaseClient,
+        catalog: CatalogAdminService,
+      ): PrismaAdminCatalogOperationsService =>
+        new PrismaAdminCatalogOperationsService(database, catalog),
+    },
     AdminSessionGuard,
   ],
-  exports: [ADMIN_IDENTITY_SERVICE, AdminSessionGuard],
+  exports: [
+    ADMIN_CATALOG_OPERATIONS_SERVICE,
+    ADMIN_IDENTITY_SERVICE,
+    AdminSessionGuard,
+  ],
 })
 export class AdministrationModule {}
