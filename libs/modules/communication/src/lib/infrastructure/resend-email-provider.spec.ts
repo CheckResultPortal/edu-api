@@ -32,6 +32,7 @@ describe('ResendEmailProvider', () => {
       expect.objectContaining({
         headers: expect.objectContaining({
           'Idempotency-Key': input.idempotencyKey,
+          'User-Agent': 'eduvoucher-api/1.0',
         }),
       }),
     );

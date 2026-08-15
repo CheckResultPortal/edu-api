@@ -5,6 +5,8 @@ import type {
   SendEmailResult,
 } from '../application/email-provider';
 
+const resendUserAgent = 'eduvoucher-api/1.0';
+
 export interface ResendEmailProviderOptions {
   readonly apiKey: string;
   readonly fetch?: typeof fetch;
@@ -28,6 +30,7 @@ export class ResendEmailProvider implements EmailProvider {
           Authorization: `Bearer ${this.options.apiKey}`,
           'Content-Type': 'application/json',
           'Idempotency-Key': input.idempotencyKey,
+          'User-Agent': resendUserAgent,
         },
         body: JSON.stringify({
           from: input.from,
