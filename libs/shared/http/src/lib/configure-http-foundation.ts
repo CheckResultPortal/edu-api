@@ -198,10 +198,12 @@ export function configureOpenApi(
       .build(),
   );
 
-  SwaggerModule.setup('openapi', app, document, {
+  SwaggerModule.setup('api/docs', app, document, {
     jsonDocumentUrl: 'openapi.json',
     raw: ['json'],
-    ui: false,
+    // The machine-readable contract remains available in every environment.
+    // Interactive docs are a local/staging convenience, not a production UI.
+    ui: process.env.NODE_ENV !== 'production',
     useGlobalPrefix: true,
   });
 }

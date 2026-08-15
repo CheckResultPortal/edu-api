@@ -86,6 +86,13 @@ describe('GET /v1/health/live', () => {
     );
   });
 
+  it('hosts interactive API documentation outside production', async () => {
+    const res = await axios.get('/v1/api/docs');
+
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toContain('text/html');
+  });
+
   it('rejects an unauthenticated catalog write', async () => {
     const res = await axios.post(
       '/v1/admin/catalog-groups',

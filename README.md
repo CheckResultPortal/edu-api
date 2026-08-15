@@ -12,7 +12,11 @@ Phase 1 is a guest voucher-purchase platform for WAEC result-checker demand: sec
 | admin-api   | Authenticated administration, imports, stock, communication, reconciliation, and audit workflows        | 3002         |
 | worker      | Outbox, allocation, backlog, communication, stock, reconciliation, and recovery work; no HTTP endpoints | —            |
 
-Both HTTP APIs expose health/live, health/ready, and openapi.json below /v1.
+Both HTTP APIs expose health/live, health/ready, and `openapi.json` below
+`/v1`. In development and staging, interactive Swagger documentation is at
+`/v1/api/docs` (for example, `http://localhost:3002/v1/api/docs` for Admin
+API). The interactive UI is intentionally disabled in production; the JSON
+contract remains available.
 
 ## Local development
 
