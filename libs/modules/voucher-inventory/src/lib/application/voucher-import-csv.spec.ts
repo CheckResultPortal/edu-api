@@ -16,6 +16,31 @@ async function rowsFrom(input: readonly string[]) {
 }
 
 describe('readVoucherImportCsv', () => {
+  it('streams 100,000 rows while retaining only configured-size output chunks', async () => {
+    const chunkSize = 1_000;
+    const totalRows = 100_000;
+    let parsedRows = 0;
+    let emittedChunks = 0;
+    let largestChunk = 0;
+    let lastSerialNumber: string | undefined;
+
+    for await (const chunk of readVoucherImportCsv(
+      largeCsvSource(totalRows, 250),
+      chunkSize,
+      64 * 1_024 * 1_024,
+    )) {
+      parsedRows += chunk.length;
+      emittedChunks += 1;
+      largestChunk = Math.max(largestChunk, chunk.length);
+      lastSerialNumber = chunk.at(-1)?.serialNumber;
+    }
+
+    expect(parsedRows).toBe(totalRows);
+    expect(emittedChunks).toBe(totalRows / chunkSize);
+    expect(largestChunk).toBe(chunkSize);
+    expect(lastSerialNumber).toBe(`SERIAL-${totalRows}`);
+  });
+
   it('streams the exact two-column format in bounded chunks', async () => {
     await expect(
       rowsFrom([
@@ -45,3 +70,18 @@ describe('readVoucherImportCsv', () => {
     );
   });
 });
+
+async function* largeCsvSource(
+  totalRows: number,
+  sourceRowsPerChunk: number,
+): AsyncGenerator<Buffer> {
+  yield Buffer.from('serialNumber,pin\n');
+  for (let firstRow = 1; firstRow <= totalRows; ) {
+    const lines: string[] = [];
+    const lastRow = Math.min(firstRow + sourceRowsPerChunk - 1, totalRows);
+    for (; firstRow <= lastRow; firstRow += 1) {
+      lines.push(`SERIAL-${firstRow},PIN-${firstRow}\n`);
+    }
+    yield Buffer.from(lines.join(''));
+  }
+}

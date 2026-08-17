@@ -126,8 +126,9 @@ pressure. Alert on stale/failed import growth, low or empty stock transitions
 reconciliation mismatches.
 
 The implemented checks cover streaming CSV boundaries and quote handling,
-secret-safe parser errors, PostgreSQL encryption at rest, within-file duplicate
-rejection, product-scoped constraints, the `AVAILABLE` initial state, and a
-single durable event across repeated activation. Admin API end-to-end checks
-cover the public OpenAPI contract and rejection of an unauthenticated CSV
-upload before credential handling.
+secret-safe parser errors, a 100,000-row streaming run that consumes only
+configured-size parsed chunks, PostgreSQL encryption at rest, within-file
+duplicate rejection, product-scoped constraints, the `AVAILABLE` initial state,
+and a single durable event across repeated activation. Admin API end-to-end
+checks cover the public OpenAPI contract and rejection of an unauthenticated
+CSV upload before credential handling.
