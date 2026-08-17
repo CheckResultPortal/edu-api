@@ -2,6 +2,7 @@ import {
   validateAdminApiEnvironment,
   validatePublicApiEnvironment,
   validateWorkerEnvironment,
+  trustProxyFromEnvironment,
 } from './environment';
 
 describe('environment validation', () => {
@@ -21,7 +22,33 @@ describe('environment validation', () => {
         REDIS_URL: 'redis://localhost:6379',
         HOST: '0.0.0.0',
         PORT: 3001,
+        TRUST_PROXY_HOPS: 0,
+        ORDER_IDEMPOTENCY_TTL_MS: 86400000,
+        ORDER_RATE_LIMIT_WINDOW_MS: 600000,
+        ORDER_RATE_LIMIT_IP_MAXIMUM: 30,
+        ORDER_RATE_LIMIT_PHONE_MAXIMUM: 10,
       });
+    });
+
+    it('bounds trusted reverse-proxy hops', () => {
+      expect(
+        validatePublicApiEnvironment({
+          SERVICE_NAME: 'public-api',
+          DATABASE_URL: 'postgresql://user:password@localhost:5432/database',
+          REDIS_URL: 'redis://localhost:6379',
+          TRUST_PROXY_HOPS: '1',
+        }).TRUST_PROXY_HOPS,
+      ).toBe(1);
+      expect(() =>
+        validatePublicApiEnvironment({
+          SERVICE_NAME: 'public-api',
+          DATABASE_URL: 'postgresql://user:password@localhost:5432/database',
+          REDIS_URL: 'redis://localhost:6379',
+          TRUST_PROXY_HOPS: 'all',
+        }),
+      ).toThrow('TRUST_PROXY_HOPS');
+      expect(trustProxyFromEnvironment()).toBe(false);
+      expect(trustProxyFromEnvironment({ TRUST_PROXY_HOPS: '1' })).toBe(1);
     });
 
     it('converts PORT from a string to a number', () => {

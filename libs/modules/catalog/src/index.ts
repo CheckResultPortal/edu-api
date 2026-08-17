@@ -6,3 +6,4 @@ export * from './lib/catalog.module';
 export * from './lib/domain/catalog-validation';
 export * from './lib/infrastructure/prisma-catalog-admin.service';
 export * from './lib/infrastructure/prisma-catalog-product-reference-query';
+export * from './lib/infrastructure/prisma-transactional-order-product-query';

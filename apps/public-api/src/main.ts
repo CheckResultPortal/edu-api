@@ -7,6 +7,7 @@ import {
 } from '@nestjs/platform-fastify';
 import { randomUUID } from 'node:crypto';
 
+import { trustProxyFromEnvironment } from '@edu-api/config';
 import { configureHttpFoundation, configureOpenApi } from '@edu-api/http';
 import { StructuredLogger } from '@edu-api/observability';
 
@@ -18,7 +19,7 @@ async function bootstrap(): Promise<void> {
     new FastifyAdapter({
       bodyLimit: 256 * 1024,
       genReqId: () => randomUUID(),
-      trustProxy: true,
+      trustProxy: trustProxyFromEnvironment(),
     }),
   );
 

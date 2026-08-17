@@ -5,6 +5,7 @@ import { validatePublicApiEnvironment } from '@edu-api/config';
 import { DatabaseModule } from '@edu-api/database';
 import { HealthModule } from '@edu-api/health/health.module';
 import { CatalogModule } from '@edu-api/catalog';
+import { OrdersModule } from '@edu-api/orders';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { CatalogModule } from '@edu-api/catalog';
     DatabaseModule,
     HealthModule,
     CatalogModule,
+    OrdersModule,
   ],
 })
 export class PublicApiModule {}

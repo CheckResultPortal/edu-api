@@ -55,93 +55,93 @@ enum VoucherBatchImportState {
 }
 
 model AdminInvitation {
-  id                    BigInt    @id @default(autoincrement())
-  publicId              String    @unique @default(uuid()) @db.Uuid
-  email                 String
-  activeEmail           String?   @unique
-  role                  AdminRole
-  tokenFingerprint      String    @unique
-  encryptedToken        Json?
-  expiresAt             DateTime  @db.Timestamptz(6)
-  acceptedAt            DateTime? @db.Timestamptz(6)
-  revokedAt             DateTime? @db.Timestamptz(6)
-  invitedByAdminUserId  BigInt
-  createdAt             DateTime  @default(now()) @db.Timestamptz(6)
-  invitedBy             AdminUser @relation("AdminInvitationSender", fields: [invitedByAdminUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  emailDelivery         AdminInvitationEmailDelivery?
+  id                   BigInt                        @id @default(autoincrement())
+  publicId             String                        @unique @default(uuid()) @db.Uuid
+  email                String
+  activeEmail          String?                       @unique
+  role                 AdminRole
+  tokenFingerprint     String                        @unique
+  encryptedToken       Json?
+  expiresAt            DateTime                      @db.Timestamptz(6)
+  acceptedAt           DateTime?                     @db.Timestamptz(6)
+  revokedAt            DateTime?                     @db.Timestamptz(6)
+  invitedByAdminUserId BigInt
+  createdAt            DateTime                      @default(now()) @db.Timestamptz(6)
+  invitedBy            AdminUser                     @relation("AdminInvitationSender", fields: [invitedByAdminUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  emailDelivery        AdminInvitationEmailDelivery?
 
   @@index([email, expiresAt])
 }
 
 model AdminInvitationEmailDelivery {
-  id                BigInt             @id @default(autoincrement())
-  publicId          String             @unique @default(uuid()) @db.Uuid
-  invitationId      BigInt             @unique
-  destinationEmail  String
-  state             EmailDeliveryState @default(PENDING)
-  attemptCount      Int                @default(0)
-  nextAttemptAt     DateTime           @default(now()) @db.Timestamptz(6)
-  processingStartedAt DateTime?        @db.Timestamptz(6)
-  providerMessageId String?
+  id                  BigInt                        @id @default(autoincrement())
+  publicId            String                        @unique @default(uuid()) @db.Uuid
+  invitationId        BigInt                        @unique
+  destinationEmail    String
+  state               EmailDeliveryState            @default(PENDING)
+  attemptCount        Int                           @default(0)
+  nextAttemptAt       DateTime                      @default(now()) @db.Timestamptz(6)
+  processingStartedAt DateTime?                     @db.Timestamptz(6)
+  providerMessageId   String?
   lastFailureCategory String?
-  needsAttentionAt  DateTime?          @db.Timestamptz(6)
-  createdAt         DateTime           @default(now()) @db.Timestamptz(6)
-  updatedAt         DateTime           @updatedAt @db.Timestamptz(6)
-  invitation        AdminInvitation    @relation(fields: [invitationId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  attempts          AdminInvitationEmailAttempt[]
+  needsAttentionAt    DateTime?                     @db.Timestamptz(6)
+  createdAt           DateTime                      @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime                      @updatedAt @db.Timestamptz(6)
+  invitation          AdminInvitation               @relation(fields: [invitationId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  attempts            AdminInvitationEmailAttempt[]
 
   @@index([state, nextAttemptAt, id])
 }
 
 model AdminInvitationEmailAttempt {
-  id              BigInt                      @id @default(autoincrement())
-  deliveryId      BigInt
-  attemptNumber   Int
-  provider        String
-  outcome         EmailAttemptOutcome          @default(PROCESSING)
+  id                BigInt                       @id @default(autoincrement())
+  deliveryId        BigInt
+  attemptNumber     Int
+  provider          String
+  outcome           EmailAttemptOutcome          @default(PROCESSING)
   providerMessageId String?
-  providerCode    String?
-  startedAt       DateTime                    @default(now()) @db.Timestamptz(6)
-  completedAt     DateTime?                   @db.Timestamptz(6)
-  delivery        AdminInvitationEmailDelivery @relation(fields: [deliveryId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  providerCode      String?
+  startedAt         DateTime                     @default(now()) @db.Timestamptz(6)
+  completedAt       DateTime?                    @db.Timestamptz(6)
+  delivery          AdminInvitationEmailDelivery @relation(fields: [deliveryId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   @@unique([deliveryId, attemptNumber])
   @@index([deliveryId, startedAt])
 }
 
 model AdminUser {
-  id                    BigInt               @id @default(autoincrement())
-  publicId              String               @unique @default(uuid()) @db.Uuid
-  email                 String               @unique
-  passwordHash          String
-  role                  AdminRole
-  isInitialSuperAdmin   Boolean              @default(false)
-  isActive              Boolean              @default(true)
-  failedAuthenticationCount Int               @default(0)
-  lockedUntil           DateTime?            @db.Timestamptz(6)
-  pendingTotpSecret     Json?
-  totpSecret            Json?
-  totpEnabledAt         DateTime?            @db.Timestamptz(6)
-  passwordChangedAt     DateTime             @default(now()) @db.Timestamptz(6)
-  lastAuthenticatedAt   DateTime?            @db.Timestamptz(6)
-  createdAt             DateTime             @default(now()) @db.Timestamptz(6)
-  updatedAt             DateTime             @updatedAt @db.Timestamptz(6)
-  sessions              AdminSession[]
-  challenges            AdminAuthChallenge[]
-  securityEvents        AdminSecurityEvent[]
-  invitationsSent       AdminInvitation[]   @relation("AdminInvitationSender")
+  id                        BigInt               @id @default(autoincrement())
+  publicId                  String               @unique @default(uuid()) @db.Uuid
+  email                     String               @unique
+  passwordHash              String
+  role                      AdminRole
+  isInitialSuperAdmin       Boolean              @default(false)
+  isActive                  Boolean              @default(true)
+  failedAuthenticationCount Int                  @default(0)
+  lockedUntil               DateTime?            @db.Timestamptz(6)
+  pendingTotpSecret         Json?
+  totpSecret                Json?
+  totpEnabledAt             DateTime?            @db.Timestamptz(6)
+  passwordChangedAt         DateTime             @default(now()) @db.Timestamptz(6)
+  lastAuthenticatedAt       DateTime?            @db.Timestamptz(6)
+  createdAt                 DateTime             @default(now()) @db.Timestamptz(6)
+  updatedAt                 DateTime             @updatedAt @db.Timestamptz(6)
+  sessions                  AdminSession[]
+  challenges                AdminAuthChallenge[]
+  securityEvents            AdminSecurityEvent[]
+  invitationsSent           AdminInvitation[]    @relation("AdminInvitationSender")
 }
 
 model AdminAuthChallenge {
-  id               BigInt                    @id @default(autoincrement())
-  adminUserId      BigInt
-  tokenFingerprint String                    @unique
-  purpose          AdminAuthChallengePurpose
-  expiresAt        DateTime                  @db.Timestamptz(6)
-  consumedAt       DateTime?                 @db.Timestamptz(6)
-  failedAttemptCount Int                     @default(0)
-  createdAt        DateTime                  @default(now()) @db.Timestamptz(6)
-  adminUser        AdminUser                 @relation(fields: [adminUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  id                 BigInt                    @id @default(autoincrement())
+  adminUserId        BigInt
+  tokenFingerprint   String                    @unique
+  purpose            AdminAuthChallengePurpose
+  expiresAt          DateTime                  @db.Timestamptz(6)
+  consumedAt         DateTime?                 @db.Timestamptz(6)
+  failedAttemptCount Int                       @default(0)
+  createdAt          DateTime                  @default(now()) @db.Timestamptz(6)
+  adminUser          AdminUser                 @relation(fields: [adminUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   @@index([adminUserId, purpose, expiresAt])
 }
@@ -161,13 +161,13 @@ model AdminSession {
 }
 
 model AdminSecurityEvent {
-  id              BigInt     @id @default(autoincrement())
-  adminUserId     BigInt?
-  eventType       String
-  correlationId   String
-  metadata        Json
-  occurredAt      DateTime   @default(now()) @db.Timestamptz(6)
-  adminUser       AdminUser? @relation(fields: [adminUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  id            BigInt     @id @default(autoincrement())
+  adminUserId   BigInt?
+  eventType     String
+  correlationId String
+  metadata      Json
+  occurredAt    DateTime   @default(now()) @db.Timestamptz(6)
+  adminUser     AdminUser? @relation(fields: [adminUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   @@index([adminUserId, occurredAt])
   @@index([eventType, occurredAt])
@@ -190,39 +190,69 @@ model CatalogGroup {
 }
 
 model Product {
-  id                BigInt       @id @default(autoincrement())
-  publicId          String       @unique @default(uuid()) @db.Uuid
+  id                BigInt         @id @default(autoincrement())
+  publicId          String         @unique @default(uuid()) @db.Uuid
   catalogGroupId    BigInt
-  code              String       @unique
+  code              String         @unique
   name              String
   description       String?
   sellingPriceMinor BigInt
-  currency          String       @db.Char(3)
+  currency          String         @db.Char(3)
   resultCheckerUrl  String?
-  lowStockThreshold Int          @default(0)
-  isActive          Boolean      @default(true)
-  createdAt         DateTime     @default(now()) @db.Timestamptz(6)
-  updatedAt         DateTime     @updatedAt @db.Timestamptz(6)
-  catalogGroup      CatalogGroup @relation(fields: [catalogGroupId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  lowStockThreshold Int            @default(0)
+  isActive          Boolean        @default(true)
+  createdAt         DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime       @updatedAt @db.Timestamptz(6)
+  catalogGroup      CatalogGroup   @relation(fields: [catalogGroupId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   voucherBatches    VoucherBatch[]
   vouchers          Voucher[]
+  orderItems        OrderItem[]
 
   @@index([catalogGroupId, code, id])
 }
 
+model Order {
+  id                  BigInt      @id @default(autoincrement())
+  publicReference     String      @unique @default(uuid()) @db.Uuid
+  phoneNumber         String?
+  email               String?
+  contactAnonymizedAt DateTime?   @db.Timestamptz(6)
+  totalPriceMinor     BigInt
+  currency            String      @db.Char(3)
+  createdAt           DateTime    @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime    @updatedAt @db.Timestamptz(6)
+  items               OrderItem[]
+
+  @@index([createdAt, id])
+}
+
+model OrderItem {
+  id              BigInt  @id @default(autoincrement())
+  orderId         BigInt  @unique
+  productId       BigInt
+  quantity        Int
+  unitPriceMinor  BigInt
+  totalPriceMinor BigInt
+  currency        String  @db.Char(3)
+  order           Order   @relation(fields: [orderId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  product         Product @relation(fields: [productId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([productId, id])
+}
+
 model VoucherBatch {
-  id          BigInt                  @id @default(autoincrement())
-  publicId    String                  @unique @default(uuid()) @db.Uuid
-  productId   BigInt
-  reference   String
-  validUntil  DateTime?               @db.Timestamptz(6)
-  importState VoucherBatchImportState @default(IMPORTING)
-  totalQuantity Int                   @default(0)
-  activatedAt DateTime?               @db.Timestamptz(6)
-  createdAt   DateTime                @default(now()) @db.Timestamptz(6)
-  updatedAt   DateTime                @updatedAt @db.Timestamptz(6)
-  product     Product                 @relation(fields: [productId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  vouchers    Voucher[]
+  id            BigInt                  @id @default(autoincrement())
+  publicId      String                  @unique @default(uuid()) @db.Uuid
+  productId     BigInt
+  reference     String
+  validUntil    DateTime?               @db.Timestamptz(6)
+  importState   VoucherBatchImportState @default(IMPORTING)
+  totalQuantity Int                     @default(0)
+  activatedAt   DateTime?               @db.Timestamptz(6)
+  createdAt     DateTime                @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime                @updatedAt @db.Timestamptz(6)
+  product       Product                 @relation(fields: [productId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  vouchers      Voucher[]
 
   @@unique([id, productId])
   @@index([productId, activatedAt, id])
@@ -252,33 +282,33 @@ model Voucher {
 // Platform-owned durable records. Domain modules own their business tables and
 // insert outbox rows in the same transaction as their state transitions.
 model OutboxEvent {
-  id              BigInt    @id @default(autoincrement())
-  aggregateType   String
-  aggregateId     BigInt
-  eventType       String
-  payload         Json
-  dedupeKey       String?   @unique
-  occurredAt      DateTime  @default(now()) @db.Timestamptz(6)
-  availableAt     DateTime  @default(now()) @db.Timestamptz(6)
-  publishedAt     DateTime? @db.Timestamptz(6)
-  lockedAt        DateTime? @db.Timestamptz(6)
-  lockOwner       String?
+  id               BigInt    @id @default(autoincrement())
+  aggregateType    String
+  aggregateId      BigInt
+  eventType        String
+  payload          Json
+  dedupeKey        String?   @unique
+  occurredAt       DateTime  @default(now()) @db.Timestamptz(6)
+  availableAt      DateTime  @default(now()) @db.Timestamptz(6)
+  publishedAt      DateTime? @db.Timestamptz(6)
+  lockedAt         DateTime? @db.Timestamptz(6)
+  lockOwner        String?
   needsAttentionAt DateTime? @db.Timestamptz(6)
-  attempts        Int       @default(0)
-  lastFailureCode String?
+  attempts         Int       @default(0)
+  lastFailureCode  String?
 }
 
 model IdempotencyRecord {
-  id                BigInt            @id @default(autoincrement())
-  scope             String
-  key               String
+  id                 BigInt            @id @default(autoincrement())
+  scope              String
+  key                String
   requestFingerprint String
-  status            IdempotencyStatus @default(PROCESSING)
-  responseStatus    Int?
-  responseReference String?
-  expiresAt         DateTime          @db.Timestamptz(6)
-  createdAt         DateTime          @default(now()) @db.Timestamptz(6)
-  completedAt       DateTime?         @db.Timestamptz(6)
+  status             IdempotencyStatus @default(PROCESSING)
+  responseStatus     Int?
+  responseReference  String?
+  expiresAt          DateTime          @db.Timestamptz(6)
+  createdAt          DateTime          @default(now()) @db.Timestamptz(6)
+  completedAt        DateTime?         @db.Timestamptz(6)
 
   @@unique([scope, key])
   @@index([expiresAt])

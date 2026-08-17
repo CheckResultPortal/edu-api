@@ -32,6 +32,8 @@ const httpEnvironmentSchema = commonEnvironmentSchema.extend({
   HOST: z.string().trim().min(1).default('0.0.0.0'),
 
   PORT: z.coerce.number().int().min(1).max(65_535),
+
+  TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(0),
 });
 
 const base64KeySchema = z
@@ -77,6 +79,30 @@ const voucherImportEnvironmentShape = {
 
 export const publicApiEnvironmentSchema = httpEnvironmentSchema.extend({
   PORT: z.coerce.number().int().min(1).max(65_535).default(3001),
+  ORDER_IDEMPOTENCY_TTL_MS: z.coerce
+    .number()
+    .int()
+    .min(60 * 60 * 1_000)
+    .max(7 * 24 * 60 * 60 * 1_000)
+    .default(24 * 60 * 60 * 1_000),
+  ORDER_RATE_LIMIT_WINDOW_MS: z.coerce
+    .number()
+    .int()
+    .min(60_000)
+    .max(60 * 60 * 1_000)
+    .default(10 * 60 * 1_000),
+  ORDER_RATE_LIMIT_IP_MAXIMUM: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(1_000)
+    .default(30),
+  ORDER_RATE_LIMIT_PHONE_MAXIMUM: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(1_000)
+    .default(10),
 });
 
 export const adminApiEnvironmentSchema = httpEnvironmentSchema.extend({
@@ -153,4 +179,14 @@ export function validateWorkerEnvironment(
   values: Record<string, unknown>,
 ): WorkerEnvironment {
   return parseEnvironment(workerEnvironmentSchema, values);
+}
+
+export function trustProxyFromEnvironment(
+  values: Readonly<Record<string, string | undefined>> = process.env,
+): number | false {
+  const hops = Number(values['TRUST_PROXY_HOPS'] ?? '0');
+  if (!Number.isInteger(hops) || hops < 0 || hops > 5) {
+    throw new Error('TRUST_PROXY_HOPS must be an integer between 0 and 5.');
+  }
+  return hops === 0 ? false : hops;
 }

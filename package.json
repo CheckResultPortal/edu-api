@@ -6,6 +6,7 @@
   "scripts": {
     "build": "pnpm exec nx run-many -t build --exclude=edu-api",
     "lint": "pnpm exec nx run-many -t lint --exclude=edu-api",
+    "typecheck": "pnpm exec nx run-many -t typecheck --exclude=edu-api",
     "test": "pnpm exec nx run-many -t test --exclude=edu-api",
     "test:coverage": "pnpm exec nx run-many -t test --coverage --exclude=edu-api",
     "admin:create-super-admin": "pnpm exec tsx --tsconfig tsconfig.base.json prisma/create-super-admin.ts",

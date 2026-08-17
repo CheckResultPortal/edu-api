@@ -31,6 +31,7 @@
       "@edu-api/idempotency": ["./libs/platform/idempotency/src/index.ts"],
       "@edu-api/encryption": ["./libs/platform/encryption/src/index.ts"],
       "@edu-api/catalog": ["./libs/modules/catalog/src/index.ts"],
+      "@edu-api/orders": ["./libs/modules/orders/src/index.ts"],
       "@edu-api/voucher-inventory": [
         "./libs/modules/voucher-inventory/src/index.ts"
       ],
