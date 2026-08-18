@@ -74,8 +74,10 @@ export class PrismaOrderCreationRepository implements OrderCreationRepository {
           product.sellingPriceMinor * BigInt(input.quantity);
         const order = await transaction.order.create({
           data: {
+            firstName: input.firstName,
             phoneNumber: input.phoneNumber,
             email: input.email,
+            deliveryPreference: input.deliveryPreference,
             currency: 'GHS',
             totalPriceMinor,
             items: {
@@ -92,6 +94,7 @@ export class PrismaOrderCreationRepository implements OrderCreationRepository {
             id: true,
             publicReference: true,
             currency: true,
+            deliveryPreference: true,
             totalPriceMinor: true,
             items: {
               select: {
@@ -172,6 +175,7 @@ export class PrismaOrderCreationRepository implements OrderCreationRepository {
         id: true,
         publicReference: true,
         currency: true,
+        deliveryPreference: true,
         totalPriceMinor: true,
         items: {
           select: {
@@ -189,6 +193,7 @@ export class PrismaOrderCreationRepository implements OrderCreationRepository {
 
 function toGuestOrder(order: {
   readonly currency: string;
+  readonly deliveryPreference: string;
   readonly items: readonly {
     readonly product: { readonly publicId: string };
     readonly quantity: number;
@@ -198,11 +203,17 @@ function toGuestOrder(order: {
   readonly totalPriceMinor: bigint;
 }): GuestOrder {
   const item = order.items[0];
-  if (item === undefined || order.currency !== 'GHS') {
+  if (
+    item === undefined ||
+    order.currency !== 'GHS' ||
+    (order.deliveryPreference !== 'SMS_ONLY' &&
+      order.deliveryPreference !== 'SMS_AND_EMAIL')
+  ) {
     throw new OrderCreationUnavailableError();
   }
   return {
     currency: 'GHS',
+    deliveryPreference: order.deliveryPreference,
     productPublicId: item.product.publicId,
     publicReference: order.publicReference,
     quantity: item.quantity,

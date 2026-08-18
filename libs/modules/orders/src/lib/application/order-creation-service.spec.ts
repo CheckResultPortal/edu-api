@@ -10,6 +10,7 @@ describe('DefaultOrderCreationService', () => {
   it('rate-limits canonical contact and persists a fingerprinted request', async () => {
     const result: GuestOrder = {
       currency: 'GHS',
+      deliveryPreference: 'SMS_AND_EMAIL',
       productPublicId: '2b3e39a9-06db-41a9-a856-5f985846951a',
       publicReference: '429a38f1-5f76-4ed2-a271-e60064598abc',
       quantity: 2,
@@ -33,7 +34,9 @@ describe('DefaultOrderCreationService', () => {
     await expect(
       service.create(
         {
+          deliveryPreference: 'SMS_AND_EMAIL',
           email: 'BUYER@example.com',
+          firstName: ' Ama ',
           idempotencyKey: 'checkout:0123456789abcdef',
           phoneNumber: '0241234567',
           productPublicId: result.productPublicId,
@@ -48,7 +51,9 @@ describe('DefaultOrderCreationService', () => {
       phoneNumber: '+233241234567',
     });
     expect(persisted).toMatchObject({
+      deliveryPreference: 'SMS_AND_EMAIL',
       email: 'buyer@example.com',
+      firstName: 'Ama',
       idempotencyKey: 'checkout:0123456789abcdef',
       phoneNumber: '+233241234567',
       requestFingerprint: expect.any(String),

@@ -3,6 +3,7 @@ import { createRequestFingerprint } from '@edu-api/idempotency';
 import {
   assertOrderIdempotencyKey,
   type CreateGuestOrderDraft,
+  type OrderDeliveryPreference,
   validateGuestOrderInput,
 } from '../domain/order-validation';
 
@@ -12,6 +13,7 @@ export const ORDER_RATE_LIMITER = Symbol('ORDER_RATE_LIMITER');
 
 export interface GuestOrder {
   readonly currency: 'GHS';
+  readonly deliveryPreference: OrderDeliveryPreference;
   readonly productPublicId: string;
   readonly publicReference: string;
   readonly quantity: number;
@@ -28,7 +30,9 @@ export interface OrderCreationContext {
 }
 
 export interface PersistGuestOrderInput {
+  readonly deliveryPreference: OrderDeliveryPreference;
   readonly email: string | null;
+  readonly firstName: string;
   readonly idempotencyExpiresAt: Date;
   readonly idempotencyKey: string;
   readonly phoneNumber: string;

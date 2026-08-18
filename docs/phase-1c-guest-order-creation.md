@@ -15,19 +15,24 @@ but payment and fulfilment effects remain later units.
 
 ## Public contract and privacy boundary
 
-The public write is `POST /v1/orders`. It accepts one product public
-ID, quantity, phone number, optional email, and an `Idempotency-Key` header. It
-does not accept a client price, total, currency, paid state, internal database
-ID, or permanent browser credential. Unknown properties are rejected by the
-strict request schema, so a submitted price cannot influence the order.
+The public write is `POST /v1/orders`. It accepts one product public ID,
+quantity, first name, Ghana phone number, delivery preference, a conditionally
+required email address, and an `Idempotency-Key` header. `SMS_ONLY` requires the
+email field to be absent; `SMS_AND_EMAIL` requires a valid email. SMS is always
+selected and there is no email-only Phase 1 order. It does not accept a client
+price, total, currency, paid state, internal database ID, or permanent browser
+credential. Unknown properties are rejected by the strict request schema, so a
+submitted price cannot influence the order.
 
-The response will expose the opaque order reference and the authoritative
-quantity, unit-price snapshot, total-price snapshot, and currency. It will not
-expose internal IDs or create an authorization rule based on a predictable ID.
-The customer contact is private operational data and must be excluded from
-logs, traces, outbox payloads, metrics labels, and error details. A later order
-status read needs a guest-session or equivalent authorization decision; a bare
-order reference must not silently become sufficient authorization.
+The response will expose the opaque order reference, selected delivery
+preference, and the authoritative quantity, unit-price snapshot,
+total-price snapshot, and currency. It will not expose internal IDs or create
+an authorization rule based on a predictable ID.
+The customer first name and contact are private operational data and must be
+excluded from responses, logs, traces, outbox payloads, metrics labels, and
+error details. A later order status read needs a guest-session or equivalent
+authorization decision; a bare order reference must not silently become
+sufficient authorization.
 
 ## Data, constraints, and indexes
 
@@ -38,21 +43,24 @@ product, while storing immutable quantity, unit price, total price, and
 currency snapshots.
 
 Database checks enforce the approved quantity range of 1-20, positive unit
-price and total, GHS currency, Ghana E.164 phone shape, bounded normalized email,
-contact-anonymization shape, and snapshot arithmetic. Foreign keys
-must restrict deletion of referenced products and orders. Indexes must support
-the opaque public-reference lookup and later order/payment joins without an
+price and total, GHS currency, bounded normalized first name, Ghana E.164 phone
+shape, bounded normalized email, delivery-preference/contact consistency,
+contact-anonymization shape, and snapshot arithmetic. Foreign keys must
+restrict deletion of referenced products and orders. Indexes must support the
+opaque public-reference lookup and later order/payment joins without an
 unbounded scan. No order list endpoint is included in this unit.
 
 An `OrderCreated` outbox row will be inserted in the same transaction. Its
 versioned payload may contain only the opaque order/product references,
-quantity, amount, and currency; it must not contain phone numbers or email.
+quantity, amount, and currency; it must not contain first name, phone number,
+or email.
 
 ## Transaction, concurrency, and idempotency
 
 Order creation is one short PostgreSQL transaction:
 
-1. Claim the scoped idempotency key with a deterministic request fingerprint.
+1. Claim the scoped idempotency key with a deterministic request fingerprint,
+   including normalized contact and delivery preference.
 2. Read the active product through the Catalog contract inside the same
    transaction so the accepted price snapshot is coherent.
 3. Insert the order, item, and `OrderCreated` outbox row.
@@ -96,6 +104,8 @@ spoof the IP used for limiting.
 
 - Strict validation rejects malformed input, unknown/client-price fields, and
   values outside approved bounds.
+- Strict validation requires first name/phone, requires email only for
+  `SMS_AND_EMAIL`, and rejects email for `SMS_ONLY`.
 - No login or permanent browser API key is required.
 - Inactive or missing products cannot create an order.
 - A Catalog price change after creation does not alter an existing snapshot.
@@ -120,10 +130,13 @@ spoof the IP used for limiting.
   purchase.
 - Initial configurable limits are 30 requests per 10 minutes for one client IP
   and 10 requests per 10 minutes for one normalized phone number.
-- Raw phone/email contact remains available while an order is pending or needs
-  support. It is anonymized 90 days after fulfilment. The later fulfilment unit
-  will provide the retention start fact; no creation-time timer guesses when
-  fulfilment happened.
+- First name and Ghana phone number are required for every order.
+- `SMS_ONLY` omits email; `SMS_AND_EMAIL` requires it. SMS and email later use
+  independent delivery records, attempts, outcomes, and retries.
+- Raw first name/phone/email contact remains available while an order is pending
+  or needs support. It is anonymized 90 days after fulfilment. The later
+  fulfilment unit will provide the retention start fact; no creation-time timer
+  guesses when fulfilment happened.
 
 Order/payment expiry and the authorization contract for a later public order
 status endpoint remain future decisions; neither is part of this creation-only
@@ -131,9 +144,11 @@ unit.
 
 ## Migration operation
 
-The migration is additive. Forward deployment applies the `Order` and
-`OrderItem` tables before enabling the public route. A production rollback must
-disable order creation while retaining committed order/outbox/idempotency
-history; it must not drop live customer or financial facts. A later approved
-forward migration may remove unused structures only after retention and
-reconciliation review.
+The initial migration is additive. The forward delivery-preference migration
+infers only a legacy row's preference from whether it already has email; it does
+not invent a first name. Its `NOT VALID` contact constraint still protects all
+new or updated rows and may be validated after legacy pre-release rows have
+been sourced correctly or anonymized. A production rollback must disable order
+creation while retaining committed order/outbox/idempotency history; it must
+not drop live customer or financial facts. A later approved forward migration
+may remove unused structures only after retention and reconciliation review.

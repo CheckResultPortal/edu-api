@@ -118,6 +118,8 @@ describeWithDatabase('guest order creation (PostgreSQL)', () => {
     });
     expect(stored.phoneNumber).toBe('+233241234567');
     expect(stored.email).toBe('buyer@example.com');
+    expect(stored.firstName).toBe('Ama');
+    expect(stored.deliveryPreference).toBe('SMS_AND_EMAIL');
     expect(stored.totalPriceMinor).toBe(BigInt(5_000));
     expect(stored.items).toHaveLength(1);
     expect(stored.items[0]).toMatchObject({
@@ -138,6 +140,30 @@ describeWithDatabase('guest order creation (PostgreSQL)', () => {
     const eventPayload = JSON.stringify(event.payload);
     expect(eventPayload).not.toContain('+233241234567');
     expect(eventPayload).not.toContain('buyer@example.com');
+    expect(eventPayload).not.toContain('Ama');
+  });
+
+  it('stores SMS-only delivery without unnecessary email data', async () => {
+    const order = await service.create(
+      {
+        deliveryPreference: 'SMS_ONLY',
+        firstName: 'Akosua',
+        idempotencyKey: idempotencyKey('sms-only'),
+        phoneNumber: '024 123 4567',
+        productPublicId,
+        quantity: 1,
+      },
+      { clientIp: '203.0.113.10' },
+    );
+    const stored = await database.order.findUniqueOrThrow({
+      where: { publicReference: order.publicReference },
+    });
+    expect(stored).toMatchObject({
+      deliveryPreference: 'SMS_ONLY',
+      email: null,
+      firstName: 'Akosua',
+      phoneNumber: '+233241234567',
+    });
   });
 
   it('replays the original result and rejects a changed payload', async () => {
@@ -236,6 +262,8 @@ describeWithDatabase('guest order creation (PostgreSQL)', () => {
     await expect(
       database.order.create({
         data: {
+          deliveryPreference: 'SMS_ONLY',
+          firstName: 'Ama',
           phoneNumber: '+233241234567',
           currency: 'GHS',
           totalPriceMinor: BigInt(52_500),
@@ -253,9 +281,56 @@ describeWithDatabase('guest order creation (PostgreSQL)', () => {
     ).rejects.toBeInstanceOf(Error);
   });
 
+  it('has database enforcement for name and delivery contact consistency', async () => {
+    await expect(
+      database.order.create({
+        data: {
+          deliveryPreference: 'SMS_ONLY',
+          email: 'buyer@example.com',
+          firstName: 'Ama',
+          phoneNumber: '+233241234567',
+          currency: 'GHS',
+          totalPriceMinor: BigInt(2_500),
+          items: {
+            create: {
+              productId,
+              quantity: 1,
+              unitPriceMinor: BigInt(2_500),
+              totalPriceMinor: BigInt(2_500),
+              currency: 'GHS',
+            },
+          },
+        },
+      }),
+    ).rejects.toBeInstanceOf(Error);
+
+    await expect(
+      database.order.create({
+        data: {
+          deliveryPreference: 'SMS_ONLY',
+          firstName: null,
+          phoneNumber: '+233241234567',
+          currency: 'GHS',
+          totalPriceMinor: BigInt(2_500),
+          items: {
+            create: {
+              productId,
+              quantity: 1,
+              unitPriceMinor: BigInt(2_500),
+              totalPriceMinor: BigInt(2_500),
+              currency: 'GHS',
+            },
+          },
+        },
+      }),
+    ).rejects.toBeInstanceOf(Error);
+  });
+
   function command(label: string, quantity: number) {
     return {
+      deliveryPreference: 'SMS_AND_EMAIL',
       email: 'Buyer@Example.com',
+      firstName: 'Ama',
       idempotencyKey: idempotencyKey(label),
       phoneNumber: '024 123 4567',
       productPublicId,

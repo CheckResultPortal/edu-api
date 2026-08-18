@@ -1,21 +1,35 @@
 import { OrderInputValidationError } from '../application/order-creation-errors';
 
 export interface CreateGuestOrderDraft {
+  readonly deliveryPreference: string;
   readonly email?: string;
+  readonly firstName: string;
   readonly phoneNumber: string;
   readonly productPublicId: string;
   readonly quantity: number;
 }
 
+export const ORDER_DELIVERY_PREFERENCES = [
+  'SMS_ONLY',
+  'SMS_AND_EMAIL',
+] as const;
+
+export type OrderDeliveryPreference =
+  (typeof ORDER_DELIVERY_PREFERENCES)[number];
+
 export interface ValidatedGuestOrderInput {
+  readonly deliveryPreference: OrderDeliveryPreference;
   readonly email: string | null;
+  readonly firstName: string;
   readonly phoneNumber: string;
   readonly productPublicId: string;
   readonly quantity: number;
 }
 
 const orderRequestKeys = new Set([
+  'deliveryPreference',
   'email',
+  'firstName',
   'phoneNumber',
   'productPublicId',
   'quantity',
@@ -36,7 +50,9 @@ export function parseGuestOrderRequest(
   }
 
   return validateGuestOrderInput({
+    deliveryPreference: requiredString(value, 'deliveryPreference'),
     email: optionalString(value, 'email'),
+    firstName: requiredString(value, 'firstName'),
     phoneNumber: requiredString(value, 'phoneNumber'),
     productPublicId: requiredString(value, 'productPublicId'),
     quantity: requiredNumber(value, 'quantity'),
@@ -61,8 +77,25 @@ export function validateGuestOrderInput(
     throw new OrderInputValidationError('The product reference is invalid.');
   }
 
+  const deliveryPreference = normalizeDeliveryPreference(
+    input.deliveryPreference,
+  );
+  const email = normalizeEmail(input.email);
+  if (deliveryPreference === 'SMS_ONLY' && email !== null) {
+    throw new OrderInputValidationError(
+      'Email must be omitted when deliveryPreference is SMS_ONLY.',
+    );
+  }
+  if (deliveryPreference === 'SMS_AND_EMAIL' && email === null) {
+    throw new OrderInputValidationError(
+      'Email is required when deliveryPreference is SMS_AND_EMAIL.',
+    );
+  }
+
   return {
-    email: normalizeEmail(input.email),
+    deliveryPreference,
+    email,
+    firstName: normalizeFirstName(input.firstName),
     phoneNumber: normalizeGhanaPhoneNumber(input.phoneNumber),
     productPublicId,
     quantity: input.quantity,
@@ -93,6 +126,34 @@ export function normalizeGhanaPhoneNumber(value: string): string {
     );
   }
   return canonical;
+}
+
+function normalizeDeliveryPreference(value: string): OrderDeliveryPreference {
+  if (value === 'SMS_ONLY' || value === 'SMS_AND_EMAIL') return value;
+  throw new OrderInputValidationError(
+    'Delivery preference must be SMS_ONLY or SMS_AND_EMAIL.',
+  );
+}
+
+function normalizeFirstName(value: string): string {
+  const firstName = value.trim().replace(/\s+/g, ' ');
+  if (
+    firstName.length === 0 ||
+    Array.from(firstName).length > 100 ||
+    containsAsciiControl(firstName)
+  ) {
+    throw new OrderInputValidationError(
+      'First name must contain 1 to 100 valid characters.',
+    );
+  }
+  return firstName;
+}
+
+function containsAsciiControl(value: string): boolean {
+  return Array.from(value).some((character) => {
+    const codePoint = character.codePointAt(0);
+    return codePoint !== undefined && (codePoint <= 31 || codePoint === 127);
+  });
 }
 
 function normalizeEmail(value: string | undefined): string | null {

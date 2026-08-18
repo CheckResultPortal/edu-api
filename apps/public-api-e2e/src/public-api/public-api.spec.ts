@@ -110,6 +110,10 @@ describe('public API', () => {
         '/v1/orders': expect.objectContaining({ post: expect.any(Object) }),
       }),
     );
+    expect(
+      res.data.paths['/v1/orders'].post.requestBody.content['application/json']
+        .schema.oneOf,
+    ).toHaveLength(2);
   });
 
   it('rejects a client-controlled price before order processing', async () => {
@@ -117,6 +121,8 @@ describe('public API', () => {
       axios.post(
         '/v1/orders',
         {
+          deliveryPreference: 'SMS_ONLY',
+          firstName: 'Ama',
           phoneNumber: '+233241234567',
           price: 1,
           productPublicId: '2b3e39a9-06db-41a9-a856-5f985846951a',
@@ -139,7 +145,9 @@ describe('public API', () => {
     e2eIdempotencyKeys.push(idempotencyKey);
     const phoneNumber = `+23324${String(randomInt(10_000_000)).padStart(7, '0')}`;
     const request = {
+      deliveryPreference: 'SMS_AND_EMAIL',
       email: 'Buyer@Example.com',
+      firstName: 'Ama',
       phoneNumber,
       productPublicId,
       quantity: 2,
@@ -160,6 +168,7 @@ describe('public API', () => {
         id: expect.any(String),
         attributes: {
           currency: 'GHS',
+          deliveryPreference: 'SMS_AND_EMAIL',
           productPublicId,
           quantity: 2,
           totalPriceMinor: '5000',
@@ -168,5 +177,22 @@ describe('public API', () => {
       },
       meta: { correlationId: expect.any(String) },
     });
+  });
+
+  it('rejects email when SMS-only delivery is selected', async () => {
+    await expect(
+      axios.post(
+        '/v1/orders',
+        {
+          deliveryPreference: 'SMS_ONLY',
+          email: 'buyer@example.com',
+          firstName: 'Ama',
+          phoneNumber: '+233241234567',
+          productPublicId,
+          quantity: 1,
+        },
+        { headers: { 'Idempotency-Key': randomUUID() } },
+      ),
+    ).rejects.toMatchObject({ response: { status: 400 } });
   });
 });
