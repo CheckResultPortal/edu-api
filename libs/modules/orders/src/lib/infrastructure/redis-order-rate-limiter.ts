@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHmac } from 'node:crypto';
 
 import type Redis from 'ioredis';
 
@@ -28,7 +28,12 @@ export class RedisOrderRateLimiter implements OrderRateLimiter {
   constructor(
     private readonly client: Redis,
     private readonly configuration: OrderRateLimitConfiguration,
-  ) {}
+    private readonly privacyHmacKey: Uint8Array,
+  ) {
+    if (privacyHmacKey.byteLength !== 32) {
+      throw new Error('Order rate-limit HMAC key must contain 32 bytes.');
+    }
+  }
 
   async consume(input: {
     readonly clientIp: string;
@@ -37,11 +42,15 @@ export class RedisOrderRateLimiter implements OrderRateLimiter {
     try {
       await this.ensureConnected();
       await this.consumeCounter(
-        `order-rate:ip:${safeHash(input.clientIp)}`,
+        `order-rate:ip:${safeHash('ip', input.clientIp, this.privacyHmacKey)}`,
         this.configuration.ipMaximum,
       );
       await this.consumeCounter(
-        `order-rate:phone:${safeHash(input.phoneNumber)}`,
+        `order-rate:phone:${safeHash(
+          'phone',
+          input.phoneNumber,
+          this.privacyHmacKey,
+        )}`,
         this.configuration.phoneMaximum,
       );
     } catch (error) {
@@ -82,6 +91,13 @@ export class RedisOrderRateLimiter implements OrderRateLimiter {
   }
 }
 
-function safeHash(value: string): string {
-  return createHash('sha256').update(value, 'utf8').digest('base64url');
+function safeHash(
+  context: 'ip' | 'phone',
+  value: string,
+  hmacKey: Uint8Array,
+): string {
+  return createHmac('sha256', hmacKey)
+    .update(`order-rate-limit:${context}:v1:`, 'utf8')
+    .update(value, 'utf8')
+    .digest('base64url');
 }

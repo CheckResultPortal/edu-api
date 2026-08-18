@@ -2,6 +2,7 @@ import { Prisma } from '../../../../../../generated/prisma/client';
 
 import { type TransactionalOrderProductQuery } from '@edu-api/catalog';
 import type { DatabaseClient } from '@edu-api/database';
+import { assertValidOutboxEvent } from '@edu-api/outbox';
 
 import {
   OrderCreationUnavailableError,
@@ -28,7 +29,7 @@ export class PrismaOrderCreationRepository implements OrderCreationRepository {
       try {
         return await this.createTransaction(input);
       } catch (error) {
-        if (isPrismaError(error, 'P2002')) {
+        if (isIdempotencyClaimConflict(error)) {
           return this.replayOrConflict(input);
         }
         if (isPrismaError(error, 'P2034') && attempt < 3) continue;
@@ -78,6 +79,7 @@ export class PrismaOrderCreationRepository implements OrderCreationRepository {
             phoneNumber: input.phoneNumber,
             email: input.email,
             deliveryPreference: input.deliveryPreference,
+            purchaseChannel: input.purchaseChannel,
             currency: 'GHS',
             totalPriceMinor,
             items: {
@@ -93,6 +95,7 @@ export class PrismaOrderCreationRepository implements OrderCreationRepository {
           select: {
             id: true,
             publicReference: true,
+            purchaseChannel: true,
             currency: true,
             deliveryPreference: true,
             totalPriceMinor: true,
@@ -106,21 +109,31 @@ export class PrismaOrderCreationRepository implements OrderCreationRepository {
           },
         });
 
+        const eventPayload = {
+          version: 1,
+          orderPublicReference: order.publicReference,
+          productPublicId: product.publicId,
+          purchaseChannel: input.purchaseChannel,
+          deliveryPreference: input.deliveryPreference,
+          quantity: input.quantity,
+          unitPriceMinor: product.sellingPriceMinor.toString(),
+          totalPriceMinor: totalPriceMinor.toString(),
+          currency: 'GHS',
+        } as const;
+        assertValidOutboxEvent({
+          aggregateId: order.id.toString(),
+          aggregateType: 'Order',
+          eventType: 'OrderCreated',
+          dedupeKey: `order-created:${order.publicReference}`,
+          payload: eventPayload,
+        });
         await transaction.outboxEvent.create({
           data: {
             aggregateType: 'Order',
             aggregateId: order.id,
             eventType: 'OrderCreated',
             dedupeKey: `order-created:${order.publicReference}`,
-            payload: {
-              version: 1,
-              orderPublicReference: order.publicReference,
-              productPublicId: product.publicId,
-              quantity: input.quantity,
-              unitPriceMinor: product.sellingPriceMinor.toString(),
-              totalPriceMinor: totalPriceMinor.toString(),
-              currency: 'GHS',
-            },
+            payload: eventPayload,
           },
         });
         await transaction.idempotencyRecord.update({
@@ -174,6 +187,7 @@ export class PrismaOrderCreationRepository implements OrderCreationRepository {
       select: {
         id: true,
         publicReference: true,
+        purchaseChannel: true,
         currency: true,
         deliveryPreference: true,
         totalPriceMinor: true,
@@ -200,13 +214,16 @@ function toGuestOrder(order: {
     readonly unitPriceMinor: bigint;
   }[];
   readonly publicReference: string;
+  readonly purchaseChannel: string;
   readonly totalPriceMinor: bigint;
 }): GuestOrder {
   const item = order.items[0];
   if (
     item === undefined ||
     order.currency !== 'GHS' ||
+    (order.purchaseChannel !== 'WEB' && order.purchaseChannel !== 'USSD') ||
     (order.deliveryPreference !== 'SMS_ONLY' &&
+      order.deliveryPreference !== 'EMAIL_ONLY' &&
       order.deliveryPreference !== 'SMS_AND_EMAIL')
   ) {
     throw new OrderCreationUnavailableError();
@@ -216,6 +233,7 @@ function toGuestOrder(order: {
     deliveryPreference: order.deliveryPreference,
     productPublicId: item.product.publicId,
     publicReference: order.publicReference,
+    purchaseChannel: order.purchaseChannel,
     quantity: item.quantity,
     totalPriceMinor: order.totalPriceMinor.toString(),
     unitPriceMinor: item.unitPriceMinor.toString(),
@@ -228,5 +246,33 @@ function isPrismaError(error: unknown, code: string): boolean {
     error !== null &&
     'code' in error &&
     error.code === code
+  );
+}
+
+function isIdempotencyClaimConflict(error: unknown): boolean {
+  if (
+    !isPrismaError(error, 'P2002') ||
+    typeof error !== 'object' ||
+    error === null ||
+    !('meta' in error)
+  ) {
+    return false;
+  }
+  const meta = error.meta;
+  if (typeof meta !== 'object' || meta === null) {
+    return false;
+  }
+
+  if ('modelName' in meta && meta.modelName === 'IdempotencyRecord') {
+    return true;
+  }
+  if (!('target' in meta)) return false;
+
+  const target = meta.target;
+  if (typeof target === 'string') {
+    return target.includes('IdempotencyRecord_scope_key_key');
+  }
+  return (
+    Array.isArray(target) && target.includes('scope') && target.includes('key')
   );
 }

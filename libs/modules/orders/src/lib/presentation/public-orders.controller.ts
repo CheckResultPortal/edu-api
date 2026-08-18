@@ -64,46 +64,24 @@ export class PublicOrdersController {
       type: 'object',
       additionalProperties: false,
       required: [
-        'deliveryPreference',
+        'email',
         'firstName',
         'phoneNumber',
         'productPublicId',
         'quantity',
       ],
       properties: {
-        deliveryPreference: {
-          type: 'string',
-          enum: ['SMS_ONLY', 'SMS_AND_EMAIL'],
-          description:
-            'SMS is always used. SMS_AND_EMAIL also requires an email address.',
-        },
         email: {
           type: 'string',
           maxLength: 320,
-          description: 'Required only for SMS_AND_EMAIL; omit for SMS_ONLY.',
+          description:
+            'Customer email address for payment initialization and voucher delivery.',
         },
         firstName: { type: 'string', minLength: 1, maxLength: 100 },
         phoneNumber: { type: 'string', example: '+233241234567' },
         productPublicId: { type: 'string', format: 'uuid' },
         quantity: { type: 'integer', minimum: 1, maximum: 20 },
       },
-      oneOf: [
-        {
-          properties: {
-            deliveryPreference: { type: 'string', enum: ['SMS_ONLY'] },
-          },
-          not: { required: ['email'] },
-        },
-        {
-          properties: {
-            deliveryPreference: {
-              type: 'string',
-              enum: ['SMS_AND_EMAIL'],
-            },
-          },
-          required: ['email'],
-        },
-      ],
     },
   })
   @ApiCreatedResponse({ description: 'The new or previously created order.' })
@@ -125,13 +103,12 @@ export class PublicOrdersController {
       const input = parseGuestOrderRequest(body);
       const order = await this.orders.create(
         {
-          deliveryPreference: input.deliveryPreference,
+          email: input.email,
           firstName: input.firstName,
+          idempotencyKey,
           phoneNumber: input.phoneNumber,
           productPublicId: input.productPublicId,
           quantity: input.quantity,
-          ...(input.email === null ? {} : { email: input.email }),
-          idempotencyKey,
         },
         { clientIp: request.ip },
       );
@@ -139,6 +116,7 @@ export class PublicOrdersController {
         currency: order.currency,
         deliveryPreference: order.deliveryPreference,
         productPublicId: order.productPublicId,
+        purchaseChannel: order.purchaseChannel,
         quantity: order.quantity,
         totalPriceMinor: order.totalPriceMinor,
         unitPriceMinor: order.unitPriceMinor,

@@ -12,6 +12,7 @@ describe('RedisOrderRateLimiter', () => {
     const limiter = new RedisOrderRateLimiter(
       fakeRedis(evalMock),
       configuration,
+      privacyHmacKey,
     );
 
     await expect(
@@ -31,6 +32,7 @@ describe('RedisOrderRateLimiter', () => {
     const limiter = new RedisOrderRateLimiter(
       fakeRedis(jest.fn().mockResolvedValue([31, 5_100])),
       configuration,
+      privacyHmacKey,
     );
 
     await expect(
@@ -45,6 +47,7 @@ describe('RedisOrderRateLimiter', () => {
     const limiter = new RedisOrderRateLimiter(
       fakeRedis(jest.fn().mockRejectedValue(new Error('redis unavailable'))),
       configuration,
+      privacyHmacKey,
     );
 
     await expect(
@@ -54,6 +57,17 @@ describe('RedisOrderRateLimiter', () => {
       }),
     ).resolves.toBeUndefined();
   });
+
+  it('rejects an invalid privacy HMAC key at startup', () => {
+    expect(
+      () =>
+        new RedisOrderRateLimiter(
+          fakeRedis(jest.fn()),
+          configuration,
+          Buffer.alloc(16),
+        ),
+    ).toThrow('32 bytes');
+  });
 });
 
 const configuration = {
@@ -61,6 +75,8 @@ const configuration = {
   phoneMaximum: 10,
   windowMs: 600_000,
 };
+
+const privacyHmacKey = Buffer.alloc(32, 7);
 
 function fakeRedis(evalMock: jest.Mock): Redis {
   return {

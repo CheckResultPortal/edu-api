@@ -22,15 +22,20 @@
     "src/**/*.test.ts"
   ],
   "references": [
-    { "path": "../../libs/modules/voucher-inventory/tsconfig.lib.json" },
     {
-      "path": "../../libs/shared/observability/tsconfig.lib.json"
+      "path": "../../libs/modules/voucher-inventory/tsconfig.lib.json"
+    },
+    {
+      "path": "../../libs/modules/orders/tsconfig.lib.json"
+    },
+    {
+      "path": "../../libs/modules/communication/tsconfig.lib.json"
     },
     {
       "path": "../../libs/shared/config/tsconfig.lib.json"
     },
     {
-      "path": "../../libs/modules/communication/tsconfig.lib.json"
+      "path": "../../libs/shared/observability/tsconfig.lib.json"
     }
   ]
 }

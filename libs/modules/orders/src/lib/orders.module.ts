@@ -48,6 +48,7 @@ import { PublicOrdersController } from './presentation/public-orders.controller'
             phoneMaximum: config.getOrThrow('ORDER_RATE_LIMIT_PHONE_MAXIMUM'),
             windowMs: config.getOrThrow('ORDER_RATE_LIMIT_WINDOW_MS'),
           },
+          decodePrivacyHmacKey(config),
         ),
     },
     {
@@ -62,6 +63,7 @@ import { PublicOrdersController } from './presentation/public-orders.controller'
           repository,
           rateLimiter,
           config.getOrThrow('ORDER_IDEMPOTENCY_TTL_MS'),
+          decodePrivacyHmacKey(config),
         ),
     },
   ],
@@ -74,3 +76,14 @@ export class OrdersCoreModule {}
   controllers: [PublicOrdersController],
 })
 export class OrdersModule {}
+
+function decodePrivacyHmacKey(config: ConfigService): Uint8Array {
+  const key = Buffer.from(
+    config.getOrThrow<string>('ORDER_PRIVACY_HMAC_KEY'),
+    'base64url',
+  );
+  if (key.byteLength !== 32) {
+    throw new Error('ORDER_PRIVACY_HMAC_KEY must contain 32 bytes.');
+  }
+  return key;
+}

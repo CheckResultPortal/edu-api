@@ -54,8 +54,14 @@ enum VoucherBatchImportState {
   DISCARDED
 }
 
+enum PurchaseChannel {
+  WEB
+  USSD
+}
+
 enum OrderDeliveryPreference {
   SMS_ONLY
+  EMAIL_ONLY
   SMS_AND_EMAIL
 }
 
@@ -219,10 +225,11 @@ model Product {
 model Order {
   id                  BigInt                  @id @default(autoincrement())
   publicReference     String                  @unique @default(uuid()) @db.Uuid
+  purchaseChannel     PurchaseChannel
+  deliveryPreference  OrderDeliveryPreference
   firstName           String?
   phoneNumber         String?
   email               String?
-  deliveryPreference  OrderDeliveryPreference
   contactAnonymizedAt DateTime?               @db.Timestamptz(6)
   totalPriceMinor     BigInt
   currency            String                  @db.Char(3)
@@ -231,6 +238,7 @@ model Order {
   items               OrderItem[]
 
   @@index([createdAt, id])
+  @@index([purchaseChannel, createdAt, id])
 }
 
 model OrderItem {
@@ -318,5 +326,5 @@ model IdempotencyRecord {
   completedAt        DateTime?         @db.Timestamptz(6)
 
   @@unique([scope, key])
-  @@index([expiresAt])
+  @@index([scope, expiresAt, id])
 }

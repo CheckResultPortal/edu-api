@@ -112,8 +112,14 @@ describe('public API', () => {
     );
     expect(
       res.data.paths['/v1/orders'].post.requestBody.content['application/json']
-        .schema.oneOf,
-    ).toHaveLength(2);
+        .schema.required,
+    ).toEqual([
+      'email',
+      'firstName',
+      'phoneNumber',
+      'productPublicId',
+      'quantity',
+    ]);
   });
 
   it('rejects a client-controlled price before order processing', async () => {
@@ -121,7 +127,7 @@ describe('public API', () => {
       axios.post(
         '/v1/orders',
         {
-          deliveryPreference: 'SMS_ONLY',
+          email: 'buyer@example.com',
           firstName: 'Ama',
           phoneNumber: '+233241234567',
           price: 1,
@@ -145,7 +151,6 @@ describe('public API', () => {
     e2eIdempotencyKeys.push(idempotencyKey);
     const phoneNumber = `+23324${String(randomInt(10_000_000)).padStart(7, '0')}`;
     const request = {
-      deliveryPreference: 'SMS_AND_EMAIL',
       email: 'Buyer@Example.com',
       firstName: 'Ama',
       phoneNumber,
@@ -170,6 +175,7 @@ describe('public API', () => {
           currency: 'GHS',
           deliveryPreference: 'SMS_AND_EMAIL',
           productPublicId,
+          purchaseChannel: 'WEB',
           quantity: 2,
           totalPriceMinor: '5000',
           unitPriceMinor: '2500',
@@ -179,7 +185,7 @@ describe('public API', () => {
     });
   });
 
-  it('rejects email when SMS-only delivery is selected', async () => {
+  it('rejects unsupported deliveryPreference property on web request', async () => {
     await expect(
       axios.post(
         '/v1/orders',

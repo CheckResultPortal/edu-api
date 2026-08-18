@@ -14,6 +14,7 @@ import {
   type OrderRateLimiter,
 } from '../application/order-creation-service';
 import { PrismaOrderCreationRepository } from './prisma-order-creation.repository';
+import { PrismaOrderIdempotencyCleanup } from './prisma-order-idempotency-cleanup';
 
 const databaseUrl = process.env.ORDERS_TEST_DATABASE_URL;
 const describeWithDatabase =
@@ -62,6 +63,7 @@ describeWithDatabase('guest order creation (PostgreSQL)', () => {
       repository,
       allowAll,
       24 * 60 * 60 * 1_000,
+      privacyHmacKey,
     );
   });
 
@@ -99,7 +101,9 @@ describeWithDatabase('guest order creation (PostgreSQL)', () => {
     });
     expect(order).toMatchObject({
       currency: 'GHS',
+      deliveryPreference: 'SMS_AND_EMAIL',
       productPublicId,
+      purchaseChannel: 'WEB',
       quantity: 2,
       totalPriceMinor: '5000',
       unitPriceMinor: '2500',
@@ -120,6 +124,7 @@ describeWithDatabase('guest order creation (PostgreSQL)', () => {
     expect(stored.email).toBe('buyer@example.com');
     expect(stored.firstName).toBe('Ama');
     expect(stored.deliveryPreference).toBe('SMS_AND_EMAIL');
+    expect(stored.purchaseChannel).toBe('WEB');
     expect(stored.totalPriceMinor).toBe(BigInt(5_000));
     expect(stored.items).toHaveLength(1);
     expect(stored.items[0]).toMatchObject({
@@ -138,32 +143,20 @@ describeWithDatabase('guest order creation (PostgreSQL)', () => {
       select: { payload: true },
     });
     const eventPayload = JSON.stringify(event.payload);
+    expect(event.payload).toEqual({
+      version: 1,
+      orderPublicReference: order.publicReference,
+      productPublicId,
+      purchaseChannel: 'WEB',
+      deliveryPreference: 'SMS_AND_EMAIL',
+      quantity: 2,
+      unitPriceMinor: '2500',
+      totalPriceMinor: '5000',
+      currency: 'GHS',
+    });
     expect(eventPayload).not.toContain('+233241234567');
     expect(eventPayload).not.toContain('buyer@example.com');
     expect(eventPayload).not.toContain('Ama');
-  });
-
-  it('stores SMS-only delivery without unnecessary email data', async () => {
-    const order = await service.create(
-      {
-        deliveryPreference: 'SMS_ONLY',
-        firstName: 'Akosua',
-        idempotencyKey: idempotencyKey('sms-only'),
-        phoneNumber: '024 123 4567',
-        productPublicId,
-        quantity: 1,
-      },
-      { clientIp: '203.0.113.10' },
-    );
-    const stored = await database.order.findUniqueOrThrow({
-      where: { publicReference: order.publicReference },
-    });
-    expect(stored).toMatchObject({
-      deliveryPreference: 'SMS_ONLY',
-      email: null,
-      firstName: 'Akosua',
-      phoneNumber: '+233241234567',
-    });
   });
 
   it('replays the original result and rejects a changed payload', async () => {
@@ -227,6 +220,52 @@ describeWithDatabase('guest order creation (PostgreSQL)', () => {
     expect(second.publicReference).not.toBe(first.publicReference);
   });
 
+  it('cleans expired idempotency records in bounded batches without deleting orders', async () => {
+    await service.create(command('cleanup-one', 1), {
+      clientIp: '203.0.113.10',
+    });
+    await service.create(command('cleanup-two', 1), {
+      clientIp: '203.0.113.10',
+    });
+    await service.create(command('cleanup-future', 1), {
+      clientIp: '203.0.113.10',
+    });
+    const now = new Date();
+    await database.idempotencyRecord.updateMany({
+      where: {
+        scope: 'guest-order-create',
+        key: {
+          in: [idempotencyKey('cleanup-one'), idempotencyKey('cleanup-two')],
+        },
+      },
+      data: { expiresAt: new Date(now.getTime() - 1_000) },
+    });
+    const cleanup = new PrismaOrderIdempotencyCleanup(database);
+
+    await expect(cleanup.deleteExpired(1, now)).resolves.toBe(1);
+    await expect(
+      database.idempotencyRecord.count({
+        where: {
+          scope: 'guest-order-create',
+          key: { contains: suffix },
+          expiresAt: { lte: now },
+        },
+      }),
+    ).resolves.toBe(1);
+    await expect(cleanup.deleteExpired(10, now)).resolves.toBe(1);
+    await expect(
+      database.idempotencyRecord.count({
+        where: {
+          scope: 'guest-order-create',
+          key: idempotencyKey('cleanup-future'),
+        },
+      }),
+    ).resolves.toBe(1);
+    await expect(
+      database.order.count({ where: { items: { some: { productId } } } }),
+    ).resolves.toBe(3);
+  });
+
   it('rolls back the claim and business records for an unavailable product', async () => {
     await database.product.update({
       where: { id: productId },
@@ -262,7 +301,9 @@ describeWithDatabase('guest order creation (PostgreSQL)', () => {
     await expect(
       database.order.create({
         data: {
-          deliveryPreference: 'SMS_ONLY',
+          deliveryPreference: 'SMS_AND_EMAIL',
+          purchaseChannel: 'WEB',
+          email: 'buyer@example.com',
           firstName: 'Ama',
           phoneNumber: '+233241234567',
           currency: 'GHS',
@@ -281,10 +322,11 @@ describeWithDatabase('guest order creation (PostgreSQL)', () => {
     ).rejects.toBeInstanceOf(Error);
   });
 
-  it('has database enforcement for name and delivery contact consistency', async () => {
+  it('has database enforcement for name, channel, and delivery contact consistency', async () => {
     await expect(
       database.order.create({
         data: {
+          purchaseChannel: 'USSD',
           deliveryPreference: 'SMS_ONLY',
           email: 'buyer@example.com',
           firstName: 'Ama',
@@ -307,7 +349,53 @@ describeWithDatabase('guest order creation (PostgreSQL)', () => {
     await expect(
       database.order.create({
         data: {
+          purchaseChannel: 'USSD',
+          deliveryPreference: 'EMAIL_ONLY',
+          firstName: 'Ama',
+          phoneNumber: '+233241234567',
+          currency: 'GHS',
+          totalPriceMinor: BigInt(2_500),
+          items: {
+            create: {
+              productId,
+              quantity: 1,
+              unitPriceMinor: BigInt(2_500),
+              totalPriceMinor: BigInt(2_500),
+              currency: 'GHS',
+            },
+          },
+        },
+      }),
+    ).rejects.toBeInstanceOf(Error);
+
+    await expect(
+      database.order.create({
+        data: {
+          purchaseChannel: 'WEB',
           deliveryPreference: 'SMS_ONLY',
+          firstName: 'Ama',
+          phoneNumber: '+233241234567',
+          currency: 'GHS',
+          totalPriceMinor: BigInt(2_500),
+          items: {
+            create: {
+              productId,
+              quantity: 1,
+              unitPriceMinor: BigInt(2_500),
+              totalPriceMinor: BigInt(2_500),
+              currency: 'GHS',
+            },
+          },
+        },
+      }),
+    ).rejects.toBeInstanceOf(Error);
+
+    await expect(
+      database.order.create({
+        data: {
+          purchaseChannel: 'WEB',
+          deliveryPreference: 'SMS_AND_EMAIL',
+          email: 'buyer@example.com',
           firstName: null,
           phoneNumber: '+233241234567',
           currency: 'GHS',
@@ -326,9 +414,43 @@ describeWithDatabase('guest order creation (PostgreSQL)', () => {
     ).rejects.toBeInstanceOf(Error);
   });
 
+  it.each([
+    { deliveryPreference: 'SMS_ONLY' as const, email: undefined },
+    { deliveryPreference: 'EMAIL_ONLY' as const, email: 'buyer@example.com' },
+    {
+      deliveryPreference: 'SMS_AND_EMAIL' as const,
+      email: 'buyer@example.com',
+    },
+  ])(
+    'accepts the approved USSD $deliveryPreference contact shape',
+    async ({ deliveryPreference, email }) => {
+      await expect(
+        database.order.create({
+          data: {
+            purchaseChannel: 'USSD',
+            deliveryPreference,
+            ...(email === undefined ? {} : { email }),
+            firstName: 'Ama',
+            phoneNumber: '+233241234567',
+            currency: 'GHS',
+            totalPriceMinor: BigInt(2_500),
+            items: {
+              create: {
+                productId,
+                quantity: 1,
+                unitPriceMinor: BigInt(2_500),
+                totalPriceMinor: BigInt(2_500),
+                currency: 'GHS',
+              },
+            },
+          },
+        }),
+      ).resolves.toMatchObject({ purchaseChannel: 'USSD', deliveryPreference });
+    },
+  );
+
   function command(label: string, quantity: number) {
     return {
-      deliveryPreference: 'SMS_AND_EMAIL',
       email: 'Buyer@Example.com',
       firstName: 'Ama',
       idempotencyKey: idempotencyKey(label),
@@ -342,3 +464,5 @@ describeWithDatabase('guest order creation (PostgreSQL)', () => {
     return `order:${suffix}:${label}`;
   }
 });
+
+const privacyHmacKey = Buffer.alloc(32, 7);

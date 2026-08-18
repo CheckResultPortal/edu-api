@@ -1,33 +1,36 @@
 import { OrderInputValidationError } from '../application/order-creation-errors';
 
-export interface CreateGuestOrderDraft {
-  readonly deliveryPreference: string;
-  readonly email?: string;
+export interface CreateWebGuestOrderDraft {
+  readonly email: string;
   readonly firstName: string;
   readonly phoneNumber: string;
   readonly productPublicId: string;
   readonly quantity: number;
 }
 
+export const PURCHASE_CHANNELS = ['WEB', 'USSD'] as const;
+export type PurchaseChannel = (typeof PURCHASE_CHANNELS)[number];
+
 export const ORDER_DELIVERY_PREFERENCES = [
   'SMS_ONLY',
+  'EMAIL_ONLY',
   'SMS_AND_EMAIL',
 ] as const;
 
 export type OrderDeliveryPreference =
   (typeof ORDER_DELIVERY_PREFERENCES)[number];
 
-export interface ValidatedGuestOrderInput {
+export interface ValidatedWebGuestOrderInput {
   readonly deliveryPreference: OrderDeliveryPreference;
-  readonly email: string | null;
+  readonly email: string;
   readonly firstName: string;
   readonly phoneNumber: string;
   readonly productPublicId: string;
+  readonly purchaseChannel: PurchaseChannel;
   readonly quantity: number;
 }
 
 const orderRequestKeys = new Set([
-  'deliveryPreference',
   'email',
   'firstName',
   'phoneNumber',
@@ -37,7 +40,7 @@ const orderRequestKeys = new Set([
 
 export function parseGuestOrderRequest(
   value: unknown,
-): ValidatedGuestOrderInput {
+): ValidatedWebGuestOrderInput {
   if (!isPlainObject(value)) {
     throw new OrderInputValidationError('The order body must be an object.');
   }
@@ -49,9 +52,8 @@ export function parseGuestOrderRequest(
     }
   }
 
-  return validateGuestOrderInput({
-    deliveryPreference: requiredString(value, 'deliveryPreference'),
-    email: optionalString(value, 'email'),
+  return validateWebGuestOrderInput({
+    email: requiredString(value, 'email'),
     firstName: requiredString(value, 'firstName'),
     phoneNumber: requiredString(value, 'phoneNumber'),
     productPublicId: requiredString(value, 'productPublicId'),
@@ -59,9 +61,9 @@ export function parseGuestOrderRequest(
   });
 }
 
-export function validateGuestOrderInput(
-  input: CreateGuestOrderDraft,
-): ValidatedGuestOrderInput {
+export function validateWebGuestOrderInput(
+  input: CreateWebGuestOrderDraft,
+): ValidatedWebGuestOrderInput {
   if (
     !Number.isSafeInteger(input.quantity) ||
     input.quantity < 1 ||
@@ -77,27 +79,15 @@ export function validateGuestOrderInput(
     throw new OrderInputValidationError('The product reference is invalid.');
   }
 
-  const deliveryPreference = normalizeDeliveryPreference(
-    input.deliveryPreference,
-  );
-  const email = normalizeEmail(input.email);
-  if (deliveryPreference === 'SMS_ONLY' && email !== null) {
-    throw new OrderInputValidationError(
-      'Email must be omitted when deliveryPreference is SMS_ONLY.',
-    );
-  }
-  if (deliveryPreference === 'SMS_AND_EMAIL' && email === null) {
-    throw new OrderInputValidationError(
-      'Email is required when deliveryPreference is SMS_AND_EMAIL.',
-    );
-  }
+  const email = normalizeRequiredEmail(input.email);
 
   return {
-    deliveryPreference,
+    deliveryPreference: 'SMS_AND_EMAIL',
     email,
     firstName: normalizeFirstName(input.firstName),
     phoneNumber: normalizeGhanaPhoneNumber(input.phoneNumber),
     productPublicId,
+    purchaseChannel: 'WEB',
     quantity: input.quantity,
   };
 }
@@ -128,13 +118,6 @@ export function normalizeGhanaPhoneNumber(value: string): string {
   return canonical;
 }
 
-function normalizeDeliveryPreference(value: string): OrderDeliveryPreference {
-  if (value === 'SMS_ONLY' || value === 'SMS_AND_EMAIL') return value;
-  throw new OrderInputValidationError(
-    'Delivery preference must be SMS_ONLY or SMS_AND_EMAIL.',
-  );
-}
-
 function normalizeFirstName(value: string): string {
   const firstName = value.trim().replace(/\s+/g, ' ');
   if (
@@ -156,8 +139,7 @@ function containsAsciiControl(value: string): boolean {
   });
 }
 
-function normalizeEmail(value: string | undefined): string | null {
-  if (value === undefined) return null;
+function normalizeRequiredEmail(value: string): string {
   const email = value.trim().toLowerCase();
   if (
     email.length < 3 ||
@@ -176,18 +158,6 @@ function requiredString(
   const entry = value[key];
   if (typeof entry !== 'string') {
     throw new OrderInputValidationError(`Order ${key} is required.`);
-  }
-  return entry;
-}
-
-function optionalString(
-  value: Readonly<Record<string, unknown>>,
-  key: string,
-): string | undefined {
-  const entry = value[key];
-  if (entry === undefined) return undefined;
-  if (typeof entry !== 'string') {
-    throw new OrderInputValidationError(`Order ${key} must be a string.`);
   }
   return entry;
 }

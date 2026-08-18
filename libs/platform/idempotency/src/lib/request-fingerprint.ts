@@ -1,7 +1,15 @@
-import { createHash } from 'node:crypto';
+import { createHmac } from 'node:crypto';
 
-export function createRequestFingerprint(payload: unknown): string {
-  return createHash('sha256')
+export function createRequestFingerprint(
+  payload: unknown,
+  hmacKey: Uint8Array,
+): string {
+  if (hmacKey.byteLength !== 32) {
+    throw new Error('Request fingerprint HMAC key must contain 32 bytes.');
+  }
+
+  return createHmac('sha256', hmacKey)
+    .update('request-fingerprint:v1:', 'utf8')
     .update(canonicalizeJson(payload), 'utf8')
     .digest('base64url');
 }

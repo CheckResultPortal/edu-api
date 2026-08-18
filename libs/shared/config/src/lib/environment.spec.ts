@@ -12,6 +12,7 @@ describe('environment validation', () => {
         SERVICE_NAME: 'public-api',
         DATABASE_URL: 'postgresql://user:password@localhost:5432/database',
         REDIS_URL: 'redis://localhost:6379',
+        ORDER_PRIVACY_HMAC_KEY: privacyHmacKey,
       });
 
       expect(configuration).toEqual({
@@ -23,6 +24,7 @@ describe('environment validation', () => {
         HOST: '0.0.0.0',
         PORT: 3001,
         TRUST_PROXY_HOPS: 0,
+        ORDER_PRIVACY_HMAC_KEY: privacyHmacKey,
         ORDER_IDEMPOTENCY_TTL_MS: 86400000,
         ORDER_RATE_LIMIT_WINDOW_MS: 600000,
         ORDER_RATE_LIMIT_IP_MAXIMUM: 30,
@@ -36,6 +38,7 @@ describe('environment validation', () => {
           SERVICE_NAME: 'public-api',
           DATABASE_URL: 'postgresql://user:password@localhost:5432/database',
           REDIS_URL: 'redis://localhost:6379',
+          ORDER_PRIVACY_HMAC_KEY: privacyHmacKey,
           TRUST_PROXY_HOPS: '1',
         }).TRUST_PROXY_HOPS,
       ).toBe(1);
@@ -44,6 +47,7 @@ describe('environment validation', () => {
           SERVICE_NAME: 'public-api',
           DATABASE_URL: 'postgresql://user:password@localhost:5432/database',
           REDIS_URL: 'redis://localhost:6379',
+          ORDER_PRIVACY_HMAC_KEY: privacyHmacKey,
           TRUST_PROXY_HOPS: 'all',
         }),
       ).toThrow('TRUST_PROXY_HOPS');
@@ -56,6 +60,7 @@ describe('environment validation', () => {
         SERVICE_NAME: 'public-api',
         DATABASE_URL: 'postgresql://user:password@localhost:5432/database',
         REDIS_URL: 'redis://localhost:6379',
+        ORDER_PRIVACY_HMAC_KEY: privacyHmacKey,
         PORT: '4001',
       });
 
@@ -68,9 +73,21 @@ describe('environment validation', () => {
           SERVICE_NAME: 'public-api',
           DATABASE_URL: 'postgresql://user:password@localhost:5432/database',
           REDIS_URL: 'redis://localhost:6379',
+          ORDER_PRIVACY_HMAC_KEY: privacyHmacKey,
           PORT: '70000',
         }),
       ).toThrow('Invalid environment configuration');
+    });
+
+    it('requires a 32-byte order privacy HMAC key', () => {
+      expect(() =>
+        validatePublicApiEnvironment({
+          SERVICE_NAME: 'public-api',
+          DATABASE_URL: 'postgresql://user:password@localhost:5432/database',
+          REDIS_URL: 'redis://localhost:6379',
+          ORDER_PRIVACY_HMAC_KEY: 'short',
+        }),
+      ).toThrow('ORDER_PRIVACY_HMAC_KEY');
     });
 
     it('rejects a missing service name', () => {
@@ -162,6 +179,8 @@ describe('environment validation', () => {
         VOUCHER_IMPORT_MAX_BYTES: 67108864,
         VOUCHER_IMPORT_STALE_AFTER_MS: 900000,
         VOUCHER_IMPORT_RECOVERY_POLL_INTERVAL_MS: 60000,
+        ORDER_IDEMPOTENCY_CLEANUP_BATCH_SIZE: 1000,
+        ORDER_IDEMPOTENCY_CLEANUP_POLL_INTERVAL_MS: 60000,
         RESEND_API_KEY: 're_test',
         RESEND_FROM_EMAIL: 'EduVoucher <admin@example.com>',
         ADMIN_INVITATION_EMAIL_MAX_ATTEMPTS: 5,
@@ -182,3 +201,5 @@ describe('environment validation', () => {
     });
   });
 });
+
+const privacyHmacKey = 'abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG';

@@ -77,8 +77,24 @@ const voucherImportEnvironmentShape = {
     .default(60_000),
 } as const;
 
+const orderMaintenanceEnvironmentShape = {
+  ORDER_IDEMPOTENCY_CLEANUP_BATCH_SIZE: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(5_000)
+    .default(1_000),
+  ORDER_IDEMPOTENCY_CLEANUP_POLL_INTERVAL_MS: z.coerce
+    .number()
+    .int()
+    .min(1_000)
+    .max(60 * 60 * 1_000)
+    .default(60_000),
+} as const;
+
 export const publicApiEnvironmentSchema = httpEnvironmentSchema.extend({
   PORT: z.coerce.number().int().min(1).max(65_535).default(3001),
+  ORDER_PRIVACY_HMAC_KEY: base64KeySchema,
   ORDER_IDEMPOTENCY_TTL_MS: z.coerce
     .number()
     .int()
@@ -114,6 +130,7 @@ export const adminApiEnvironmentSchema = httpEnvironmentSchema.extend({
 export const workerEnvironmentSchema = commonEnvironmentSchema.extend({
   ...adminIdentityEnvironmentShape,
   ...voucherImportEnvironmentShape,
+  ...orderMaintenanceEnvironmentShape,
   RESEND_API_KEY: z.string().trim().min(1),
   RESEND_FROM_EMAIL: z.string().trim().min(3).max(320),
   ADMIN_INVITATION_EMAIL_MAX_ATTEMPTS: z.coerce

@@ -2,7 +2,7 @@ import { OrderInputValidationError } from '../application/order-creation-errors'
 import {
   assertOrderIdempotencyKey,
   parseGuestOrderRequest,
-  validateGuestOrderInput,
+  validateWebGuestOrderInput,
 } from './order-validation';
 
 describe('guest order validation', () => {
@@ -10,8 +10,7 @@ describe('guest order validation', () => {
 
   it('normalizes Ghana contact details and accepts the approved bounds', () => {
     expect(
-      validateGuestOrderInput({
-        deliveryPreference: 'SMS_AND_EMAIL',
+      validateWebGuestOrderInput({
         email: ' Buyer@Example.COM ',
         firstName: '  Ama  ',
         phoneNumber: '024 123 4567',
@@ -24,14 +23,15 @@ describe('guest order validation', () => {
       firstName: 'Ama',
       phoneNumber: '+233241234567',
       productPublicId,
+      purchaseChannel: 'WEB',
       quantity: 20,
     });
   });
 
   it.each([0, 21, 1.5])('rejects quantity %s', (quantity) => {
     expect(() =>
-      validateGuestOrderInput({
-        deliveryPreference: 'SMS_ONLY',
+      validateWebGuestOrderInput({
+        email: 'buyer@example.com',
         firstName: 'Ama',
         phoneNumber: '+233241234567',
         productPublicId,
@@ -40,10 +40,10 @@ describe('guest order validation', () => {
     ).toThrow(OrderInputValidationError);
   });
 
-  it('rejects client-controlled price properties', () => {
+  it('rejects client-controlled price and deliveryPreference properties', () => {
     expect(() =>
       parseGuestOrderRequest({
-        deliveryPreference: 'SMS_ONLY',
+        email: 'buyer@example.com',
         firstName: 'Ama',
         phoneNumber: '+233241234567',
         productPublicId,
@@ -51,12 +51,22 @@ describe('guest order validation', () => {
         price: 1,
       }),
     ).toThrow('unsupported property');
+
+    expect(() =>
+      parseGuestOrderRequest({
+        deliveryPreference: 'SMS_ONLY',
+        email: 'buyer@example.com',
+        firstName: 'Ama',
+        phoneNumber: '+233241234567',
+        productPublicId,
+        quantity: 1,
+      }),
+    ).toThrow('unsupported property');
   });
 
   it('rejects non-Ghana phone numbers and malformed email', () => {
     expect(() =>
-      validateGuestOrderInput({
-        deliveryPreference: 'SMS_AND_EMAIL',
+      validateWebGuestOrderInput({
         email: 'not-an-email',
         firstName: 'Ama',
         phoneNumber: '+2348012345678',
@@ -66,46 +76,22 @@ describe('guest order validation', () => {
     ).toThrow(OrderInputValidationError);
   });
 
-  it('accepts SMS-only delivery without collecting email', () => {
-    expect(
-      validateGuestOrderInput({
-        deliveryPreference: 'SMS_ONLY',
+  it('rejects empty or missing email for web order', () => {
+    expect(() =>
+      validateWebGuestOrderInput({
+        email: '',
         firstName: 'Akosua',
         phoneNumber: '+233241234567',
         productPublicId,
         quantity: 1,
       }),
-    ).toMatchObject({
-      deliveryPreference: 'SMS_ONLY',
-      email: null,
-      firstName: 'Akosua',
-    });
+    ).toThrow(OrderInputValidationError);
   });
-
-  it.each([
-    { deliveryPreference: 'SMS_ONLY', email: 'buyer@example.com' },
-    { deliveryPreference: 'SMS_AND_EMAIL', email: undefined },
-    { deliveryPreference: 'EMAIL_ONLY', email: 'buyer@example.com' },
-  ])(
-    'rejects an inconsistent delivery selection: $deliveryPreference',
-    ({ deliveryPreference, email }) => {
-      expect(() =>
-        validateGuestOrderInput({
-          deliveryPreference,
-          ...(email === undefined ? {} : { email }),
-          firstName: 'Ama',
-          phoneNumber: '+233241234567',
-          productPublicId,
-          quantity: 1,
-        }),
-      ).toThrow(OrderInputValidationError);
-    },
-  );
 
   it('requires a non-empty bounded first name', () => {
     expect(() =>
-      validateGuestOrderInput({
-        deliveryPreference: 'SMS_ONLY',
+      validateWebGuestOrderInput({
+        email: 'buyer@example.com',
         firstName: '   ',
         phoneNumber: '+233241234567',
         productPublicId,
