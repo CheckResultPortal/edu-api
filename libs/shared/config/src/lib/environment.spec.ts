@@ -13,6 +13,7 @@ describe('environment validation', () => {
         DATABASE_URL: 'postgresql://user:password@localhost:5432/database',
         REDIS_URL: 'redis://localhost:6379',
         ORDER_PRIVACY_HMAC_KEY: privacyHmacKey,
+        ...paystackPublicEnvironment,
       });
 
       expect(configuration).toEqual({
@@ -29,6 +30,15 @@ describe('environment validation', () => {
         ORDER_RATE_LIMIT_WINDOW_MS: 600000,
         ORDER_RATE_LIMIT_IP_MAXIMUM: 30,
         ORDER_RATE_LIMIT_PHONE_MAXIMUM: 10,
+        PAYSTACK_SECRET_KEY: paystackPublicEnvironment.PAYSTACK_SECRET_KEY,
+        PAYSTACK_BASE_URL: 'https://api.paystack.co/',
+        PAYSTACK_REQUEST_TIMEOUT_MS: 10000,
+        PAYSTACK_CALLBACK_URL: paystackPublicEnvironment.PAYSTACK_CALLBACK_URL,
+        PAYMENT_IDEMPOTENCY_TTL_MS: 86400000,
+        PAYMENT_INITIAL_VERIFICATION_DELAY_MS: 120000,
+        PAYMENT_RATE_LIMIT_WINDOW_MS: 600000,
+        PAYMENT_RATE_LIMIT_IP_MAXIMUM: 30,
+        PAYMENT_RATE_LIMIT_ORDER_MAXIMUM: 10,
       });
     });
 
@@ -39,6 +49,7 @@ describe('environment validation', () => {
           DATABASE_URL: 'postgresql://user:password@localhost:5432/database',
           REDIS_URL: 'redis://localhost:6379',
           ORDER_PRIVACY_HMAC_KEY: privacyHmacKey,
+          ...paystackPublicEnvironment,
           TRUST_PROXY_HOPS: '1',
         }).TRUST_PROXY_HOPS,
       ).toBe(1);
@@ -48,6 +59,7 @@ describe('environment validation', () => {
           DATABASE_URL: 'postgresql://user:password@localhost:5432/database',
           REDIS_URL: 'redis://localhost:6379',
           ORDER_PRIVACY_HMAC_KEY: privacyHmacKey,
+          ...paystackPublicEnvironment,
           TRUST_PROXY_HOPS: 'all',
         }),
       ).toThrow('TRUST_PROXY_HOPS');
@@ -61,6 +73,7 @@ describe('environment validation', () => {
         DATABASE_URL: 'postgresql://user:password@localhost:5432/database',
         REDIS_URL: 'redis://localhost:6379',
         ORDER_PRIVACY_HMAC_KEY: privacyHmacKey,
+        ...paystackPublicEnvironment,
         PORT: '4001',
       });
 
@@ -74,6 +87,7 @@ describe('environment validation', () => {
           DATABASE_URL: 'postgresql://user:password@localhost:5432/database',
           REDIS_URL: 'redis://localhost:6379',
           ORDER_PRIVACY_HMAC_KEY: privacyHmacKey,
+          ...paystackPublicEnvironment,
           PORT: '70000',
         }),
       ).toThrow('Invalid environment configuration');
@@ -145,6 +159,7 @@ describe('environment validation', () => {
         LOG_LEVEL: 'debug',
         DATABASE_URL: 'postgresql://user:password@localhost:5432/database',
         REDIS_URL: 'redis://localhost:6379',
+        PAYSTACK_SECRET_KEY: paystackPublicEnvironment.PAYSTACK_SECRET_KEY,
         ADMIN_APPLICATION_ORIGIN: 'https://admin.example.com',
         ADMIN_SESSION_HMAC_KEY: '0123456789012345678901234567890123456789012',
         ADMIN_SECRET_ENCRYPTION_KEY_ID: 'test-v1',
@@ -181,6 +196,15 @@ describe('environment validation', () => {
         VOUCHER_IMPORT_RECOVERY_POLL_INTERVAL_MS: 60000,
         ORDER_IDEMPOTENCY_CLEANUP_BATCH_SIZE: 1000,
         ORDER_IDEMPOTENCY_CLEANUP_POLL_INTERVAL_MS: 60000,
+        PAYSTACK_SECRET_KEY: paystackPublicEnvironment.PAYSTACK_SECRET_KEY,
+        PAYSTACK_BASE_URL: 'https://api.paystack.co/',
+        PAYSTACK_REQUEST_TIMEOUT_MS: 10000,
+        PAYMENT_VERIFICATION_BATCH_SIZE: 25,
+        PAYMENT_IDEMPOTENCY_CLEANUP_BATCH_SIZE: 1000,
+        PAYMENT_VERIFICATION_LEASE_MS: 60000,
+        PAYMENT_VERIFICATION_MAX_ATTEMPTS: 12,
+        PAYMENT_VERIFICATION_BASE_DELAY_MS: 60000,
+        PAYMENT_RECOVERY_POLL_INTERVAL_MS: 30000,
         RESEND_API_KEY: 're_test',
         RESEND_FROM_EMAIL: 'EduVoucher <admin@example.com>',
         ADMIN_INVITATION_EMAIL_MAX_ATTEMPTS: 5,
@@ -203,3 +227,7 @@ describe('environment validation', () => {
 });
 
 const privacyHmacKey = 'abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG';
+const paystackPublicEnvironment = {
+  PAYSTACK_SECRET_KEY: 'sk_test_012345678901234567890123456789',
+  PAYSTACK_CALLBACK_URL: 'https://app.example.com/payment/callback',
+} as const;

@@ -68,6 +68,12 @@
     },
     {
       "path": "./libs/modules/orders"
+    },
+    {
+      "path": "./libs/modules/fulfilment"
+    },
+    {
+      "path": "./libs/modules/payments"
     }
   ]
 }

@@ -29,6 +29,9 @@
       "path": "../../libs/modules/orders/tsconfig.lib.json"
     },
     {
+      "path": "../../libs/modules/payments/tsconfig.lib.json"
+    },
+    {
       "path": "../../libs/modules/communication/tsconfig.lib.json"
     },
     {

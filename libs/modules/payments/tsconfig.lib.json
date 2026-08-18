@@ -1,0 +1,20 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "../../../dist/out-tsc",
+    "declaration": true,
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/**/*.spec.ts", "src/**/*.test.ts"],
+  "references": [
+    { "path": "../../platform/idempotency/tsconfig.lib.json" },
+    { "path": "../../shared/database/tsconfig.lib.json" },
+    { "path": "../../shared/http/tsconfig.lib.json" },
+    { "path": "../../shared/observability/tsconfig.lib.json" },
+    { "path": "../../shared/redis/tsconfig.lib.json" },
+    { "path": "../../platform/outbox/tsconfig.lib.json" },
+    { "path": "../fulfilment/tsconfig.lib.json" },
+    { "path": "../orders/tsconfig.lib.json" }
+  ]
+}

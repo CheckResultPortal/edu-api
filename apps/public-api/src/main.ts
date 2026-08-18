@@ -21,6 +21,7 @@ async function bootstrap(): Promise<void> {
       genReqId: () => randomUUID(),
       trustProxy: trustProxyFromEnvironment(),
     }),
+    { rawBody: true },
   );
 
   const config = app.get(ConfigService);

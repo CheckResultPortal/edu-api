@@ -6,6 +6,7 @@ import { DatabaseModule } from '@edu-api/database';
 import { HealthModule } from '@edu-api/health/health.module';
 import { CatalogModule } from '@edu-api/catalog';
 import { OrdersModule } from '@edu-api/orders';
+import { PaymentsModule } from '@edu-api/payments';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { OrdersModule } from '@edu-api/orders';
     HealthModule,
     CatalogModule,
     OrdersModule,
+    PaymentsModule,
   ],
 })
 export class PublicApiModule {}

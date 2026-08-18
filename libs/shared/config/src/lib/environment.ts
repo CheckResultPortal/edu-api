@@ -92,6 +92,17 @@ const orderMaintenanceEnvironmentShape = {
     .default(60_000),
 } as const;
 
+const paystackProviderEnvironmentShape = {
+  PAYSTACK_SECRET_KEY: z.string().trim().min(20).max(512),
+  PAYSTACK_BASE_URL: z.url().default('https://api.paystack.co/'),
+  PAYSTACK_REQUEST_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .min(1_000)
+    .max(30_000)
+    .default(10_000),
+} as const;
+
 export const publicApiEnvironmentSchema = httpEnvironmentSchema.extend({
   PORT: z.coerce.number().int().min(1).max(65_535).default(3001),
   ORDER_PRIVACY_HMAC_KEY: base64KeySchema,
@@ -119,6 +130,38 @@ export const publicApiEnvironmentSchema = httpEnvironmentSchema.extend({
     .min(1)
     .max(1_000)
     .default(10),
+  ...paystackProviderEnvironmentShape,
+  PAYSTACK_CALLBACK_URL: z.url(),
+  PAYMENT_IDEMPOTENCY_TTL_MS: z.coerce
+    .number()
+    .int()
+    .min(60 * 60 * 1_000)
+    .max(7 * 24 * 60 * 60 * 1_000)
+    .default(24 * 60 * 60 * 1_000),
+  PAYMENT_INITIAL_VERIFICATION_DELAY_MS: z.coerce
+    .number()
+    .int()
+    .min(10_000)
+    .max(60 * 60 * 1_000)
+    .default(2 * 60 * 1_000),
+  PAYMENT_RATE_LIMIT_WINDOW_MS: z.coerce
+    .number()
+    .int()
+    .min(60_000)
+    .max(60 * 60 * 1_000)
+    .default(10 * 60 * 1_000),
+  PAYMENT_RATE_LIMIT_IP_MAXIMUM: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(1_000)
+    .default(30),
+  PAYMENT_RATE_LIMIT_ORDER_MAXIMUM: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(100)
+    .default(10),
 });
 
 export const adminApiEnvironmentSchema = httpEnvironmentSchema.extend({
@@ -131,6 +174,43 @@ export const workerEnvironmentSchema = commonEnvironmentSchema.extend({
   ...adminIdentityEnvironmentShape,
   ...voucherImportEnvironmentShape,
   ...orderMaintenanceEnvironmentShape,
+  ...paystackProviderEnvironmentShape,
+  PAYMENT_VERIFICATION_BATCH_SIZE: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(100)
+    .default(25),
+  PAYMENT_IDEMPOTENCY_CLEANUP_BATCH_SIZE: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(5_000)
+    .default(1_000),
+  PAYMENT_VERIFICATION_LEASE_MS: z.coerce
+    .number()
+    .int()
+    .min(10_000)
+    .max(10 * 60 * 1_000)
+    .default(60_000),
+  PAYMENT_VERIFICATION_MAX_ATTEMPTS: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(50)
+    .default(12),
+  PAYMENT_VERIFICATION_BASE_DELAY_MS: z.coerce
+    .number()
+    .int()
+    .min(10_000)
+    .max(60 * 60 * 1_000)
+    .default(60_000),
+  PAYMENT_RECOVERY_POLL_INTERVAL_MS: z.coerce
+    .number()
+    .int()
+    .min(1_000)
+    .max(60 * 60 * 1_000)
+    .default(30_000),
   RESEND_API_KEY: z.string().trim().min(1),
   RESEND_FROM_EMAIL: z.string().trim().min(3).max(320),
   ADMIN_INVITATION_EMAIL_MAX_ATTEMPTS: z.coerce

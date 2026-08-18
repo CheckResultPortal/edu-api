@@ -1,4 +1,4 @@
-import { randomInt, randomUUID } from 'node:crypto';
+import { createHmac, randomInt, randomUUID } from 'node:crypto';
 
 import axios from 'axios';
 
@@ -40,6 +40,29 @@ afterAll(async () => {
   });
   const orderIds = orders.map((order) => order.id);
   if (orderIds.length !== 0) {
+    const paymentAttempts = await database.paymentAttempt.findMany({
+      where: { orderId: { in: orderIds } },
+      select: { id: true },
+    });
+    const paymentAttemptIds = paymentAttempts.map((payment) => payment.id);
+    await database.outboxEvent.deleteMany({
+      where: {
+        aggregateType: 'PaymentAttempt',
+        aggregateId: { in: paymentAttemptIds },
+      },
+    });
+    await database.paymentProviderEvent.deleteMany({
+      where: { paymentAttemptId: { in: paymentAttemptIds } },
+    });
+    await database.fulfilmentUnit.deleteMany({
+      where: { paymentApplication: { orderId: { in: orderIds } } },
+    });
+    await database.paymentApplication.deleteMany({
+      where: { orderId: { in: orderIds } },
+    });
+    await database.paymentAttempt.deleteMany({
+      where: { orderId: { in: orderIds } },
+    });
     await database.outboxEvent.deleteMany({
       where: { aggregateType: 'Order', aggregateId: { in: orderIds } },
     });
@@ -108,6 +131,12 @@ describe('public API', () => {
           get: expect.any(Object),
         }),
         '/v1/orders': expect.objectContaining({ post: expect.any(Object) }),
+        '/v1/orders/{orderPublicReference}/payments': expect.objectContaining({
+          post: expect.any(Object),
+        }),
+        '/v1/payments/paystack/webhook': expect.objectContaining({
+          post: expect.any(Object),
+        }),
       }),
     );
     expect(
@@ -200,5 +229,117 @@ describe('public API', () => {
         { headers: { 'Idempotency-Key': randomUUID() } },
       ),
     ).rejects.toMatchObject({ response: { status: 400 } });
+  });
+
+  it('authenticates a raw Paystack webhook and creates paid obligations once', async () => {
+    const idempotencyKey = randomUUID();
+    e2eIdempotencyKeys.push(idempotencyKey);
+    const orderResponse = await axios.post(
+      '/v1/orders',
+      {
+        email: 'buyer@example.com',
+        firstName: 'Ama',
+        phoneNumber: `+23324${String(randomInt(10_000_000)).padStart(7, '0')}`,
+        productPublicId,
+        quantity: 2,
+      },
+      { headers: { 'Idempotency-Key': idempotencyKey } },
+    );
+    const order = await database.order.findUniqueOrThrow({
+      where: { publicReference: orderResponse.data.data.id },
+      select: { id: true, items: { select: { id: true } } },
+    });
+    const providerReference = `EDU-e2e-${randomUUID()}`;
+    await database.paymentAttempt.create({
+      data: {
+        currency: 'GHS',
+        expectedAmountMinor: BigInt(5_000),
+        nextVerificationAt: new Date(Date.now() + 60_000),
+        orderId: order.id,
+        provider: 'PAYSTACK',
+        providerReference,
+        status: 'PENDING',
+      },
+    });
+    const rawBody = JSON.stringify({
+      event: 'charge.success',
+      data: {
+        amount: 5000,
+        currency: 'GHS',
+        id: randomInt(1_000_000, 2_000_000),
+        paid_at: '2026-08-18T12:00:00.000Z',
+        reference: providerReference,
+        status: 'success',
+      },
+    });
+    const paystackSecret = process.env.PAYSTACK_SECRET_KEY;
+    if (paystackSecret === undefined)
+      throw new Error('PAYSTACK_SECRET_KEY missing');
+    const signature = createHmac('sha512', paystackSecret)
+      .update(rawBody)
+      .digest('hex');
+
+    await expect(
+      axios.post('/v1/payments/paystack/webhook', rawBody, {
+        headers: {
+          'content-type': 'application/json',
+          'x-paystack-signature': '0'.repeat(128),
+        },
+      }),
+    ).rejects.toMatchObject({ response: { status: 401 } });
+    await expect(
+      database.paymentApplication.count({ where: { orderId: order.id } }),
+    ).resolves.toBe(0);
+
+    const missingStatusBody = JSON.stringify({
+      event: 'charge.success',
+      data: {
+        amount: 5000,
+        currency: 'GHS',
+        id: randomInt(2_000_000, 3_000_000),
+        paid_at: '2026-08-18T12:00:00.000Z',
+        reference: providerReference,
+      },
+    });
+    const missingStatusSignature = createHmac('sha512', paystackSecret)
+      .update(missingStatusBody)
+      .digest('hex');
+
+    await expect(
+      axios.post('/v1/payments/paystack/webhook', missingStatusBody, {
+        headers: {
+          'content-type': 'application/json',
+          'x-paystack-signature': missingStatusSignature,
+        },
+      }),
+    ).rejects.toMatchObject({ response: { status: 400 } });
+    await expect(
+      database.paymentApplication.count({ where: { orderId: order.id } }),
+    ).resolves.toBe(0);
+
+    const first = await axios.post('/v1/payments/paystack/webhook', rawBody, {
+      headers: {
+        'content-type': 'application/json',
+        'x-paystack-signature': signature,
+      },
+    });
+    const duplicate = await axios.post(
+      '/v1/payments/paystack/webhook',
+      rawBody,
+      {
+        headers: {
+          'content-type': 'application/json',
+          'x-paystack-signature': signature,
+        },
+      },
+    );
+
+    expect(first.data.data.attributes.outcome).toBe('APPLIED');
+    expect(duplicate.data.data.attributes.outcome).toBe('DUPLICATE');
+    await expect(
+      database.fulfilmentUnit.count({
+        where: { orderItemId: order.items[0].id },
+      }),
+    ).resolves.toBe(2);
   });
 });

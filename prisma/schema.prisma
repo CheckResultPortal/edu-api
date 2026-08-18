@@ -65,6 +65,20 @@ enum OrderDeliveryPreference {
   SMS_AND_EMAIL
 }
 
+enum PaymentAttemptStatus {
+  INITIALIZING
+  PENDING
+  UNKNOWN
+  SUCCEEDED
+  FAILED
+}
+
+enum PaymentProviderEventOutcome {
+  APPLIED
+  REJECTED
+  ADDITIONAL_SUCCESS
+}
+
 model AdminInvitation {
   id                   BigInt                        @id @default(autoincrement())
   publicId             String                        @unique @default(uuid()) @db.Uuid
@@ -201,23 +215,24 @@ model CatalogGroup {
 }
 
 model Product {
-  id                BigInt         @id @default(autoincrement())
-  publicId          String         @unique @default(uuid()) @db.Uuid
+  id                BigInt           @id @default(autoincrement())
+  publicId          String           @unique @default(uuid()) @db.Uuid
   catalogGroupId    BigInt
-  code              String         @unique
+  code              String           @unique
   name              String
   description       String?
   sellingPriceMinor BigInt
-  currency          String         @db.Char(3)
+  currency          String           @db.Char(3)
   resultCheckerUrl  String?
-  lowStockThreshold Int            @default(0)
-  isActive          Boolean        @default(true)
-  createdAt         DateTime       @default(now()) @db.Timestamptz(6)
-  updatedAt         DateTime       @updatedAt @db.Timestamptz(6)
-  catalogGroup      CatalogGroup   @relation(fields: [catalogGroupId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  lowStockThreshold Int              @default(0)
+  isActive          Boolean          @default(true)
+  createdAt         DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime         @updatedAt @db.Timestamptz(6)
+  catalogGroup      CatalogGroup     @relation(fields: [catalogGroupId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   voucherBatches    VoucherBatch[]
   vouchers          Voucher[]
   orderItems        OrderItem[]
+  fulfilmentUnits   FulfilmentUnit[]
 
   @@index([catalogGroupId, code, id])
 }
@@ -236,23 +251,110 @@ model Order {
   createdAt           DateTime                @default(now()) @db.Timestamptz(6)
   updatedAt           DateTime                @updatedAt @db.Timestamptz(6)
   items               OrderItem[]
+  paymentAttempts     PaymentAttempt[]
+  paymentApplication  PaymentApplication?
 
   @@index([createdAt, id])
   @@index([purchaseChannel, createdAt, id])
 }
 
 model OrderItem {
-  id              BigInt  @id @default(autoincrement())
-  orderId         BigInt  @unique
+  id              BigInt           @id @default(autoincrement())
+  orderId         BigInt           @unique
   productId       BigInt
   quantity        Int
   unitPriceMinor  BigInt
   totalPriceMinor BigInt
-  currency        String  @db.Char(3)
-  order           Order   @relation(fields: [orderId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  product         Product @relation(fields: [productId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  currency        String           @db.Char(3)
+  order           Order            @relation(fields: [orderId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  product         Product          @relation(fields: [productId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  fulfilmentUnits FulfilmentUnit[]
 
+  @@unique([id, productId])
   @@index([productId, id])
+}
+
+model PaymentAttempt {
+  id                     BigInt                 @id @default(autoincrement())
+  publicReference        String                 @unique @default(uuid()) @db.Uuid
+  orderId                BigInt
+  provider               String
+  providerReference      String
+  status                 PaymentAttemptStatus   @default(INITIALIZING)
+  expectedAmountMinor    BigInt
+  currency               String                 @db.Char(3)
+  authorizationUrl       String?
+  accessCode             String?
+  providerTransactionId  String?
+  providerStatus         String?
+  paidAt                 DateTime?              @db.Timestamptz(6)
+  verifiedAt             DateTime?              @db.Timestamptz(6)
+  nextVerificationAt     DateTime?              @db.Timestamptz(6)
+  verificationLeaseUntil DateTime?              @db.Timestamptz(6)
+  verificationAttempts   Int                    @default(0)
+  needsAttentionAt       DateTime?              @db.Timestamptz(6)
+  attentionReason        String?
+  createdAt              DateTime               @default(now()) @db.Timestamptz(6)
+  updatedAt              DateTime               @updatedAt @db.Timestamptz(6)
+  order                  Order                  @relation(fields: [orderId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  application            PaymentApplication?
+  providerEvents         PaymentProviderEvent[]
+
+  @@unique([provider, providerReference])
+  @@unique([provider, providerTransactionId])
+  @@index([orderId, createdAt, id])
+  @@index([status, nextVerificationAt, id])
+}
+
+model PaymentProviderEvent {
+  id                    BigInt                      @id @default(autoincrement())
+  paymentAttemptId      BigInt?
+  provider              String
+  eventType             String
+  providerReference     String
+  providerTransactionId String?
+  payloadFingerprint    String
+  outcome               PaymentProviderEventOutcome
+  rejectionReason       String?
+  receivedAt            DateTime                    @default(now()) @db.Timestamptz(6)
+  processedAt           DateTime                    @default(now()) @db.Timestamptz(6)
+  paymentAttempt        PaymentAttempt?             @relation(fields: [paymentAttemptId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([provider, eventType, providerReference])
+  @@unique([provider, payloadFingerprint])
+  @@index([paymentAttemptId, receivedAt, id])
+  @@index([outcome, receivedAt, id])
+}
+
+model PaymentApplication {
+  id               BigInt           @id @default(autoincrement())
+  orderId          BigInt           @unique
+  paymentAttemptId BigInt           @unique
+  appliedAt        DateTime         @db.Timestamptz(6)
+  createdAt        DateTime         @default(now()) @db.Timestamptz(6)
+  order            Order            @relation(fields: [orderId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  paymentAttempt   PaymentAttempt   @relation(fields: [paymentAttemptId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  fulfilmentUnits  FulfilmentUnit[]
+}
+
+model FulfilmentUnit {
+  id                   BigInt             @id @default(autoincrement())
+  publicReference      String             @unique @default(uuid()) @db.Uuid
+  paymentApplicationId BigInt
+  orderItemId          BigInt
+  productId            BigInt
+  ordinal              Int
+  paidAt               DateTime           @db.Timestamptz(6)
+  allocatedAt          DateTime?          @db.Timestamptz(6)
+  createdAt            DateTime           @default(now()) @db.Timestamptz(6)
+  paymentApplication   PaymentApplication @relation(fields: [paymentApplicationId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  orderItem            OrderItem          @relation(fields: [orderItemId, productId], references: [id, productId], onDelete: Restrict, onUpdate: Cascade)
+  product              Product            @relation(fields: [productId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([orderItemId, ordinal])
+  @@index([paymentApplicationId, id])
+  @@index([paidAt, id])
+  @@index([productId, allocatedAt, paidAt, id])
 }
 
 model VoucherBatch {
