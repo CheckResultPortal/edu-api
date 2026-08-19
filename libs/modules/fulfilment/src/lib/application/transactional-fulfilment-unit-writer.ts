@@ -6,9 +6,11 @@ export const TRANSACTIONAL_FULFILMENT_UNIT_WRITER = Symbol(
 
 export interface CreatePaidFulfilmentUnitsInput {
   readonly orderItemId: bigint;
+  readonly orderPublicReference: string;
   readonly paidAt: Date;
   readonly paymentApplicationId: bigint;
   readonly productId: bigint;
+  readonly productPublicId: string;
   readonly quantity: number;
 }
 

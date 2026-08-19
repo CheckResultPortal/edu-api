@@ -13,6 +13,7 @@ export interface WebPaymentOrderSnapshot {
 export interface PaidOrderItemSnapshot {
   readonly id: bigint;
   readonly productId: bigint;
+  readonly productPublicId: string;
   readonly quantity: number;
 }
 

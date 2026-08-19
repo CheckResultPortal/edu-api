@@ -66,7 +66,12 @@ export class PrismaPaymentOrderQuery implements PaymentOrderQuery {
         publicReference: true,
         items: {
           take: 2,
-          select: { id: true, productId: true, quantity: true },
+          select: {
+            id: true,
+            productId: true,
+            product: { select: { publicId: true } },
+            quantity: true,
+          },
         },
       },
     });
@@ -74,7 +79,12 @@ export class PrismaPaymentOrderQuery implements PaymentOrderQuery {
 
     return {
       id: order.id,
-      item: order.items[0],
+      item: {
+        id: order.items[0].id,
+        productId: order.items[0].productId,
+        productPublicId: order.items[0].product.publicId,
+        quantity: order.items[0].quantity,
+      },
       publicReference: order.publicReference,
     };
   }

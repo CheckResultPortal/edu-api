@@ -11,11 +11,24 @@ import {
   createVoucherInventoryKeyring,
   type VoucherInventoryConfiguration,
 } from './application/voucher-inventory-configuration';
+import { TRANSACTIONAL_VOUCHER_CLAIMER } from './application/transactional-voucher-claimer';
 import { VOUCHER_INVENTORY_SERVICE } from './application/voucher-inventory-service';
+import { PrismaTransactionalVoucherClaimer } from './infrastructure/prisma-transactional-voucher-claimer';
 import { PrismaVoucherInventoryService } from './infrastructure/prisma-voucher-inventory.service';
 
 @Module({
-  imports: [DatabaseModule],
+  providers: [
+    {
+      provide: TRANSACTIONAL_VOUCHER_CLAIMER,
+      useClass: PrismaTransactionalVoucherClaimer,
+    },
+  ],
+  exports: [TRANSACTIONAL_VOUCHER_CLAIMER],
+})
+export class VoucherAllocationInventoryModule {}
+
+@Module({
+  imports: [DatabaseModule, VoucherAllocationInventoryModule],
   providers: [
     {
       provide: VOUCHER_INVENTORY_SERVICE,
@@ -50,6 +63,6 @@ import { PrismaVoucherInventoryService } from './infrastructure/prisma-voucher-i
       },
     },
   ],
-  exports: [VOUCHER_INVENTORY_SERVICE],
+  exports: [VOUCHER_INVENTORY_SERVICE, VoucherAllocationInventoryModule],
 })
 export class VoucherInventoryCoreModule {}

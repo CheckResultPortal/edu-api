@@ -23,9 +23,11 @@ export class PrismaTransactionalFulfilmentUnitWriter
     await transaction.fulfilmentUnit.createMany({
       data: Array.from({ length: input.quantity }, (_, index) => ({
         orderItemId: input.orderItemId,
+        orderPublicReference: input.orderPublicReference,
         paidAt: input.paidAt,
         paymentApplicationId: input.paymentApplicationId,
         productId: input.productId,
+        productPublicId: input.productPublicId,
         ordinal: index + 1,
       })),
     });

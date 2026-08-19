@@ -170,68 +170,118 @@ export const adminApiEnvironmentSchema = httpEnvironmentSchema.extend({
   ...voucherImportEnvironmentShape,
 });
 
-export const workerEnvironmentSchema = commonEnvironmentSchema.extend({
-  ...adminIdentityEnvironmentShape,
-  ...voucherImportEnvironmentShape,
-  ...orderMaintenanceEnvironmentShape,
-  ...paystackProviderEnvironmentShape,
-  PAYMENT_VERIFICATION_BATCH_SIZE: z.coerce
-    .number()
-    .int()
-    .min(1)
-    .max(100)
-    .default(25),
-  PAYMENT_IDEMPOTENCY_CLEANUP_BATCH_SIZE: z.coerce
-    .number()
-    .int()
-    .min(1)
-    .max(5_000)
-    .default(1_000),
-  PAYMENT_VERIFICATION_LEASE_MS: z.coerce
-    .number()
-    .int()
-    .min(10_000)
-    .max(10 * 60 * 1_000)
-    .default(60_000),
-  PAYMENT_VERIFICATION_MAX_ATTEMPTS: z.coerce
-    .number()
-    .int()
-    .min(1)
-    .max(50)
-    .default(12),
-  PAYMENT_VERIFICATION_BASE_DELAY_MS: z.coerce
-    .number()
-    .int()
-    .min(10_000)
-    .max(60 * 60 * 1_000)
-    .default(60_000),
-  PAYMENT_RECOVERY_POLL_INTERVAL_MS: z.coerce
-    .number()
-    .int()
-    .min(1_000)
-    .max(60 * 60 * 1_000)
-    .default(30_000),
-  RESEND_API_KEY: z.string().trim().min(1),
-  RESEND_FROM_EMAIL: z.string().trim().min(3).max(320),
-  ADMIN_INVITATION_EMAIL_MAX_ATTEMPTS: z.coerce
-    .number()
-    .int()
-    .min(1)
-    .max(20)
-    .default(5),
-  ADMIN_INVITATION_EMAIL_BATCH_SIZE: z.coerce
-    .number()
-    .int()
-    .min(1)
-    .max(100)
-    .default(25),
-  ADMIN_INVITATION_EMAIL_POLL_INTERVAL_MS: z.coerce
-    .number()
-    .int()
-    .min(1_000)
-    .max(60_000)
-    .default(5_000),
-});
+export const workerEnvironmentSchema = commonEnvironmentSchema
+  .extend({
+    ...adminIdentityEnvironmentShape,
+    ...voucherImportEnvironmentShape,
+    ...orderMaintenanceEnvironmentShape,
+    ...paystackProviderEnvironmentShape,
+    PAYMENT_VERIFICATION_BATCH_SIZE: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(100)
+      .default(25),
+    PAYMENT_IDEMPOTENCY_CLEANUP_BATCH_SIZE: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(5_000)
+      .default(1_000),
+    PAYMENT_VERIFICATION_LEASE_MS: z.coerce
+      .number()
+      .int()
+      .min(10_000)
+      .max(10 * 60 * 1_000)
+      .default(60_000),
+    PAYMENT_VERIFICATION_MAX_ATTEMPTS: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(50)
+      .default(12),
+    PAYMENT_VERIFICATION_BASE_DELAY_MS: z.coerce
+      .number()
+      .int()
+      .min(10_000)
+      .max(60 * 60 * 1_000)
+      .default(60_000),
+    PAYMENT_RECOVERY_POLL_INTERVAL_MS: z.coerce
+      .number()
+      .int()
+      .min(1_000)
+      .max(60 * 60 * 1_000)
+      .default(30_000),
+    RESEND_API_KEY: z.string().trim().min(1),
+    RESEND_FROM_EMAIL: z.string().trim().min(3).max(320),
+    ADMIN_INVITATION_EMAIL_MAX_ATTEMPTS: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(20)
+      .default(5),
+    ADMIN_INVITATION_EMAIL_BATCH_SIZE: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(100)
+      .default(25),
+    ADMIN_INVITATION_EMAIL_POLL_INTERVAL_MS: z.coerce
+      .number()
+      .int()
+      .min(1_000)
+      .max(60_000)
+      .default(5_000),
+    VOUCHER_ALLOCATION_OUTBOX_BATCH_SIZE: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(100)
+      .default(10),
+    VOUCHER_ALLOCATION_POLL_INTERVAL_MS: z.coerce
+      .number()
+      .int()
+      .min(1_000)
+      .max(60_000)
+      .default(5_000),
+    VOUCHER_ALLOCATION_LEASE_MS: z.coerce
+      .number()
+      .int()
+      .min(30_000)
+      .max(10 * 60_000)
+      .default(120_000),
+    VOUCHER_ALLOCATION_MAX_ATTEMPTS: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(20)
+      .default(5),
+    VOUCHER_ALLOCATION_RETRY_BASE_DELAY_MS: z.coerce
+      .number()
+      .int()
+      .min(1_000)
+      .max(60_000)
+      .default(5_000),
+    VOUCHER_ALLOCATION_RETRY_MAX_DELAY_MS: z.coerce
+      .number()
+      .int()
+      .min(5_000)
+      .max(60 * 60_000)
+      .default(300_000),
+  })
+  .superRefine((configuration, context) => {
+    if (
+      configuration.VOUCHER_ALLOCATION_RETRY_MAX_DELAY_MS <
+      configuration.VOUCHER_ALLOCATION_RETRY_BASE_DELAY_MS
+    ) {
+      context.addIssue({
+        code: 'custom',
+        message:
+          'must be greater than or equal to VOUCHER_ALLOCATION_RETRY_BASE_DELAY_MS',
+        path: ['VOUCHER_ALLOCATION_RETRY_MAX_DELAY_MS'],
+      });
+    }
+  });
 
 export type PublicApiEnvironment = z.infer<typeof publicApiEnvironmentSchema>;
 

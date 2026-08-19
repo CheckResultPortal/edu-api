@@ -229,9 +229,11 @@ export class PrismaPaymentSuccessRepository
     });
     await this.fulfilment.createPaidUnits(transaction, {
       orderItemId: paidOrder.item.id,
+      orderPublicReference: paidOrder.publicReference,
       paidAt: input.success.paidAt,
       paymentApplicationId: application.id,
       productId: paidOrder.item.productId,
+      productPublicId: paidOrder.item.productPublicId,
       quantity: paidOrder.item.quantity,
     });
     await this.insertPaymentSucceededEvent(transaction, {

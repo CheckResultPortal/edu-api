@@ -210,6 +210,12 @@ describe('environment validation', () => {
         ADMIN_INVITATION_EMAIL_MAX_ATTEMPTS: 5,
         ADMIN_INVITATION_EMAIL_BATCH_SIZE: 25,
         ADMIN_INVITATION_EMAIL_POLL_INTERVAL_MS: 5000,
+        VOUCHER_ALLOCATION_OUTBOX_BATCH_SIZE: 10,
+        VOUCHER_ALLOCATION_POLL_INTERVAL_MS: 5000,
+        VOUCHER_ALLOCATION_LEASE_MS: 120000,
+        VOUCHER_ALLOCATION_MAX_ATTEMPTS: 5,
+        VOUCHER_ALLOCATION_RETRY_BASE_DELAY_MS: 5000,
+        VOUCHER_ALLOCATION_RETRY_MAX_DELAY_MS: 300000,
       });
     });
 
@@ -223,6 +229,16 @@ describe('environment validation', () => {
         }),
       ).toThrow('NODE_ENV');
     });
+
+    it('rejects an allocation retry maximum below its base delay', () => {
+      expect(() =>
+        validateWorkerEnvironment({
+          ...validWorkerEnvironment,
+          VOUCHER_ALLOCATION_RETRY_BASE_DELAY_MS: '10000',
+          VOUCHER_ALLOCATION_RETRY_MAX_DELAY_MS: '5000',
+        }),
+      ).toThrow('VOUCHER_ALLOCATION_RETRY_MAX_DELAY_MS');
+    });
   });
 });
 
@@ -230,4 +246,21 @@ const privacyHmacKey = 'abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG';
 const paystackPublicEnvironment = {
   PAYSTACK_SECRET_KEY: 'sk_test_012345678901234567890123456789',
   PAYSTACK_CALLBACK_URL: 'https://app.example.com/payment/callback',
+} as const;
+
+const validWorkerEnvironment = {
+  SERVICE_NAME: 'worker',
+  NODE_ENV: 'test',
+  DATABASE_URL: 'postgresql://user:password@localhost:5432/database',
+  REDIS_URL: 'redis://localhost:6379',
+  PAYSTACK_SECRET_KEY: paystackPublicEnvironment.PAYSTACK_SECRET_KEY,
+  ADMIN_APPLICATION_ORIGIN: 'https://admin.example.com',
+  ADMIN_SESSION_HMAC_KEY: '0123456789012345678901234567890123456789012',
+  ADMIN_SECRET_ENCRYPTION_KEY_ID: 'test-v1',
+  ADMIN_SECRET_ENCRYPTION_KEY: '0123456789012345678901234567890123456789012',
+  VOUCHER_SECRET_ENCRYPTION_KEY_ID: 'test-v1',
+  VOUCHER_SECRET_ENCRYPTION_KEY: '0123456789012345678901234567890123456789012',
+  VOUCHER_PIN_FINGERPRINT_KEY: 'abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG',
+  RESEND_API_KEY: 're_test',
+  RESEND_FROM_EMAIL: 'EduVoucher <admin@example.com>',
 } as const;

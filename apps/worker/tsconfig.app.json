@@ -26,10 +26,13 @@
       "path": "../../libs/modules/voucher-inventory/tsconfig.lib.json"
     },
     {
+      "path": "../../libs/modules/payments/tsconfig.lib.json"
+    },
+    {
       "path": "../../libs/modules/orders/tsconfig.lib.json"
     },
     {
-      "path": "../../libs/modules/payments/tsconfig.lib.json"
+      "path": "../../libs/modules/fulfilment/tsconfig.lib.json"
     },
     {
       "path": "../../libs/modules/communication/tsconfig.lib.json"

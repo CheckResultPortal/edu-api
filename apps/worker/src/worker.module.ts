@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 
 import { validateWorkerEnvironment } from '@edu-api/config';
 import { CommunicationWorkerModule } from '@edu-api/communication';
+import { FulfilmentWorkerModule } from '@edu-api/fulfilment';
 import { OrdersWorkerModule } from '@edu-api/orders';
 import { PaymentsWorkerModule } from '@edu-api/payments';
 import { VoucherInventoryWorkerModule } from '@edu-api/voucher-inventory';
@@ -16,6 +17,7 @@ import { VoucherInventoryWorkerModule } from '@edu-api/voucher-inventory';
       validate: validateWorkerEnvironment,
     }),
     CommunicationWorkerModule,
+    FulfilmentWorkerModule,
     OrdersWorkerModule,
     PaymentsWorkerModule,
     VoucherInventoryWorkerModule,
