@@ -24,6 +24,8 @@ describe('WorkerModule', () => {
         'abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG',
       RESEND_API_KEY: 're_test',
       RESEND_FROM_EMAIL: 'EduVoucher <admin@example.com>',
+      MOOLRE_SMS_VAS_KEY: 'moolre-test-key',
+      MOOLRE_SMS_SENDER_ID: 'EduVoucher',
       SERVICE_NAME: 'worker',
     };
   });

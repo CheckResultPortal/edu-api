@@ -172,6 +172,8 @@ describe('environment validation', () => {
           'abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG',
         RESEND_API_KEY: 're_test',
         RESEND_FROM_EMAIL: 'EduVoucher <admin@example.com>',
+        MOOLRE_SMS_VAS_KEY: 'moolre-test-key',
+        MOOLRE_SMS_SENDER_ID: 'EduVoucher',
       });
 
       expect(configuration).toEqual({
@@ -207,6 +209,16 @@ describe('environment validation', () => {
         PAYMENT_RECOVERY_POLL_INTERVAL_MS: 30000,
         RESEND_API_KEY: 're_test',
         RESEND_FROM_EMAIL: 'EduVoucher <admin@example.com>',
+        MOOLRE_SMS_VAS_KEY: 'moolre-test-key',
+        MOOLRE_SMS_SENDER_ID: 'EduVoucher',
+        MOOLRE_SMS_BASE_URL: 'https://api.moolre.com',
+        MOOLRE_SMS_REQUEST_TIMEOUT_MS: 10000,
+        VOUCHER_DELIVERY_BATCH_SIZE: 25,
+        VOUCHER_DELIVERY_POLL_INTERVAL_MS: 5000,
+        VOUCHER_DELIVERY_PROCESSING_LEASE_MS: 120000,
+        VOUCHER_DELIVERY_MAX_ATTEMPTS: 5,
+        VOUCHER_DELIVERY_RETRY_BASE_DELAY_MS: 5000,
+        VOUCHER_DELIVERY_RETRY_MAX_DELAY_MS: 300000,
         ADMIN_INVITATION_EMAIL_MAX_ATTEMPTS: 5,
         ADMIN_INVITATION_EMAIL_BATCH_SIZE: 25,
         ADMIN_INVITATION_EMAIL_POLL_INTERVAL_MS: 5000,
@@ -257,6 +269,16 @@ describe('environment validation', () => {
         }),
       ).toThrow('RESTOCK_DRAIN_RETRY_MAX_DELAY_MS');
     });
+
+    it('rejects a voucher delivery retry maximum below its base delay', () => {
+      expect(() =>
+        validateWorkerEnvironment({
+          ...validWorkerEnvironment,
+          VOUCHER_DELIVERY_RETRY_BASE_DELAY_MS: '10000',
+          VOUCHER_DELIVERY_RETRY_MAX_DELAY_MS: '5000',
+        }),
+      ).toThrow('VOUCHER_DELIVERY_RETRY_MAX_DELAY_MS');
+    });
   });
 });
 
@@ -281,4 +303,6 @@ const validWorkerEnvironment = {
   VOUCHER_PIN_FINGERPRINT_KEY: 'abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG',
   RESEND_API_KEY: 're_test',
   RESEND_FROM_EMAIL: 'EduVoucher <admin@example.com>',
+  MOOLRE_SMS_VAS_KEY: 'moolre-test-key',
+  MOOLRE_SMS_SENDER_ID: 'EduVoucher',
 } as const;

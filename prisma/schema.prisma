@@ -42,6 +42,35 @@ enum EmailAttemptOutcome {
   UNKNOWN_OUTCOME
 }
 
+enum CommunicationPurpose {
+  VOUCHER_DELIVERY
+}
+
+enum CommunicationDeliveryChannel {
+  SMS
+  EMAIL
+}
+
+enum CommunicationDeliveryState {
+  PENDING
+  PROCESSING
+  RETRYING
+  SENT
+  UNKNOWN
+  NEEDS_ATTENTION
+}
+
+enum CommunicationAttemptOutcome {
+  PROCESSING
+  SENT
+  TEMPORARY
+  PERMANENT
+  RATE_LIMITED
+  AUTHENTICATION
+  INVALID_REQUEST
+  UNKNOWN_OUTCOME
+}
+
 enum VoucherStatus {
   AVAILABLE
   SOLD
@@ -421,11 +450,61 @@ model VoucherAllocation {
   fulfilmentUnit   FulfilmentUnit @relation(fields: [fulfilmentUnitId, productId], references: [id, productId], onDelete: Restrict, onUpdate: Cascade)
   voucher          Voucher        @relation(fields: [voucherId, productId], references: [id, productId], onDelete: Restrict, onUpdate: Cascade)
   product          Product        @relation(fields: [productId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  communication    Communication?
 
   @@unique([fulfilmentUnitId, productId])
   @@unique([voucherId, productId])
   @@index([allocatedAt, id])
   @@index([productId, allocatedAt, id])
+}
+
+model Communication {
+  id          BigInt               @id @default(autoincrement())
+  publicId    String               @unique @default(uuid()) @db.Uuid
+  allocationId BigInt              @unique
+  purpose     CommunicationPurpose
+  createdAt   DateTime             @default(now()) @db.Timestamptz(6)
+  allocation  VoucherAllocation    @relation(fields: [allocationId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  deliveries  CommunicationDelivery[]
+}
+
+model CommunicationDelivery {
+  id                   BigInt                       @id @default(autoincrement())
+  publicId             String                       @unique @default(uuid()) @db.Uuid
+  communicationId      BigInt
+  channel              CommunicationDeliveryChannel
+  destination          String
+  state                CommunicationDeliveryState   @default(PENDING)
+  attemptCount         Int                          @default(0)
+  nextAttemptAt        DateTime                     @default(now()) @db.Timestamptz(6)
+  processingLeaseUntil DateTime?                    @db.Timestamptz(6)
+  sentAt               DateTime?                    @db.Timestamptz(6)
+  providerMessageId    String?
+  lastFailureCategory  String?
+  needsAttentionAt     DateTime?                    @db.Timestamptz(6)
+  createdAt            DateTime                     @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime                     @updatedAt @db.Timestamptz(6)
+  communication        Communication                @relation(fields: [communicationId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  attempts             CommunicationAttempt[]
+
+  @@unique([communicationId, channel])
+  @@index([state, nextAttemptAt, id])
+}
+
+model CommunicationAttempt {
+  id                BigInt                      @id @default(autoincrement())
+  deliveryId        BigInt
+  attemptNumber     Int
+  provider          String
+  outcome           CommunicationAttemptOutcome @default(PROCESSING)
+  providerMessageId String?
+  providerCode      String?
+  startedAt         DateTime                    @default(now()) @db.Timestamptz(6)
+  completedAt       DateTime?                   @db.Timestamptz(6)
+  delivery          CommunicationDelivery       @relation(fields: [deliveryId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([deliveryId, attemptNumber])
+  @@index([deliveryId, startedAt])
 }
 
 // Platform-owned durable records. Domain modules own their business tables and

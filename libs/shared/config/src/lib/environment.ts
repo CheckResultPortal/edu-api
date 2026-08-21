@@ -214,6 +214,51 @@ export const workerEnvironmentSchema = commonEnvironmentSchema
       .default(30_000),
     RESEND_API_KEY: z.string().trim().min(1),
     RESEND_FROM_EMAIL: z.string().trim().min(3).max(320),
+    MOOLRE_SMS_VAS_KEY: z.string().trim().min(1).max(512),
+    MOOLRE_SMS_SENDER_ID: z.string().trim().min(1).max(11),
+    MOOLRE_SMS_BASE_URL: z.url().default('https://api.moolre.com'),
+    MOOLRE_SMS_REQUEST_TIMEOUT_MS: z.coerce
+      .number()
+      .int()
+      .min(1_000)
+      .max(30_000)
+      .default(10_000),
+    VOUCHER_DELIVERY_BATCH_SIZE: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(100)
+      .default(25),
+    VOUCHER_DELIVERY_POLL_INTERVAL_MS: z.coerce
+      .number()
+      .int()
+      .min(1_000)
+      .max(60_000)
+      .default(5_000),
+    VOUCHER_DELIVERY_PROCESSING_LEASE_MS: z.coerce
+      .number()
+      .int()
+      .min(30_000)
+      .max(10 * 60_000)
+      .default(120_000),
+    VOUCHER_DELIVERY_MAX_ATTEMPTS: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(20)
+      .default(5),
+    VOUCHER_DELIVERY_RETRY_BASE_DELAY_MS: z.coerce
+      .number()
+      .int()
+      .min(1_000)
+      .max(60_000)
+      .default(5_000),
+    VOUCHER_DELIVERY_RETRY_MAX_DELAY_MS: z.coerce
+      .number()
+      .int()
+      .min(5_000)
+      .max(60 * 60_000)
+      .default(300_000),
     ADMIN_INVITATION_EMAIL_MAX_ATTEMPTS: z.coerce
       .number()
       .int()
@@ -338,6 +383,17 @@ export const workerEnvironmentSchema = commonEnvironmentSchema
         message:
           'must be greater than or equal to RESTOCK_DRAIN_RETRY_BASE_DELAY_MS',
         path: ['RESTOCK_DRAIN_RETRY_MAX_DELAY_MS'],
+      });
+    }
+    if (
+      configuration.VOUCHER_DELIVERY_RETRY_MAX_DELAY_MS <
+      configuration.VOUCHER_DELIVERY_RETRY_BASE_DELAY_MS
+    ) {
+      context.addIssue({
+        code: 'custom',
+        message:
+          'must be greater than or equal to VOUCHER_DELIVERY_RETRY_BASE_DELAY_MS',
+        path: ['VOUCHER_DELIVERY_RETRY_MAX_DELAY_MS'],
       });
     }
   });
