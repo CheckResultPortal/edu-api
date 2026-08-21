@@ -6,6 +6,7 @@ import {
   DatabaseModule,
   type DatabaseClient,
 } from '@edu-api/database';
+import { StructuredLogger } from '@edu-api/observability';
 import {
   TRANSACTIONAL_VOUCHER_CLAIMER,
   VoucherAllocationInventoryModule,
@@ -24,6 +25,8 @@ import { PaymentSucceededAllocationHandler } from './infrastructure/payment-succ
 import { PaymentSucceededOutboxConsumer } from './infrastructure/payment-succeeded-outbox-consumer';
 import { PrismaTransactionalFulfilmentUnitWriter } from './infrastructure/prisma-transactional-fulfilment-unit-writer';
 import { PrismaVoucherAllocationRepository } from './infrastructure/prisma-voucher-allocation.repository';
+import { VoucherStockAddedAllocationHandler } from './infrastructure/voucher-stock-added-allocation.handler';
+import { VoucherStockAddedOutboxConsumer } from './infrastructure/voucher-stock-added-outbox-consumer';
 
 @Module({
   imports: [DatabaseModule],
@@ -65,30 +68,91 @@ export class FulfilmentCoreModule {}
         new PaymentSucceededAllocationHandler(service),
     },
     {
+      provide: StructuredLogger,
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) =>
+        new StructuredLogger({
+          environment: config.get<string>('NODE_ENV', 'development'),
+          level: config.get<
+            'fatal' | 'error' | 'warn' | 'log' | 'debug' | 'verbose'
+          >('LOG_LEVEL', 'log'),
+          service: config.get<string>('SERVICE_NAME', 'worker'),
+        }),
+    },
+    {
       provide: PaymentSucceededOutboxConsumer,
       inject: [
         DATABASE_CLIENT,
         PaymentSucceededAllocationHandler,
         ConfigService,
+        StructuredLogger,
       ],
       useFactory: (
         database: DatabaseClient,
         handler: PaymentSucceededAllocationHandler,
         config: ConfigService,
+        logger: StructuredLogger,
       ): PaymentSucceededOutboxConsumer =>
-        new PaymentSucceededOutboxConsumer(database, handler, {
-          leaseMs: config.getOrThrow<number>('VOUCHER_ALLOCATION_LEASE_MS'),
-          maxAttempts: config.getOrThrow<number>(
-            'VOUCHER_ALLOCATION_MAX_ATTEMPTS',
-          ),
-          maximumRetryDelayMs: config.getOrThrow<number>(
-            'VOUCHER_ALLOCATION_RETRY_MAX_DELAY_MS',
-          ),
-          retryBaseDelayMs: config.getOrThrow<number>(
-            'VOUCHER_ALLOCATION_RETRY_BASE_DELAY_MS',
-          ),
-          workerId: `${config.get<string>('SERVICE_NAME', 'worker')}:${process.pid}`,
-        }),
+        new PaymentSucceededOutboxConsumer(
+          database,
+          handler,
+          {
+            leaseMs: config.getOrThrow<number>('VOUCHER_ALLOCATION_LEASE_MS'),
+            maxAttempts: config.getOrThrow<number>(
+              'VOUCHER_ALLOCATION_MAX_ATTEMPTS',
+            ),
+            maximumRetryDelayMs: config.getOrThrow<number>(
+              'VOUCHER_ALLOCATION_RETRY_MAX_DELAY_MS',
+            ),
+            retryBaseDelayMs: config.getOrThrow<number>(
+              'VOUCHER_ALLOCATION_RETRY_BASE_DELAY_MS',
+            ),
+            workerId: `${config.get<string>('SERVICE_NAME', 'worker')}:${process.pid}`,
+          },
+          logger,
+        ),
+    },
+    {
+      provide: VoucherStockAddedAllocationHandler,
+      inject: [VOUCHER_ALLOCATION_SERVICE],
+      useFactory: (
+        service: VoucherAllocationService,
+      ): VoucherStockAddedAllocationHandler =>
+        new VoucherStockAddedAllocationHandler(service),
+    },
+    {
+      provide: VoucherStockAddedOutboxConsumer,
+      inject: [
+        DATABASE_CLIENT,
+        VoucherStockAddedAllocationHandler,
+        ConfigService,
+        StructuredLogger,
+      ],
+      useFactory: (
+        database: DatabaseClient,
+        handler: VoucherStockAddedAllocationHandler,
+        config: ConfigService,
+        logger: StructuredLogger,
+      ): VoucherStockAddedOutboxConsumer =>
+        new VoucherStockAddedOutboxConsumer(
+          database,
+          handler,
+          config.getOrThrow<number>('RESTOCK_DRAIN_CHUNK_SIZE'),
+          {
+            leaseMs: config.getOrThrow<number>('RESTOCK_DRAIN_LEASE_MS'),
+            maxAttempts: config.getOrThrow<number>(
+              'RESTOCK_DRAIN_MAX_ATTEMPTS',
+            ),
+            maximumRetryDelayMs: config.getOrThrow<number>(
+              'RESTOCK_DRAIN_RETRY_MAX_DELAY_MS',
+            ),
+            retryBaseDelayMs: config.getOrThrow<number>(
+              'RESTOCK_DRAIN_RETRY_BASE_DELAY_MS',
+            ),
+            workerId: `${config.get<string>('SERVICE_NAME', 'worker')}:${process.pid}`,
+          },
+          logger,
+        ),
     },
   ],
   exports: [
@@ -96,6 +160,8 @@ export class FulfilmentCoreModule {}
     VOUCHER_ALLOCATION_SERVICE,
     PaymentSucceededAllocationHandler,
     PaymentSucceededOutboxConsumer,
+    VoucherStockAddedAllocationHandler,
+    VoucherStockAddedOutboxConsumer,
   ],
 })
 export class VoucherAllocationProcessingModule {}

@@ -28,15 +28,39 @@ export interface AllocationCycleResult {
   readonly stoppedForZeroStock: boolean;
 }
 
+export type RestockSweepResult =
+  | {
+      readonly allocation: AllocationCycleResult;
+      readonly outcome: 'DRAINED';
+      readonly productPublicId: string;
+    }
+  | { readonly outcome: 'CURSOR_RESET' | 'NO_WAITING' };
+
 export interface VoucherAllocationRepository {
   allocateNextWaitingUnitForProduct(
     transaction: DatabaseTransactionClient,
     productId: bigint,
   ): Promise<SingleAllocationResult>;
 
+  allocateWaitingUnitsForProduct(
+    transaction: DatabaseTransactionClient,
+    productId: bigint,
+    maximumUnits: number,
+  ): Promise<AllocationCycleResult>;
+
+  drainNextWaitingProduct(
+    transaction: DatabaseTransactionClient,
+    maximumUnits: number,
+  ): Promise<RestockSweepResult>;
+
   findProductIdByOrderPublicReference(
     transaction: DatabaseTransactionClient,
     orderPublicReference: string,
+  ): Promise<bigint | null>;
+
+  findProductIdByProductPublicId(
+    transaction: DatabaseTransactionClient,
+    productPublicId: string,
   ): Promise<bigint | null>;
 }
 
@@ -52,6 +76,17 @@ export interface VoucherAllocationService {
     productId: bigint,
     maximumUnits?: number,
   ): Promise<AllocationCycleResult>;
+
+  allocateWaitingUnitsForProductPublicId(
+    transaction: DatabaseTransactionClient,
+    productPublicId: string,
+    maximumUnits?: number,
+  ): Promise<AllocationCycleResult>;
+
+  drainNextWaitingProduct(
+    transaction: DatabaseTransactionClient,
+    maximumUnits?: number,
+  ): Promise<RestockSweepResult>;
 }
 
 export class DefaultVoucherAllocationService
@@ -85,34 +120,52 @@ export class DefaultVoucherAllocationService
     productId: bigint,
     maximumUnits = 50,
   ): Promise<AllocationCycleResult> {
-    if (!Number.isInteger(maximumUnits) || maximumUnits < 1) {
-      throw new Error('maximumUnits must be a positive integer.');
-    }
-    const boundedMaximumUnits = Math.min(maximumUnits, 500);
-    let examinedCount = 0;
-    let allocatedCount = 0;
-    let stoppedForZeroStock = false;
-
-    for (let index = 0; index < boundedMaximumUnits; index += 1) {
-      const result = await this.repository.allocateNextWaitingUnitForProduct(
-        transaction,
-        productId,
-      );
-      if (result.outcome === 'NO_WAITING') break;
-
-      examinedCount += 1;
-      if (result.outcome === 'ALLOCATED') {
-        allocatedCount += 1;
-      } else {
-        stoppedForZeroStock = true;
-        break;
-      }
-    }
-
-    return {
-      allocatedCount,
-      examinedCount,
-      stoppedForZeroStock,
-    };
+    return this.repository.allocateWaitingUnitsForProduct(
+      transaction,
+      productId,
+      normalizeMaximumUnits(maximumUnits),
+    );
   }
+
+  async allocateWaitingUnitsForProductPublicId(
+    transaction: DatabaseTransactionClient,
+    productPublicId: string,
+    maximumUnits = 50,
+  ): Promise<AllocationCycleResult> {
+    const productId = await this.repository.findProductIdByProductPublicId(
+      transaction,
+      productPublicId,
+    );
+    if (productId === null) return noAllocationWork();
+    return this.allocateWaitingUnitsForProduct(
+      transaction,
+      productId,
+      maximumUnits,
+    );
+  }
+
+  drainNextWaitingProduct(
+    transaction: DatabaseTransactionClient,
+    maximumUnits = 50,
+  ): Promise<RestockSweepResult> {
+    return this.repository.drainNextWaitingProduct(
+      transaction,
+      normalizeMaximumUnits(maximumUnits),
+    );
+  }
+}
+
+function normalizeMaximumUnits(maximumUnits: number): number {
+  if (!Number.isInteger(maximumUnits) || maximumUnits < 1) {
+    throw new Error('maximumUnits must be a positive integer.');
+  }
+  return Math.min(maximumUnits, 500);
+}
+
+function noAllocationWork(): AllocationCycleResult {
+  return {
+    allocatedCount: 0,
+    examinedCount: 0,
+    stoppedForZeroStock: false,
+  };
 }

@@ -216,6 +216,14 @@ describe('environment validation', () => {
         VOUCHER_ALLOCATION_MAX_ATTEMPTS: 5,
         VOUCHER_ALLOCATION_RETRY_BASE_DELAY_MS: 5000,
         VOUCHER_ALLOCATION_RETRY_MAX_DELAY_MS: 300000,
+        RESTOCK_DRAIN_OUTBOX_BATCH_SIZE: 10,
+        RESTOCK_DRAIN_CHUNK_SIZE: 250,
+        RESTOCK_DRAIN_RECOVERY_PRODUCT_BATCH_SIZE: 10,
+        RESTOCK_DRAIN_POLL_INTERVAL_MS: 5000,
+        RESTOCK_DRAIN_LEASE_MS: 120000,
+        RESTOCK_DRAIN_MAX_ATTEMPTS: 5,
+        RESTOCK_DRAIN_RETRY_BASE_DELAY_MS: 5000,
+        RESTOCK_DRAIN_RETRY_MAX_DELAY_MS: 300000,
       });
     });
 
@@ -238,6 +246,16 @@ describe('environment validation', () => {
           VOUCHER_ALLOCATION_RETRY_MAX_DELAY_MS: '5000',
         }),
       ).toThrow('VOUCHER_ALLOCATION_RETRY_MAX_DELAY_MS');
+    });
+
+    it('rejects a restock retry maximum below its base delay', () => {
+      expect(() =>
+        validateWorkerEnvironment({
+          ...validWorkerEnvironment,
+          RESTOCK_DRAIN_RETRY_BASE_DELAY_MS: '10000',
+          RESTOCK_DRAIN_RETRY_MAX_DELAY_MS: '5000',
+        }),
+      ).toThrow('RESTOCK_DRAIN_RETRY_MAX_DELAY_MS');
     });
   });
 });

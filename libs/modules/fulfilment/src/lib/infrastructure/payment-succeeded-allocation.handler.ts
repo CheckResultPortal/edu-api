@@ -1,3 +1,5 @@
+import type { DatabaseTransactionClient } from '@edu-api/database';
+
 import type {
   AllocationCycleResult,
   VoucherAllocationService,
@@ -31,4 +33,3 @@ export class PaymentSucceededAllocationHandler {
     );
   }
 }
-import type { DatabaseTransactionClient } from '@edu-api/database';

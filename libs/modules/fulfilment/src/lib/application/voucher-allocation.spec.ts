@@ -1,3 +1,5 @@
+import type { DatabaseTransactionClient } from '@edu-api/database';
+
 import {
   DefaultVoucherAllocationService,
   type VoucherAllocationRepository,
@@ -11,7 +13,10 @@ describe('DefaultVoucherAllocationService', () => {
   beforeEach(() => {
     repository = {
       allocateNextWaitingUnitForProduct: jest.fn(),
+      allocateWaitingUnitsForProduct: jest.fn(),
+      drainNextWaitingProduct: jest.fn(),
       findProductIdByOrderPublicReference: jest.fn(),
+      findProductIdByProductPublicId: jest.fn(),
     };
     service = new DefaultVoucherAllocationService(repository);
   });
@@ -20,19 +25,11 @@ describe('DefaultVoucherAllocationService', () => {
     repository.findProductIdByOrderPublicReference.mockResolvedValue(
       BigInt(42),
     );
-    repository.allocateNextWaitingUnitForProduct
-      .mockResolvedValueOnce({
-        outcome: 'ALLOCATED',
-        allocationPublicReference: 'd48e89f1-7f8e-4a6f-9988-5f5647a9988a',
-        fulfilmentUnitPublicReference: '123e4567-e89b-12d3-a456-426614174000',
-        productId: BigInt(42),
-      })
-      .mockResolvedValueOnce({
-        outcome: 'ALLOCATED',
-        allocationPublicReference: 'b8ce9dc7-f417-4d82-ae47-f54109b8bbb7',
-        fulfilmentUnitPublicReference: '8581f43a-2318-432b-9594-ad0621839477',
-        productId: BigInt(42),
-      });
+    repository.allocateWaitingUnitsForProduct.mockResolvedValue({
+      allocatedCount: 2,
+      examinedCount: 2,
+      stoppedForZeroStock: false,
+    });
 
     await expect(
       service.allocateUnitsForOrder(
@@ -45,16 +42,18 @@ describe('DefaultVoucherAllocationService', () => {
       examinedCount: 2,
       stoppedForZeroStock: false,
     });
-    expect(repository.allocateNextWaitingUnitForProduct).toHaveBeenCalledTimes(
+    expect(repository.allocateWaitingUnitsForProduct).toHaveBeenCalledWith(
+      transaction,
+      BigInt(42),
       2,
     );
   });
 
   it('stops immediately after the first zero-stock result', async () => {
-    repository.allocateNextWaitingUnitForProduct.mockResolvedValue({
-      outcome: 'ZERO_STOCK',
-      fulfilmentUnitPublicReference: '123e4567-e89b-12d3-a456-426614174000',
-      productId: BigInt(7),
+    repository.allocateWaitingUnitsForProduct.mockResolvedValue({
+      allocatedCount: 0,
+      examinedCount: 1,
+      stoppedForZeroStock: true,
     });
 
     await expect(
@@ -64,20 +63,19 @@ describe('DefaultVoucherAllocationService', () => {
       examinedCount: 1,
       stoppedForZeroStock: true,
     });
-    expect(repository.allocateNextWaitingUnitForProduct).toHaveBeenCalledTimes(
-      1,
+    expect(repository.allocateWaitingUnitsForProduct).toHaveBeenCalledWith(
+      transaction,
+      BigInt(7),
+      500,
     );
   });
 
   it('stops when no waiting obligation remains', async () => {
-    repository.allocateNextWaitingUnitForProduct
-      .mockResolvedValueOnce({
-        outcome: 'ALLOCATED',
-        allocationPublicReference: 'd48e89f1-7f8e-4a6f-9988-5f5647a9988a',
-        fulfilmentUnitPublicReference: '123e4567-e89b-12d3-a456-426614174000',
-        productId: BigInt(5),
-      })
-      .mockResolvedValueOnce({ outcome: 'NO_WAITING', productId: BigInt(5) });
+    repository.allocateWaitingUnitsForProduct.mockResolvedValue({
+      allocatedCount: 1,
+      examinedCount: 1,
+      stoppedForZeroStock: false,
+    });
 
     await expect(
       service.allocateWaitingUnitsForProduct(transaction, BigInt(5), 20),
@@ -109,7 +107,23 @@ describe('DefaultVoucherAllocationService', () => {
     await expect(
       service.allocateWaitingUnitsForProduct(transaction, BigInt(5), 1.5),
     ).rejects.toThrow('maximumUnits must be a positive integer.');
-    expect(repository.allocateNextWaitingUnitForProduct).not.toHaveBeenCalled();
+    expect(repository.allocateWaitingUnitsForProduct).not.toHaveBeenCalled();
+  });
+
+  it('does nothing when a stock event product has no waiting obligations', async () => {
+    repository.findProductIdByProductPublicId.mockResolvedValue(null);
+
+    await expect(
+      service.allocateWaitingUnitsForProductPublicId(
+        transaction,
+        '123e4567-e89b-12d3-a456-426614174000',
+        250,
+      ),
+    ).resolves.toEqual({
+      allocatedCount: 0,
+      examinedCount: 0,
+      stoppedForZeroStock: false,
+    });
+    expect(repository.allocateWaitingUnitsForProduct).not.toHaveBeenCalled();
   });
 });
-import type { DatabaseTransactionClient } from '@edu-api/database';

@@ -5,6 +5,7 @@ export const TRANSACTIONAL_VOUCHER_CLAIMER = Symbol(
 );
 
 export interface ClaimEligibleVoucherInput {
+  readonly maximumVouchers?: number;
   readonly productId: bigint;
   readonly soldAt: Date;
 }
@@ -20,4 +21,9 @@ export interface TransactionalVoucherClaimer {
     transaction: DatabaseTransactionClient,
     input: ClaimEligibleVoucherInput,
   ): Promise<ClaimedVoucherResult | null>;
+
+  claimEligibleVouchersForProduct(
+    transaction: DatabaseTransactionClient,
+    input: Required<ClaimEligibleVoucherInput>,
+  ): Promise<readonly ClaimedVoucherResult[]>;
 }

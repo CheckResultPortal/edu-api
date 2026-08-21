@@ -11,6 +11,7 @@ interface RecoveryRow {
   readonly id: bigint;
   readonly providerReference: string;
   readonly verificationAttempts: number;
+  readonly verificationLeaseUntil: Date;
 }
 
 export class PrismaPaymentRecoveryRepository
@@ -87,7 +88,7 @@ export class PrismaPaymentRecoveryRepository
       FROM candidates
       WHERE payment."id" = candidates."id"
       RETURNING payment."id", payment."providerReference",
-                payment."verificationAttempts"
+                payment."verificationAttempts", payment."verificationLeaseUntil"
     `);
   }
 
@@ -100,8 +101,11 @@ export class PrismaPaymentRecoveryRepository
   }): Promise<void> {
     const attempts = input.candidate.verificationAttempts + 1;
     const exhausted = attempts >= input.maxAttempts;
-    await this.database.paymentAttempt.update({
-      where: { id: input.candidate.id },
+    await this.database.paymentAttempt.updateMany({
+      where: {
+        id: input.candidate.id,
+        verificationLeaseUntil: input.candidate.verificationLeaseUntil,
+      },
       data: input.isTerminal
         ? {
             nextVerificationAt: null,
@@ -140,8 +144,11 @@ export class PrismaPaymentRecoveryRepository
       attempts >= input.maxAttempts ||
       input.failureCategory === 'AUTHENTICATION' ||
       input.failureCategory === 'INVALID_REQUEST';
-    await this.database.paymentAttempt.update({
-      where: { id: input.candidate.id },
+    await this.database.paymentAttempt.updateMany({
+      where: {
+        id: input.candidate.id,
+        verificationLeaseUntil: input.candidate.verificationLeaseUntil,
+      },
       data: needsAttention
         ? {
             attentionReason: `VERIFICATION_${input.failureCategory}`.slice(
@@ -166,8 +173,11 @@ export class PrismaPaymentRecoveryRepository
   async recordRejectedSuccess(
     candidate: PaymentRecoveryCandidate,
   ): Promise<void> {
-    await this.database.paymentAttempt.update({
-      where: { id: candidate.id },
+    await this.database.paymentAttempt.updateMany({
+      where: {
+        id: candidate.id,
+        verificationLeaseUntil: candidate.verificationLeaseUntil,
+      },
       data: {
         nextVerificationAt: null,
         status: 'UNKNOWN',

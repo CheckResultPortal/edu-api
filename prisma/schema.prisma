@@ -362,6 +362,14 @@ model FulfilmentUnit {
   @@index([paidAt, id])
 }
 
+// Fulfilment-owned durable cursor for the bounded waiting-unit recovery sweep.
+// It is a singleton enforced by a database CHECK constraint in its migration.
+model FulfilmentBacklogSweepState {
+  id             Int      @id
+  afterProductId BigInt?
+  updatedAt      DateTime @updatedAt @db.Timestamptz(6)
+}
+
 model VoucherBatch {
   id            BigInt                  @id @default(autoincrement())
   publicId      String                  @unique @default(uuid()) @db.Uuid

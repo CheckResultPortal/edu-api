@@ -268,6 +268,54 @@ export const workerEnvironmentSchema = commonEnvironmentSchema
       .min(5_000)
       .max(60 * 60_000)
       .default(300_000),
+    RESTOCK_DRAIN_OUTBOX_BATCH_SIZE: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(100)
+      .default(10),
+    RESTOCK_DRAIN_CHUNK_SIZE: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(500)
+      .default(250),
+    RESTOCK_DRAIN_RECOVERY_PRODUCT_BATCH_SIZE: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(100)
+      .default(10),
+    RESTOCK_DRAIN_POLL_INTERVAL_MS: z.coerce
+      .number()
+      .int()
+      .min(1_000)
+      .max(60 * 60 * 1_000)
+      .default(5_000),
+    RESTOCK_DRAIN_LEASE_MS: z.coerce
+      .number()
+      .int()
+      .min(30_000)
+      .max(10 * 60_000)
+      .default(120_000),
+    RESTOCK_DRAIN_MAX_ATTEMPTS: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(20)
+      .default(5),
+    RESTOCK_DRAIN_RETRY_BASE_DELAY_MS: z.coerce
+      .number()
+      .int()
+      .min(1_000)
+      .max(60_000)
+      .default(5_000),
+    RESTOCK_DRAIN_RETRY_MAX_DELAY_MS: z.coerce
+      .number()
+      .int()
+      .min(5_000)
+      .max(60 * 60_000)
+      .default(300_000),
   })
   .superRefine((configuration, context) => {
     if (
@@ -279,6 +327,17 @@ export const workerEnvironmentSchema = commonEnvironmentSchema
         message:
           'must be greater than or equal to VOUCHER_ALLOCATION_RETRY_BASE_DELAY_MS',
         path: ['VOUCHER_ALLOCATION_RETRY_MAX_DELAY_MS'],
+      });
+    }
+    if (
+      configuration.RESTOCK_DRAIN_RETRY_MAX_DELAY_MS <
+      configuration.RESTOCK_DRAIN_RETRY_BASE_DELAY_MS
+    ) {
+      context.addIssue({
+        code: 'custom',
+        message:
+          'must be greater than or equal to RESTOCK_DRAIN_RETRY_BASE_DELAY_MS',
+        path: ['RESTOCK_DRAIN_RETRY_MAX_DELAY_MS'],
       });
     }
   });

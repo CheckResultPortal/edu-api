@@ -7,6 +7,8 @@ import { DefaultVoucherAllocationService } from '../application/voucher-allocati
 import { PaymentSucceededAllocationHandler } from './payment-succeeded-allocation.handler';
 import { PaymentSucceededOutboxConsumer } from './payment-succeeded-outbox-consumer';
 import { PrismaVoucherAllocationRepository } from './prisma-voucher-allocation.repository';
+import { VoucherStockAddedAllocationHandler } from './voucher-stock-added-allocation.handler';
+import { VoucherStockAddedOutboxConsumer } from './voucher-stock-added-outbox-consumer';
 
 const databaseUrl = process.env.FULFILMENT_TEST_DATABASE_URL;
 const describeWithDatabase =
@@ -24,6 +26,7 @@ describeWithDatabase('voucher allocation effects (PostgreSQL)', () => {
   let paymentApplicationId: bigint;
   let paymentAttemptId: bigint;
   let batchId: bigint;
+  let batchPublicId: string;
   let manualOutboxIds: bigint[];
 
   beforeAll(async () => {
@@ -78,9 +81,10 @@ describeWithDatabase('voucher allocation effects (PostgreSQL)', () => {
         reference: `batch_${suffix}`,
         totalQuantity: 20,
       },
-      select: { id: true },
+      select: { id: true, publicId: true },
     });
     batchId = batch.id;
+    batchPublicId = batch.publicId;
   });
 
   afterEach(async () => {
@@ -390,6 +394,95 @@ describeWithDatabase('voucher allocation effects (PostgreSQL)', () => {
     expect(updatedEvent.publishedAt).toBeInstanceOf(Date);
     expect(updatedEvent.lockedAt).toBeNull();
     expect(updatedUnit.allocatedAt).toBeInstanceOf(Date);
+  });
+
+  it('drains a bounded FIFO backlog from VoucherStockAdded and publishes the event', async () => {
+    await Promise.all([
+      createVoucher(database, {
+        batchId,
+        productId,
+        serialPrefix: 'RESTOCK_1',
+      }),
+      createVoucher(database, {
+        batchId,
+        productId,
+        serialPrefix: 'RESTOCK_2',
+      }),
+    ]);
+    const units = await Promise.all(
+      [3, 1, 2].map((second, index) =>
+        createWaitingUnit(database, {
+          orderItemId,
+          orderPublicReference,
+          ordinal: index + 1,
+          paidAt: new Date(`2026-08-19T00:00:0${second}.000Z`),
+          paymentApplicationId,
+          productId,
+          productPublicId,
+        }),
+      ),
+    );
+    const event = await createVoucherStockAddedEvent(database, {
+      aggregateId: batchId,
+      batchPublicId,
+      productPublicId,
+      quantity: 2,
+    });
+    manualOutboxIds.push(event.id);
+    const consumer = new VoucherStockAddedOutboxConsumer(
+      database,
+      new VoucherStockAddedAllocationHandler(allocationService),
+      250,
+      { workerId: 'restock-test:stock-event' },
+    );
+
+    await expect(consumer.processAvailable(1)).resolves.toBe(1);
+    const [updatedEvent, orderedUnits] = await Promise.all([
+      database.outboxEvent.findUniqueOrThrow({ where: { id: event.id } }),
+      database.fulfilmentUnit.findMany({
+        where: { id: { in: units.map((unit) => unit.id) } },
+        orderBy: [{ paidAt: 'asc' }, { id: 'asc' }],
+        select: { allocatedAt: true },
+      }),
+    ]);
+    expect(updatedEvent).toMatchObject({
+      lockedAt: null,
+      publishedAt: expect.any(Date),
+    });
+    expect(orderedUnits.map((unit) => unit.allocatedAt !== null)).toEqual([
+      true,
+      true,
+      false,
+    ]);
+  });
+
+  it('recovers waiting work without a VoucherStockAdded event', async () => {
+    await createVoucher(database, {
+      batchId,
+      productId,
+      serialPrefix: 'RECOVERY',
+    });
+    const unit = await createWaitingUnit(database, {
+      orderItemId,
+      orderPublicReference,
+      paidAt: new Date(),
+      paymentApplicationId,
+      productId,
+      productPublicId,
+    });
+
+    await expect(
+      database.$transaction((transaction) =>
+        allocationService.drainNextWaitingProduct(transaction, 250),
+      ),
+    ).resolves.toMatchObject({
+      allocation: { allocatedCount: 1 },
+      outcome: 'DRAINED',
+      productPublicId,
+    });
+    await expect(
+      database.fulfilmentUnit.findUniqueOrThrow({ where: { id: unit.id } }),
+    ).resolves.toMatchObject({ allocatedAt: expect.any(Date) });
   });
 
   it('rolls back allocations when processing crashes before event completion', async () => {
@@ -749,11 +842,36 @@ async function createPaymentSucceededEvent(
   });
 }
 
+async function createVoucherStockAddedEvent(
+  database: DatabaseClient,
+  input: {
+    aggregateId: bigint;
+    batchPublicId: string;
+    productPublicId: string;
+    quantity: number;
+  },
+) {
+  return database.outboxEvent.create({
+    data: {
+      aggregateId: input.aggregateId,
+      aggregateType: 'VoucherBatch',
+      eventType: 'VoucherStockAdded',
+      payload: {
+        batchPublicId: input.batchPublicId,
+        productPublicId: input.productPublicId,
+        quantity: input.quantity,
+        version: 1,
+      },
+    },
+  });
+}
+
 async function cleanupFixture(
   database: DatabaseClient,
   groupId: bigint,
   manualOutboxIds: readonly bigint[],
 ): Promise<void> {
+  await database.fulfilmentBacklogSweepState.deleteMany();
   const products = await database.product.findMany({
     where: { catalogGroupId: groupId },
     select: { id: true },

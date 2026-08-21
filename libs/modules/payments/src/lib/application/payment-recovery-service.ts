@@ -13,6 +13,11 @@ export interface PaymentRecoveryCandidate {
   readonly id: bigint;
   readonly providerReference: string;
   readonly verificationAttempts: number;
+  /**
+   * The exact lease this worker acquired. Recovery writes must compare this
+   * value so an expired worker cannot overwrite a newer verification result.
+   */
+  readonly verificationLeaseUntil: Date;
 }
 
 export interface PaymentRecoveryRepository {

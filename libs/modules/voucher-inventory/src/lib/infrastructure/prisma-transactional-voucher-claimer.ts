@@ -1,3 +1,5 @@
+import { Prisma } from '../../../../../../generated/prisma/client';
+
 import type { DatabaseTransactionClient } from '@edu-api/database';
 
 import type {
@@ -13,8 +15,28 @@ export class PrismaTransactionalVoucherClaimer
     transaction: DatabaseTransactionClient,
     input: ClaimEligibleVoucherInput,
   ): Promise<ClaimedVoucherResult | null> {
-    // Claim only the selected voucher row; locked vouchers are already being
-    // handled by another allocation worker.
+    const vouchers = await this.claimEligibleVouchersForProduct(transaction, {
+      maximumVouchers: 1,
+      productId: input.productId,
+      soldAt: input.soldAt,
+    });
+    return vouchers[0] ?? null;
+  }
+
+  async claimEligibleVouchersForProduct(
+    transaction: DatabaseTransactionClient,
+    input: Required<ClaimEligibleVoucherInput>,
+  ): Promise<readonly ClaimedVoucherResult[]> {
+    if (
+      !Number.isInteger(input.maximumVouchers) ||
+      input.maximumVouchers < 1 ||
+      input.maximumVouchers > 500
+    ) {
+      throw new Error('maximumVouchers must be an integer between 1 and 500.');
+    }
+
+    // Claim the selected voucher rows together; rows locked by another worker
+    // remain available for that worker's short allocation transaction.
     const vouchers = await transaction.$queryRaw<
       Array<{
         id: bigint;
@@ -39,32 +61,29 @@ export class PrismaTransactionalVoucherClaimer
           OR voucher_batch."validUntil" > ${input.soldAt}
         )
       ORDER BY voucher_batch.id ASC, voucher.id ASC
-      LIMIT 1
+      LIMIT ${input.maximumVouchers}
       FOR UPDATE OF voucher SKIP LOCKED
     `;
 
-    const voucher = vouchers[0];
-    if (!voucher) {
-      return null;
-    }
+    if (vouchers.length === 0) return [];
 
     const soldVoucherCount = await transaction.$executeRaw`
       UPDATE "Voucher"
       SET status = 'SOLD'::"VoucherStatus",
           "soldAt" = ${input.soldAt},
           "updatedAt" = ${input.soldAt}
-      WHERE id = ${voucher.id}
+      WHERE id IN (${Prisma.join(vouchers.map((voucher) => voucher.id))})
         AND "productId" = ${input.productId}
         AND status = 'AVAILABLE'::"VoucherStatus"
     `;
-    if (soldVoucherCount !== 1) {
-      throw new Error('The claimed voucher was not available for sale.');
+    if (soldVoucherCount !== vouchers.length) {
+      throw new Error('A claimed voucher was not available for sale.');
     }
 
-    return {
+    return vouchers.map((voucher) => ({
       productId: voucher.productId,
       voucherId: voucher.id,
       voucherPublicId: voucher.publicId,
-    };
+    }));
   }
 }

@@ -82,6 +82,7 @@ const candidate = {
   id: BigInt(1),
   providerReference: 'EDU-attempt',
   verificationAttempts: 0,
+  verificationLeaseUntil: new Date('2026-08-21T10:00:00.000Z'),
 };
 
 const success = {

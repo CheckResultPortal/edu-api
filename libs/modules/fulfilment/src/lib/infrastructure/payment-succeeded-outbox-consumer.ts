@@ -1,6 +1,7 @@
 import { randomInt } from 'node:crypto';
 
 import type { DatabaseClient } from '@edu-api/database';
+import type { StructuredLogger } from '@edu-api/observability';
 
 import {
   PaymentSucceededAllocationHandler,
@@ -28,6 +29,7 @@ export class PaymentSucceededOutboxConsumer {
     private readonly database: DatabaseClient,
     private readonly handler: PaymentSucceededAllocationHandler,
     options: PaymentSucceededConsumerOptions,
+    private readonly logger?: StructuredLogger,
   ) {
     this.leaseMs = requirePositiveInteger(
       options.leaseMs ?? 120_000,
@@ -162,7 +164,12 @@ export class PaymentSucceededOutboxConsumer {
         },
         { maxWait: 5_000, timeout: 30_000 },
       );
-    } catch {
+    } catch (error) {
+      this.logger?.error(
+        `PaymentSucceeded processing failed for outbox event ${eventId.toString()} (failure=${safeFailureKind(error)}).`,
+        undefined,
+        'VoucherAllocation',
+      );
       await this.handleProcessingFailure(eventId);
     }
   }
@@ -307,4 +314,17 @@ function requirePositiveInteger(value: number, name: string): number {
     throw new Error(`${name} must be a positive integer.`);
   }
   return value;
+}
+
+function safeFailureKind(error: unknown): string {
+  if (
+    error instanceof Error &&
+    error.name === 'PrismaClientKnownRequestError'
+  ) {
+    return 'DATABASE';
+  }
+  if (error instanceof Error && error.name === 'PrismaClientRustPanicError') {
+    return 'DATABASE_RUNTIME';
+  }
+  return 'UNCLASSIFIED';
 }
