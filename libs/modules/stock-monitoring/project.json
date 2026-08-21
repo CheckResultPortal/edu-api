@@ -1,0 +1,8 @@
+{
+  "name": "stock-monitoring",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/modules/stock-monitoring/src",
+  "projectType": "library",
+  "tags": ["scope:stock-monitoring", "type:module"],
+  "targets": {}
+}

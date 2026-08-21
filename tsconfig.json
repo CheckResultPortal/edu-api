@@ -22,6 +22,9 @@
       "path": "./libs/modules/communication"
     },
     {
+      "path": "./libs/modules/stock-monitoring"
+    },
+    {
       "path": "./libs/modules/administration"
     },
     {

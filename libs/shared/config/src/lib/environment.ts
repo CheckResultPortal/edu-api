@@ -361,6 +361,30 @@ export const workerEnvironmentSchema = commonEnvironmentSchema
       .min(5_000)
       .max(60 * 60_000)
       .default(300_000),
+    STOCK_MONITORING_PRODUCT_BATCH_SIZE: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(1_000)
+      .default(100),
+    STOCK_MONITORING_POLL_INTERVAL_MS: z.coerce
+      .number()
+      .int()
+      .min(1_000)
+      .max(60 * 60 * 1_000)
+      .default(5_000),
+    STOCK_ALERT_OUTBOX_BATCH_SIZE: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(100)
+      .default(25),
+    STOCK_ALERT_OUTBOX_LEASE_MS: z.coerce
+      .number()
+      .int()
+      .min(30_000)
+      .max(10 * 60_000)
+      .default(120_000),
   })
   .superRefine((configuration, context) => {
     if (

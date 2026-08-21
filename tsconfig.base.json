@@ -38,6 +38,9 @@
         "./libs/modules/voucher-inventory/src/index.ts"
       ],
       "@edu-api/communication": ["./libs/modules/communication/src/index.ts"],
+      "@edu-api/stock-monitoring": [
+        "./libs/modules/stock-monitoring/src/index.ts"
+      ],
       "@edu-api/administration": ["./libs/modules/administration/src/index.ts"]
     }
   },

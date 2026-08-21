@@ -71,6 +71,12 @@ enum CommunicationAttemptOutcome {
   UNKNOWN_OUTCOME
 }
 
+enum StockLevel {
+  NORMAL
+  LOW
+  EMPTY
+}
+
 enum VoucherStatus {
   AVAILABLE
   SOLD
@@ -244,27 +250,66 @@ model CatalogGroup {
 }
 
 model Product {
-  id                 BigInt              @id @default(autoincrement())
-  publicId           String              @unique @default(uuid()) @db.Uuid
-  catalogGroupId     BigInt
-  code               String              @unique
-  name               String
-  description        String?
-  sellingPriceMinor  BigInt
-  currency           String              @db.Char(3)
-  resultCheckerUrl   String?
-  lowStockThreshold  Int                 @default(0)
-  isActive           Boolean             @default(true)
-  createdAt          DateTime            @default(now()) @db.Timestamptz(6)
-  updatedAt          DateTime            @updatedAt @db.Timestamptz(6)
-  catalogGroup       CatalogGroup        @relation(fields: [catalogGroupId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  voucherBatches     VoucherBatch[]
-  vouchers           Voucher[]
-  orderItems         OrderItem[]
-  fulfilmentUnits    FulfilmentUnit[]
-  voucherAllocations VoucherAllocation[]
+  id                   BigInt              @id @default(autoincrement())
+  publicId             String              @unique @default(uuid()) @db.Uuid
+  catalogGroupId       BigInt
+  code                 String              @unique
+  name                 String
+  description          String?
+  sellingPriceMinor    BigInt
+  currency             String              @db.Char(3)
+  resultCheckerUrl     String?
+  lowStockThreshold    Int                 @default(0)
+  isActive             Boolean             @default(true)
+  createdAt            DateTime            @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime            @updatedAt @db.Timestamptz(6)
+  catalogGroup         CatalogGroup        @relation(fields: [catalogGroupId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  voucherBatches       VoucherBatch[]
+  vouchers             Voucher[]
+  orderItems           OrderItem[]
+  fulfilmentUnits      FulfilmentUnit[]
+  voucherAllocations   VoucherAllocation[]
+  stockMonitoringState StockMonitoringState?
+  stockAlerts          StockAlert[]
 
   @@index([catalogGroupId, code, id])
+}
+
+// Stock Monitoring owns operational alert state. It is deliberately separate
+// from voucher ownership: no alert transition can alter voucher availability.
+model StockMonitoringState {
+  productId         BigInt     @id
+  state             StockLevel @default(NORMAL)
+  depletionCycle    Int        @default(0)
+  lowAlertedCycle   Int?
+  emptyAlertedCycle Int?
+  updatedAt         DateTime   @updatedAt @db.Timestamptz(6)
+  product           Product    @relation(fields: [productId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+}
+
+// Immutable metric snapshots for LOW, EMPTY, and recovery transitions.
+model StockAlert {
+  id                  BigInt     @id @default(autoincrement())
+  productId           BigInt
+  state               StockLevel
+  depletionCycle      Int
+  availableStock      BigInt
+  paidWaitingQuantity BigInt
+  soldToday           BigInt
+  oldestWaitingPaidAt DateTime?  @db.Timestamptz(6)
+  occurredAt          DateTime   @default(now()) @db.Timestamptz(6)
+  product             Product    @relation(fields: [productId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([productId, depletionCycle, state])
+  @@index([productId, occurredAt, id])
+}
+
+// Worker-owned cursor for bounded product scans. The migration constrains it
+// to the singleton row id = 1.
+model StockMonitoringSweepState {
+  id             Int      @id
+  afterProductId BigInt?
+  updatedAt      DateTime @updatedAt @db.Timestamptz(6)
 }
 
 model Order {
