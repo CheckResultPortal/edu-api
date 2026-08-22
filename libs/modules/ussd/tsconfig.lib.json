@@ -1,0 +1,30 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "../../../dist/out-tsc",
+    "declaration": true,
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/**/*.spec.ts"],
+  "references": [
+    {
+      "path": "../../shared/redis/tsconfig.lib.json"
+    },
+    {
+      "path": "../payments/tsconfig.lib.json"
+    },
+    {
+      "path": "../orders/tsconfig.lib.json"
+    },
+    {
+      "path": "../../shared/database/tsconfig.lib.json"
+    },
+    {
+      "path": "../catalog/tsconfig.lib.json"
+    },
+    {
+      "path": "../../shared/observability/tsconfig.lib.json"
+    }
+  ]
+}

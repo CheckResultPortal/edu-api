@@ -69,11 +69,15 @@ export interface PaymentRecoveryService {
 
 export class DefaultPaymentRecoveryService implements PaymentRecoveryService {
   constructor(
-    private readonly provider: PaymentProvider,
+    private readonly providers: readonly PaymentProvider[],
     private readonly successRepository: PaymentSuccessRepository,
     private readonly recoveryRepository: PaymentRecoveryRepository,
     private readonly configuration: PaymentRecoveryConfiguration,
-  ) {}
+  ) {
+    if (providers.length === 0) {
+      throw new Error('At least one payment provider is required.');
+    }
+  }
 
   async runCycle(): Promise<PaymentRecoveryCycleResult> {
     const now = new Date();
@@ -82,35 +86,42 @@ export class DefaultPaymentRecoveryService implements PaymentRecoveryService {
         this.configuration.idempotencyCleanupBatchSize,
         now,
       );
-    const candidates = await this.recoveryRepository.claimDue({
-      batchSize: this.configuration.batchSize,
-      leaseMs: this.configuration.leaseMs,
-      now,
-      provider: this.provider.code,
-    });
-    const outcomes = await Promise.all(
-      candidates.map((candidate) => this.recover(candidate)),
-    );
+    let applied = 0;
+    let claimed = 0;
+    let needsAttention = 0;
+    for (const provider of this.providers) {
+      const candidates = await this.recoveryRepository.claimDue({
+        batchSize: this.configuration.batchSize,
+        leaseMs: this.configuration.leaseMs,
+        now,
+        provider: provider.code,
+      });
+      const outcomes = await Promise.all(
+        candidates.map((candidate) => this.recover(provider, candidate)),
+      );
+      applied += outcomes.filter(isApplied).length;
+      claimed += candidates.length;
+      needsAttention += outcomes.filter((o) => o === 'NEEDS_ATTENTION').length;
+    }
     return {
-      applied: outcomes.filter(isApplied).length,
-      claimed: candidates.length,
+      applied,
+      claimed,
       cleanedIdempotencyRecords,
-      needsAttention: outcomes.filter(
-        (outcome) => outcome === 'NEEDS_ATTENTION',
-      ).length,
+      needsAttention,
     };
   }
 
   private async recover(
+    provider: PaymentProvider,
     candidate: PaymentRecoveryCandidate,
   ): Promise<PaymentSuccessOutcome | 'NOT_SUCCEEDED' | 'NEEDS_ATTENTION'> {
     try {
-      const verification = await this.provider.verify(
+      const verification = await provider.verify(
         candidate.providerReference,
       );
       if (verification.kind === 'PAYMENT_SUCCEEDED') {
         const result = await this.successRepository.recordVerifiedSuccess({
-          provider: this.provider.code,
+          provider: provider.code,
           success: verification.success,
         });
         if (result === 'REJECTED') {

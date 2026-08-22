@@ -1,4 +1,4 @@
-import {
+﻿import {
   DefaultPaymentRecoveryService,
   type PaymentRecoveryRepository,
 } from './payment-recovery-service';
@@ -19,7 +19,7 @@ describe('DefaultPaymentRecoveryService', () => {
     };
 
     await expect(
-      service(provider, successes, recovery).runCycle(),
+      service([provider], successes, recovery).runCycle(),
     ).resolves.toEqual({
       applied: 1,
       claimed: 1,
@@ -43,7 +43,7 @@ describe('DefaultPaymentRecoveryService', () => {
     });
 
     await service(
-      provider,
+      [provider],
       { recordVerifiedSuccess: jest.fn() },
       recovery,
     ).runCycle();
@@ -69,7 +69,7 @@ describe('DefaultPaymentRecoveryService', () => {
 
     await expect(
       service(
-        provider,
+        [provider],
         { recordVerifiedSuccess: jest.fn().mockResolvedValue('REJECTED') },
         recovery,
       ).runCycle(),
@@ -95,11 +95,11 @@ const success = {
 };
 
 function service(
-  provider: PaymentProvider,
+  providers: readonly PaymentProvider[],
   successes: PaymentSuccessRepository,
   recovery: PaymentRecoveryRepository,
 ): DefaultPaymentRecoveryService {
-  return new DefaultPaymentRecoveryService(provider, successes, recovery, {
+  return new DefaultPaymentRecoveryService(providers, successes, recovery, {
     baseDelayMs: 60_000,
     batchSize: 25,
     idempotencyCleanupBatchSize: 1_000,

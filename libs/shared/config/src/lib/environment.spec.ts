@@ -14,6 +14,8 @@ describe('environment validation', () => {
         REDIS_URL: 'redis://localhost:6379',
         ORDER_PRIVACY_HMAC_KEY: privacyHmacKey,
         ...paystackPublicEnvironment,
+        ...naloUssdEnvironment,
+        ...moolrePaymentEnvironment,
       });
 
       expect(configuration).toEqual({
@@ -34,6 +36,14 @@ describe('environment validation', () => {
         PAYSTACK_BASE_URL: 'https://api.paystack.co/',
         PAYSTACK_REQUEST_TIMEOUT_MS: 10000,
         PAYSTACK_CALLBACK_URL: paystackPublicEnvironment.PAYSTACK_CALLBACK_URL,
+        MOOLRE_API_USER: moolrePaymentEnvironment.MOOLRE_API_USER,
+        MOOLRE_PUBLIC_KEY: moolrePaymentEnvironment.MOOLRE_PUBLIC_KEY,
+        MOOLRE_ACCOUNT_NUMBER: moolrePaymentEnvironment.MOOLRE_ACCOUNT_NUMBER,
+        MOOLRE_BASE_URL: 'https://api.moolre.com/',
+        MOOLRE_REQUEST_TIMEOUT_MS: 10000,
+        NALO_USER_ID: naloUssdEnvironment.NALO_USER_ID,
+        USSD_MAX_PRODUCTS: 4,
+        USSD_SESSION_TTL_MS: 300000,
         PAYMENT_IDEMPOTENCY_TTL_MS: 86400000,
         PAYMENT_INITIAL_VERIFICATION_DELAY_MS: 120000,
         PAYMENT_RATE_LIMIT_WINDOW_MS: 600000,
@@ -50,6 +60,8 @@ describe('environment validation', () => {
           REDIS_URL: 'redis://localhost:6379',
           ORDER_PRIVACY_HMAC_KEY: privacyHmacKey,
           ...paystackPublicEnvironment,
+        ...naloUssdEnvironment,
+          ...moolrePaymentEnvironment,
           TRUST_PROXY_HOPS: '1',
         }).TRUST_PROXY_HOPS,
       ).toBe(1);
@@ -60,6 +72,8 @@ describe('environment validation', () => {
           REDIS_URL: 'redis://localhost:6379',
           ORDER_PRIVACY_HMAC_KEY: privacyHmacKey,
           ...paystackPublicEnvironment,
+        ...naloUssdEnvironment,
+          ...moolrePaymentEnvironment,
           TRUST_PROXY_HOPS: 'all',
         }),
       ).toThrow('TRUST_PROXY_HOPS');
@@ -74,6 +88,8 @@ describe('environment validation', () => {
         REDIS_URL: 'redis://localhost:6379',
         ORDER_PRIVACY_HMAC_KEY: privacyHmacKey,
         ...paystackPublicEnvironment,
+        ...naloUssdEnvironment,
+        ...moolrePaymentEnvironment,
         PORT: '4001',
       });
 
@@ -88,6 +104,8 @@ describe('environment validation', () => {
           REDIS_URL: 'redis://localhost:6379',
           ORDER_PRIVACY_HMAC_KEY: privacyHmacKey,
           ...paystackPublicEnvironment,
+        ...naloUssdEnvironment,
+          ...moolrePaymentEnvironment,
           PORT: '70000',
         }),
       ).toThrow('Invalid environment configuration');
@@ -160,6 +178,9 @@ describe('environment validation', () => {
         DATABASE_URL: 'postgresql://user:password@localhost:5432/database',
         REDIS_URL: 'redis://localhost:6379',
         PAYSTACK_SECRET_KEY: paystackPublicEnvironment.PAYSTACK_SECRET_KEY,
+        MOOLRE_API_USER: moolrePaymentEnvironment.MOOLRE_API_USER,
+        MOOLRE_PUBLIC_KEY: moolrePaymentEnvironment.MOOLRE_PUBLIC_KEY,
+        MOOLRE_ACCOUNT_NUMBER: moolrePaymentEnvironment.MOOLRE_ACCOUNT_NUMBER,
         ADMIN_APPLICATION_ORIGIN: 'https://admin.example.com',
         ADMIN_SESSION_HMAC_KEY: '0123456789012345678901234567890123456789012',
         ADMIN_SECRET_ENCRYPTION_KEY_ID: 'test-v1',
@@ -201,6 +222,11 @@ describe('environment validation', () => {
         PAYSTACK_SECRET_KEY: paystackPublicEnvironment.PAYSTACK_SECRET_KEY,
         PAYSTACK_BASE_URL: 'https://api.paystack.co/',
         PAYSTACK_REQUEST_TIMEOUT_MS: 10000,
+        MOOLRE_API_USER: moolrePaymentEnvironment.MOOLRE_API_USER,
+        MOOLRE_PUBLIC_KEY: moolrePaymentEnvironment.MOOLRE_PUBLIC_KEY,
+        MOOLRE_ACCOUNT_NUMBER: moolrePaymentEnvironment.MOOLRE_ACCOUNT_NUMBER,
+        MOOLRE_BASE_URL: 'https://api.moolre.com/',
+        MOOLRE_REQUEST_TIMEOUT_MS: 10000,
         PAYMENT_VERIFICATION_BATCH_SIZE: 25,
         PAYMENT_IDEMPOTENCY_CLEANUP_BATCH_SIZE: 1000,
         PAYMENT_VERIFICATION_LEASE_MS: 60000,
@@ -292,12 +318,25 @@ const paystackPublicEnvironment = {
   PAYSTACK_CALLBACK_URL: 'https://app.example.com/payment/callback',
 } as const;
 
+const moolrePaymentEnvironment = {
+  MOOLRE_API_USER: 'edu-integration',
+  MOOLRE_PUBLIC_KEY: 'pk_test_0123456789012345678901234567890',
+  MOOLRE_ACCOUNT_NUMBER: '100000157291',
+} as const;
+
+const naloUssdEnvironment = {
+  NALO_USER_ID: 'NALOTest',
+} as const;
+
 const validWorkerEnvironment = {
   SERVICE_NAME: 'worker',
   NODE_ENV: 'test',
   DATABASE_URL: 'postgresql://user:password@localhost:5432/database',
   REDIS_URL: 'redis://localhost:6379',
   PAYSTACK_SECRET_KEY: paystackPublicEnvironment.PAYSTACK_SECRET_KEY,
+  MOOLRE_API_USER: moolrePaymentEnvironment.MOOLRE_API_USER,
+  MOOLRE_PUBLIC_KEY: moolrePaymentEnvironment.MOOLRE_PUBLIC_KEY,
+  MOOLRE_ACCOUNT_NUMBER: moolrePaymentEnvironment.MOOLRE_ACCOUNT_NUMBER,
   ADMIN_APPLICATION_ORIGIN: 'https://admin.example.com',
   ADMIN_SESSION_HMAC_KEY: '0123456789012345678901234567890123456789012',
   ADMIN_SECRET_ENCRYPTION_KEY_ID: 'test-v1',

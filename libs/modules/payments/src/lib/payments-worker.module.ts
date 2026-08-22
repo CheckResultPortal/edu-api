@@ -17,7 +17,8 @@ import {
   type PaymentRecoveryService,
 } from './application/payment-recovery-service';
 import {
-  PAYMENT_PROVIDER,
+  MOOLRE_PAYMENT_PROVIDER,
+  PAYSTACK_PAYMENT_PROVIDER,
   type PaymentProvider,
 } from './application/payment-provider';
 import {
@@ -86,19 +87,21 @@ class PaymentRecoveryPoller
     {
       provide: PAYMENT_RECOVERY_SERVICE,
       inject: [
-        PAYMENT_PROVIDER,
+        PAYSTACK_PAYMENT_PROVIDER,
+        MOOLRE_PAYMENT_PROVIDER,
         PAYMENT_SUCCESS_REPOSITORY,
         PAYMENT_RECOVERY_REPOSITORY,
         ConfigService,
       ],
       useFactory: (
-        provider: PaymentProvider,
+        paystack: PaymentProvider,
+        moolre: PaymentProvider,
         successRepository: PaymentSuccessRepository,
         recoveryRepository: PaymentRecoveryRepository,
         config: ConfigService,
       ): DefaultPaymentRecoveryService =>
         new DefaultPaymentRecoveryService(
-          provider,
+          [paystack, moolre],
           successRepository,
           recoveryRepository,
           {

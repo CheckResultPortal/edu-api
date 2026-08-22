@@ -46,8 +46,8 @@ export class PrismaPaymentInitializationRepository
   }
 
   async recordInitialized(input: {
-    readonly accessCode: string;
-    readonly authorizationUrl: string;
+    readonly accessCode: string | null;
+    readonly authorizationUrl: string | null;
     readonly idempotencyKey: string;
     readonly nextVerificationAt: Date;
     readonly paymentAttemptId: bigint;
@@ -127,12 +127,34 @@ export class PrismaPaymentInitializationRepository
           },
         });
 
-        const order = await this.orders.getWebPaymentOrder(
-          transaction,
-          input.orderPublicReference,
-        );
-        if (order === null || order.currency !== 'GHS') {
-          throw new PaymentOrderUnavailableError();
+        let order: {
+          readonly currency: string;
+          readonly id: bigint;
+          readonly publicReference: string;
+          readonly totalPriceMinor: bigint;
+        };
+        let orderEmail: string | null = null;
+        let orderPhoneNumber: string | null = null;
+        if (input.purchaseChannel === 'WEB') {
+          const webOrder = await this.orders.getWebPaymentOrder(
+            transaction,
+            input.orderPublicReference,
+          );
+          if (webOrder === null || webOrder.currency !== 'GHS') {
+            throw new PaymentOrderUnavailableError();
+          }
+          order = webOrder;
+          orderEmail = webOrder.email;
+        } else {
+          const ussdOrder = await this.orders.getUssdPaymentOrder(
+            transaction,
+            input.orderPublicReference,
+          );
+          if (ussdOrder === null || ussdOrder.currency !== 'GHS') {
+            throw new PaymentOrderUnavailableError();
+          }
+          order = ussdOrder;
+          orderPhoneNumber = ussdOrder.phoneNumber;
         }
         const application = await transaction.paymentApplication.findUnique({
           where: { orderId: order.id },
@@ -146,7 +168,7 @@ export class PrismaPaymentInitializationRepository
             expectedAmountMinor: order.totalPriceMinor,
             nextVerificationAt: input.initialVerificationAt,
             orderId: order.id,
-            provider: input.provider,
+            provider: input.providerCodes[input.purchaseChannel],
             providerReference: input.providerReference,
             publicReference: input.paymentPublicReference,
           },
@@ -166,13 +188,15 @@ export class PrismaPaymentInitializationRepository
           accessCode: null,
           authorizationUrl: null,
           currency: 'GHS' as const,
-          email: order.email,
+          email: orderEmail,
           expectedAmountMinor: order.totalPriceMinor,
           isNew: true,
           orderPublicReference: order.publicReference,
+          payerPhoneNumber: orderPhoneNumber,
           paymentAttemptId: payment.id,
           paymentPublicReference: payment.publicReference,
           providerReference: input.providerReference,
+          purchaseChannel: input.purchaseChannel,
           status: 'INITIALIZING' as const,
         };
       },
@@ -210,32 +234,31 @@ export class PrismaPaymentInitializationRepository
           currency: true,
           expectedAmountMinor: true,
           id: true,
-          orderId: true,
           providerReference: true,
           publicReference: true,
           status: true,
+          order: {
+            select: { publicReference: true, purchaseChannel: true },
+          },
         },
       });
       if (payment === null || payment.currency !== 'GHS') {
         throw new PaymentProcessingUnavailableError();
       }
-      const order = await this.orders.getWebPaymentOrderById(
-        transaction,
-        payment.orderId,
-      );
-      if (order === null) throw new PaymentProcessingUnavailableError();
 
       return {
         accessCode: payment.accessCode,
         authorizationUrl: payment.authorizationUrl,
         currency: 'GHS',
-        email: order.email,
+        email: null,
         expectedAmountMinor: payment.expectedAmountMinor,
         isNew: false,
-        orderPublicReference: order.publicReference,
+        orderPublicReference: payment.order.publicReference,
+        payerPhoneNumber: null,
         paymentAttemptId: payment.id,
         paymentPublicReference: payment.publicReference,
         providerReference: payment.providerReference,
+        purchaseChannel: payment.order.purchaseChannel,
         status: payment.status,
       };
     });

@@ -1,4 +1,4 @@
-import { PaymentProviderUnknownOutcomeError } from './payment-errors';
+﻿import { PaymentProviderUnknownOutcomeError } from './payment-errors';
 import {
   DefaultPaymentInitializationService,
   type PaymentInitializationClaim,
@@ -36,7 +36,7 @@ describe('DefaultPaymentInitializationService', () => {
     });
 
     await expect(
-      service(repository, provider).initialize(command()),
+      service(repository, { USSD: ussdProvider, WEB: provider }).initialize(command()),
     ).resolves.toMatchObject({
       amountMinor: '5000',
       provider: 'PAYSTACK',
@@ -59,7 +59,7 @@ describe('DefaultPaymentInitializationService', () => {
     const provider = providerMock();
 
     await expect(
-      service(repository, provider).initialize(command()),
+      service(repository, { USSD: ussdProvider, WEB: provider }).initialize(command()),
     ).resolves.toMatchObject({
       accessCode: 'existing-access',
       status: 'PENDING',
@@ -78,7 +78,7 @@ describe('DefaultPaymentInitializationService', () => {
     });
 
     await expect(
-      service(repository, provider).initialize(command()),
+      service(repository, { USSD: ussdProvider, WEB: provider }).initialize(command()),
     ).rejects.toBeInstanceOf(PaymentProviderUnknownOutcomeError);
     expect(repository.recordFailure).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -91,11 +91,11 @@ describe('DefaultPaymentInitializationService', () => {
 
 function service(
   repository: PaymentInitializationRepository,
-  provider: PaymentProvider,
+  providers: { USSD: PaymentProvider; WEB: PaymentProvider },
 ): DefaultPaymentInitializationService {
   return new DefaultPaymentInitializationService(
     repository,
-    provider,
+    providers,
     rateLimiter,
     {
       callbackUrl: 'https://app.example.com/payment/callback',
@@ -106,10 +106,18 @@ function service(
   );
 }
 
+const ussdProvider: PaymentProvider = {
+  authenticateWebhook: jest.fn(),
+  code: 'MOOLRE',
+  initialize: jest.fn(),
+  verify: jest.fn(),
+};
+
 const rateLimiter: PaymentRateLimiter = { consume: jest.fn() };
 
 function command() {
   return {
+    channel: 'WEB' as const,
     clientIp: '203.0.113.10',
     idempotencyKey: 'payment:0123456789abcdef',
     orderPublicReference: '2b3e39a9-06db-41a9-a856-5f985846951a',
@@ -124,6 +132,8 @@ function claim(
     authorizationUrl: null,
     currency: 'GHS',
     email: 'buyer@example.com',
+    payerPhoneNumber: null,
+    purchaseChannel: 'WEB',
     expectedAmountMinor: BigInt(5_000),
     isNew: false,
     orderPublicReference: '2b3e39a9-06db-41a9-a856-5f985846951a',

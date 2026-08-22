@@ -1,0 +1,30 @@
+export const USSD_PROVIDER = Symbol('USSD_PROVIDER');
+
+/** Provider-neutral incoming USSD request. */
+export interface CanonicalUssdRequest {
+  /** Raw customer number as sent by the gateway (e.g. 233XXXXXXXXX). */
+  readonly msisdn: string;
+  /** The customer's input for this screen. */
+  readonly input: string;
+  /** True when the gateway signals an initial dial. */
+  readonly isNewSession: boolean;
+}
+
+/** Provider-neutral outgoing USSD screen. */
+export interface CanonicalUssdResponse {
+  readonly message: string;
+  readonly continueSession: boolean;
+}
+
+export interface UssdProvider {
+  /**
+   * Validates provider identity and field shapes. Throws UssdRequestError
+   * when the payload cannot be trusted.
+   */
+  parseRequest(input: unknown): CanonicalUssdRequest;
+
+  buildResponse(
+    request: CanonicalUssdRequest,
+    response: CanonicalUssdResponse,
+  ): unknown;
+}

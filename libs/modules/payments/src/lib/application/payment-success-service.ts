@@ -50,6 +50,9 @@ export class DefaultPaymentWebhookService implements PaymentWebhookService {
   ): Promise<PaymentSuccessOutcome> {
     const event = this.provider.authenticateWebhook(rawBody, signature);
     if (event.kind === 'IGNORED') return 'IGNORED';
+    // Unsigned NOTIFICATION events are never proof of payment; they are
+    // handled by a verification-first webhook service, not this one.
+    if (event.kind !== 'PAYMENT_SUCCEEDED') return 'IGNORED';
     return this.record(event);
   }
 

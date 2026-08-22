@@ -94,6 +94,7 @@ export class PublicPaymentsController {
       }
       assertEmptyPaymentInitializationBody(body);
       const payment = await this.payments.initialize({
+        channel: 'WEB',
         clientIp: request.ip,
         idempotencyKey,
         orderPublicReference,

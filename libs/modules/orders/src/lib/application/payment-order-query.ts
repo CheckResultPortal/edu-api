@@ -10,6 +10,14 @@ export interface WebPaymentOrderSnapshot {
   readonly totalPriceMinor: bigint;
 }
 
+export interface UssdPaymentOrderSnapshot {
+  readonly currency: string;
+  readonly id: bigint;
+  readonly phoneNumber: string;
+  readonly publicReference: string;
+  readonly totalPriceMinor: bigint;
+}
+
 export interface PaidOrderItemSnapshot {
   readonly id: bigint;
   readonly productId: bigint;
@@ -37,6 +45,11 @@ export interface PaymentOrderQuery {
     transaction: DatabaseTransactionClient,
     publicReference: string,
   ): Promise<WebPaymentOrderSnapshot | null>;
+
+  getUssdPaymentOrder(
+    transaction: DatabaseTransactionClient,
+    publicReference: string,
+  ): Promise<UssdPaymentOrderSnapshot | null>;
 
   getWebPaymentOrderById(
     transaction: DatabaseTransactionClient,

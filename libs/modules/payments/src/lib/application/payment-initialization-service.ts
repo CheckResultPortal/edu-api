@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+﻿import { randomUUID } from 'node:crypto';
 
 import { createRequestFingerprint } from '@edu-api/idempotency';
 
@@ -47,15 +47,19 @@ export interface PaymentInitializationClaim {
   readonly accessCode: string | null;
   readonly authorizationUrl: string | null;
   readonly currency: 'GHS';
-  readonly email: string;
+  readonly email: string | null;
   readonly expectedAmountMinor: bigint;
   readonly isNew: boolean;
   readonly orderPublicReference: string;
+  readonly payerPhoneNumber: string | null;
   readonly paymentAttemptId: bigint;
   readonly paymentPublicReference: string;
   readonly providerReference: string;
+  readonly purchaseChannel: PaymentChannel;
   readonly status: PaymentAttemptState;
 }
+
+export type PaymentChannel = 'WEB' | 'USSD';
 
 export interface ClaimPaymentInitializationInput {
   readonly idempotencyExpiresAt: Date;
@@ -63,8 +67,9 @@ export interface ClaimPaymentInitializationInput {
   readonly initialVerificationAt: Date;
   readonly orderPublicReference: string;
   readonly paymentPublicReference: string;
-  readonly provider: string;
+  readonly providerCodes: Readonly<Record<PaymentChannel, string>>;
   readonly providerReference: string;
+  readonly purchaseChannel: PaymentChannel;
   readonly requestFingerprint: string;
 }
 
@@ -81,8 +86,8 @@ export interface PaymentInitializationRepository {
   }): Promise<void>;
 
   recordInitialized(input: {
-    readonly accessCode: string;
-    readonly authorizationUrl: string;
+    readonly accessCode: string | null;
+    readonly authorizationUrl: string | null;
     readonly idempotencyKey: string;
     readonly nextVerificationAt: Date;
     readonly paymentAttemptId: bigint;
@@ -91,9 +96,11 @@ export interface PaymentInitializationRepository {
 
 export interface PaymentInitializationService {
   initialize(command: {
+    readonly channel: PaymentChannel;
     readonly clientIp: string;
     readonly idempotencyKey: string;
     readonly orderPublicReference: string;
+    readonly payerPhoneNumber?: string;
   }): Promise<PaymentInitialization>;
 }
 
@@ -111,20 +118,27 @@ export interface PaymentInitializationConfiguration {
   readonly privacyHmacKey: Uint8Array;
 }
 
+export interface PaymentChannelProviders {
+  readonly USSD: PaymentProvider;
+  readonly WEB: PaymentProvider;
+}
+
 export class DefaultPaymentInitializationService
   implements PaymentInitializationService
 {
   constructor(
     private readonly repository: PaymentInitializationRepository,
-    private readonly provider: PaymentProvider,
+    private readonly providers: PaymentChannelProviders,
     private readonly rateLimiter: PaymentRateLimiter,
     private readonly configuration: PaymentInitializationConfiguration,
   ) {}
 
   async initialize(command: {
+    readonly channel: PaymentChannel;
     readonly clientIp: string;
     readonly idempotencyKey: string;
     readonly orderPublicReference: string;
+    readonly payerPhoneNumber?: string;
   }): Promise<PaymentInitialization> {
     const orderPublicReference = assertPaymentOrderReference(
       command.orderPublicReference,
@@ -145,8 +159,12 @@ export class DefaultPaymentInitializationService
       ),
       orderPublicReference,
       paymentPublicReference: randomUUID(),
-      provider: this.provider.code,
+      providerCodes: {
+        USSD: this.providers.USSD.code,
+        WEB: this.providers.WEB.code,
+      },
       providerReference: `EDU-${randomUUID()}`,
+      purchaseChannel: command.channel,
       requestFingerprint: createRequestFingerprint(
         { orderPublicReference },
         this.configuration.privacyHmacKey,
@@ -155,12 +173,16 @@ export class DefaultPaymentInitializationService
 
     if (!claim.isNew) return this.replay(claim);
 
+    const provider = this.providers[claim.purchaseChannel];
     try {
-      const initialized = await this.provider.initialize({
+      const initialized = await provider.initialize({
         amountMinor: claim.expectedAmountMinor,
         callbackUrl: this.configuration.callbackUrl,
         currency: claim.currency,
-        email: claim.email,
+        email: claim.email ?? '',
+        ...(claim.payerPhoneNumber === null
+          ? {}
+          : { payerPhoneNumber: claim.payerPhoneNumber }),
         orderPublicReference: claim.orderPublicReference,
         paymentPublicReference: claim.paymentPublicReference,
         providerReference: claim.providerReference,
@@ -181,7 +203,7 @@ export class DefaultPaymentInitializationService
         authorizationUrl: initialized.authorizationUrl,
         currency: claim.currency,
         paymentPublicReference: claim.paymentPublicReference,
-        provider: this.provider.code,
+        provider: provider.code,
         providerReference: claim.providerReference,
         status: 'PENDING',
       };
@@ -209,23 +231,21 @@ export class DefaultPaymentInitializationService
         authorizationUrl: claim.authorizationUrl,
         currency: claim.currency,
         paymentPublicReference: claim.paymentPublicReference,
-        provider: this.provider.code,
+        provider: this.providers[claim.purchaseChannel].code,
         providerReference: claim.providerReference,
         status: 'SUCCEEDED',
       };
     }
-    if (
-      claim.status === 'PENDING' &&
-      claim.accessCode !== null &&
-      claim.authorizationUrl !== null
-    ) {
+    if (claim.status === 'PENDING') {
+      // Hosted-checkout providers store an authorization URL; prompt-push
+      // providers legitimately replay with null checkout values.
       return {
         accessCode: claim.accessCode,
         amountMinor: claim.expectedAmountMinor.toString(),
         authorizationUrl: claim.authorizationUrl,
         currency: claim.currency,
         paymentPublicReference: claim.paymentPublicReference,
-        provider: this.provider.code,
+        provider: this.providers[claim.purchaseChannel].code,
         providerReference: claim.providerReference,
         status: claim.status,
       };

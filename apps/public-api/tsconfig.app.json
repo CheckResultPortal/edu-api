@@ -23,13 +23,16 @@
   ],
   "references": [
     {
-      "path": "../../libs/modules/catalog/tsconfig.lib.json"
+      "path": "../../libs/modules/ussd/tsconfig.lib.json"
+    },
+    {
+      "path": "../../libs/modules/payments/tsconfig.lib.json"
     },
     {
       "path": "../../libs/modules/orders/tsconfig.lib.json"
     },
     {
-      "path": "../../libs/modules/payments/tsconfig.lib.json"
+      "path": "../../libs/modules/catalog/tsconfig.lib.json"
     },
     {
       "path": "../../libs/shared/health/tsconfig.lib.json"
@@ -38,13 +41,13 @@
       "path": "../../libs/shared/database/tsconfig.lib.json"
     },
     {
-      "path": "../../libs/shared/config/tsconfig.lib.json"
-    },
-    {
       "path": "../../libs/shared/observability/tsconfig.lib.json"
     },
     {
       "path": "../../libs/shared/http/tsconfig.lib.json"
+    },
+    {
+      "path": "../../libs/shared/config/tsconfig.lib.json"
     }
   ]
 }

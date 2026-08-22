@@ -2,15 +2,20 @@ import { createRequestFingerprint } from '@edu-api/idempotency';
 
 import {
   assertOrderIdempotencyKey,
+  type CreateUssdGuestOrderDraft,
   type CreateWebGuestOrderDraft,
   type OrderDeliveryPreference,
   type PurchaseChannel,
+  validateUssdGuestOrderInput,
   validateWebGuestOrderInput,
 } from '../domain/order-validation';
 
 export const ORDER_CREATION_REPOSITORY = Symbol('ORDER_CREATION_REPOSITORY');
 export const ORDER_CREATION_SERVICE = Symbol('ORDER_CREATION_SERVICE');
 export const ORDER_RATE_LIMITER = Symbol('ORDER_RATE_LIMITER');
+export const ORDER_USSD_CREATION_SERVICE = Symbol(
+  'ORDER_USSD_CREATION_SERVICE',
+);
 
 export interface GuestOrder {
   readonly currency: 'GHS';
@@ -34,7 +39,7 @@ export interface OrderCreationContext {
 export interface PersistGuestOrderInput {
   readonly deliveryPreference: OrderDeliveryPreference;
   readonly email: string | null;
-  readonly firstName: string;
+  readonly firstName: string | null;
   readonly idempotencyExpiresAt: Date;
   readonly idempotencyKey: string;
   readonly phoneNumber: string;
@@ -60,6 +65,38 @@ export interface OrderCreationService {
     command: CreateGuestOrderCommand,
     context: OrderCreationContext,
   ): Promise<GuestOrder>;
+}
+
+export interface UssdGuestOrderCommand extends CreateUssdGuestOrderDraft {
+  readonly idempotencyKey: string;
+}
+
+export class DefaultUssdOrderCreationService {
+  constructor(
+    private readonly repository: OrderCreationRepository,
+    private readonly rateLimiter: OrderRateLimiter,
+    private readonly idempotencyTtlMs: number,
+    private readonly privacyHmacKey: Uint8Array,
+  ) {}
+
+  async create(
+    command: UssdGuestOrderCommand,
+    context: OrderCreationContext,
+  ): Promise<GuestOrder> {
+    const input = validateUssdGuestOrderInput(command);
+    const idempotencyKey = assertOrderIdempotencyKey(command.idempotencyKey);
+    await this.rateLimiter.consume({
+      clientIp: context.clientIp,
+      phoneNumber: input.phoneNumber,
+    });
+
+    return this.repository.create({
+      ...input,
+      idempotencyExpiresAt: new Date(Date.now() + this.idempotencyTtlMs),
+      idempotencyKey,
+      requestFingerprint: createRequestFingerprint(input, this.privacyHmacKey),
+    });
+  }
 }
 
 export class DefaultOrderCreationService implements OrderCreationService {

@@ -103,6 +103,19 @@ const paystackProviderEnvironmentShape = {
     .default(10_000),
 } as const;
 
+const moolreProviderEnvironmentShape = {
+  MOOLRE_API_USER: z.string().trim().min(1).max(128),
+  MOOLRE_PUBLIC_KEY: z.string().trim().min(20).max(512),
+  MOOLRE_ACCOUNT_NUMBER: z.string().regex(/^[0-9]{6,20}$/),
+  MOOLRE_BASE_URL: z.url().default('https://api.moolre.com/'),
+  MOOLRE_REQUEST_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .min(1_000)
+    .max(30_000)
+    .default(10_000),
+} as const;
+
 export const publicApiEnvironmentSchema = httpEnvironmentSchema.extend({
   PORT: z.coerce.number().int().min(1).max(65_535).default(3001),
   ORDER_PRIVACY_HMAC_KEY: base64KeySchema,
@@ -131,7 +144,16 @@ export const publicApiEnvironmentSchema = httpEnvironmentSchema.extend({
     .max(1_000)
     .default(10),
   ...paystackProviderEnvironmentShape,
+  ...moolreProviderEnvironmentShape,
   PAYSTACK_CALLBACK_URL: z.url(),
+  NALO_USER_ID: z.string().trim().min(1).max(64),
+  USSD_MAX_PRODUCTS: z.coerce.number().int().min(1).max(8).default(4),
+  USSD_SESSION_TTL_MS: z.coerce
+    .number()
+    .int()
+    .min(60_000)
+    .max(15 * 60_000)
+    .default(5 * 60_000),
   PAYMENT_IDEMPOTENCY_TTL_MS: z.coerce
     .number()
     .int()
@@ -176,6 +198,7 @@ export const workerEnvironmentSchema = commonEnvironmentSchema
     ...voucherImportEnvironmentShape,
     ...orderMaintenanceEnvironmentShape,
     ...paystackProviderEnvironmentShape,
+    ...moolreProviderEnvironmentShape,
     PAYMENT_VERIFICATION_BATCH_SIZE: z.coerce
       .number()
       .int()

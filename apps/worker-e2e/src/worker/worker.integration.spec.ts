@@ -1,4 +1,4 @@
-import { validateWorkerEnvironment } from '@edu-api/config';
+﻿import { validateWorkerEnvironment } from '@edu-api/config';
 
 describe('Worker integration', () => {
   it('accepts its required worker environment', () => {
@@ -10,6 +10,9 @@ describe('Worker integration', () => {
         DATABASE_URL: 'postgresql://user:password@localhost:5432/database',
         REDIS_URL: 'redis://localhost:6379',
         PAYSTACK_SECRET_KEY: 'sk_test_012345678901234567890123456789',
+      MOOLRE_API_USER: 'edu-integration',
+      MOOLRE_PUBLIC_KEY: 'pk_test_0123456789012345678901234567890',
+      MOOLRE_ACCOUNT_NUMBER: '100000157291',
         ADMIN_APPLICATION_ORIGIN: 'https://admin.example.com',
         ADMIN_SESSION_HMAC_KEY: '0123456789012345678901234567890123456789012',
         ADMIN_SECRET_ENCRYPTION_KEY_ID: 'test-v1',

@@ -1,4 +1,6 @@
 export const PAYMENT_PROVIDER = Symbol('PAYMENT_PROVIDER');
+export const PAYSTACK_PAYMENT_PROVIDER = Symbol('PAYSTACK_PAYMENT_PROVIDER');
+export const MOOLRE_PAYMENT_PROVIDER = Symbol('MOOLRE_PAYMENT_PROVIDER');
 
 export type PaymentCurrency = 'GHS';
 
@@ -10,11 +12,21 @@ export interface InitializeProviderPaymentInput {
   readonly orderPublicReference: string;
   readonly paymentPublicReference: string;
   readonly providerReference: string;
+  /**
+   * Customer mobile-money number in local 0-prefixed format. Providers that
+   * push a payment prompt directly to a phone require it; hosted-checkout
+   * providers ignore it.
+   */
+  readonly payerPhoneNumber?: string;
 }
 
 export interface InitializedProviderPayment {
-  readonly accessCode: string;
-  readonly authorizationUrl: string;
+  /**
+   * Hosted-checkout providers return both values; prompt-push providers
+   * return null for both because no hosted page exists.
+   */
+  readonly accessCode: string | null;
+  readonly authorizationUrl: string | null;
   readonly providerReference: string;
 }
 
@@ -34,6 +46,17 @@ export type AuthenticatedProviderWebhook =
       readonly kind: 'PAYMENT_SUCCEEDED';
       readonly payloadFingerprint: string;
       readonly success: VerifiedProviderPaymentSuccess;
+    }
+  | {
+      /**
+       * The provider delivers unsigned callbacks that only signal a status
+       * change. Consumers must re-verify the referenced transaction through
+       * the provider's status endpoint before committing any success effect.
+       */
+      readonly eventType: string;
+      readonly kind: 'NOTIFICATION';
+      readonly payloadFingerprint: string;
+      readonly providerReference: string;
     };
 
 export type ProviderPaymentVerification =

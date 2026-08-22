@@ -1,4 +1,4 @@
-import { OrderInputValidationError } from '../application/order-creation-errors';
+﻿import { OrderInputValidationError } from '../application/order-creation-errors';
 
 export interface CreateWebGuestOrderDraft {
   readonly email: string;
@@ -22,13 +22,22 @@ export type OrderDeliveryPreference =
 
 export interface ValidatedWebGuestOrderInput {
   readonly deliveryPreference: OrderDeliveryPreference;
-  readonly email: string;
-  readonly firstName: string;
+  readonly email: string | null;
+  readonly firstName: string | null;
   readonly phoneNumber: string;
   readonly productPublicId: string;
   readonly purchaseChannel: PurchaseChannel;
   readonly quantity: number;
 }
+
+/**
+ * Web orders always carry a first name and email; USSD orders derive the
+ * phone from the session and may omit both.
+ */
+export type ValidatedWebChannelOrderInput = ValidatedWebGuestOrderInput & {
+  readonly email: string;
+  readonly firstName: string;
+};
 
 const orderRequestKeys = new Set([
   'email',
@@ -40,7 +49,7 @@ const orderRequestKeys = new Set([
 
 export function parseGuestOrderRequest(
   value: unknown,
-): ValidatedWebGuestOrderInput {
+): ValidatedWebChannelOrderInput {
   if (!isPlainObject(value)) {
     throw new OrderInputValidationError('The order body must be an object.');
   }
@@ -63,7 +72,7 @@ export function parseGuestOrderRequest(
 
 export function validateWebGuestOrderInput(
   input: CreateWebGuestOrderDraft,
-): ValidatedWebGuestOrderInput {
+): ValidatedWebChannelOrderInput {
   if (
     !Number.isSafeInteger(input.quantity) ||
     input.quantity < 1 ||
@@ -88,6 +97,57 @@ export function validateWebGuestOrderInput(
     phoneNumber: normalizeGhanaPhoneNumber(input.phoneNumber),
     productPublicId,
     purchaseChannel: 'WEB',
+    quantity: input.quantity,
+  };
+}
+
+export interface CreateUssdGuestOrderDraft {
+  readonly deliveryPreference: OrderDeliveryPreference;
+  readonly email?: string;
+  readonly phoneNumber: string;
+  readonly productPublicId: string;
+  readonly quantity: number;
+}
+
+export function validateUssdGuestOrderInput(
+  input: CreateUssdGuestOrderDraft,
+): ValidatedWebGuestOrderInput {
+  if (
+    !Number.isSafeInteger(input.quantity) ||
+    input.quantity < 1 ||
+    input.quantity > 20
+  ) {
+    throw new OrderInputValidationError(
+      'Order quantity must be an integer between 1 and 20.',
+    );
+  }
+
+  const productPublicId = input.productPublicId.trim().toLowerCase();
+  if (!isUuid(productPublicId)) {
+    throw new OrderInputValidationError('The product reference is invalid.');
+  }
+
+  const preference = input.deliveryPreference;
+  const requiresEmail =
+    preference === 'EMAIL_ONLY' || preference === 'SMS_AND_EMAIL';
+  if (requiresEmail && input.email === undefined) {
+    throw new OrderInputValidationError(
+      'The selected delivery preference requires an email address.',
+    );
+  }
+  if (!requiresEmail && input.email !== undefined) {
+    throw new OrderInputValidationError(
+      'The selected delivery preference must not include an email address.',
+    );
+  }
+
+  return {
+    deliveryPreference: preference,
+    email: requiresEmail ? normalizeRequiredEmail(input.email ?? '') : null,
+    firstName: null,
+    phoneNumber: normalizeGhanaPhoneNumber(input.phoneNumber),
+    productPublicId,
+    purchaseChannel: 'USSD',
     quantity: input.quantity,
   };
 }

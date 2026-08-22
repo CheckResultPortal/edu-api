@@ -32,6 +32,7 @@
       "@edu-api/encryption": ["./libs/platform/encryption/src/index.ts"],
       "@edu-api/catalog": ["./libs/modules/catalog/src/index.ts"],
       "@edu-api/orders": ["./libs/modules/orders/src/index.ts"],
+      "@edu-api/ussd": ["./libs/modules/ussd/src/index.ts"],
       "@edu-api/fulfilment": ["./libs/modules/fulfilment/src/index.ts"],
       "@edu-api/payments": ["./libs/modules/payments/src/index.ts"],
       "@edu-api/voucher-inventory": [

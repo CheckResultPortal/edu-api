@@ -3,6 +3,7 @@ import type { DatabaseTransactionClient } from '@edu-api/database';
 import type {
   PaidOrderSnapshot,
   PaymentOrderQuery,
+  UssdPaymentOrderSnapshot,
   WebPaymentOrderSnapshot,
 } from '../application/payment-order-query';
 
@@ -29,6 +30,30 @@ export class PrismaPaymentOrderQuery implements PaymentOrderQuery {
     if (order === null || order.email === null) return null;
 
     return { ...order, email: order.email };
+  }
+
+  async getUssdPaymentOrder(
+    transaction: DatabaseTransactionClient,
+    publicReference: string,
+  ): Promise<UssdPaymentOrderSnapshot | null> {
+    const order = await transaction.order.findFirst({
+      where: {
+        publicReference,
+        purchaseChannel: 'USSD',
+        contactAnonymizedAt: null,
+        phoneNumber: { not: null },
+      },
+      select: {
+        currency: true,
+        id: true,
+        phoneNumber: true,
+        publicReference: true,
+        totalPriceMinor: true,
+      },
+    });
+    if (order === null || order.phoneNumber === null) return null;
+
+    return { ...order, phoneNumber: order.phoneNumber };
   }
 
   async getWebPaymentOrderById(

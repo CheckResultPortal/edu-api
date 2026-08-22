@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+﻿import { randomUUID } from 'node:crypto';
 
 import { PrismaPaymentOrderQuery } from '@edu-api/orders';
 import { createPrismaClient, type DatabaseClient } from '@edu-api/database';
@@ -101,6 +101,7 @@ describeWithDatabase('payment initialization (PostgreSQL)', () => {
     const provider = providerMock();
     const service = createService(provider);
     const command = {
+      channel: 'WEB' as const,
       clientIp: '203.0.113.10',
       idempotencyKey: `payment:${suffix}:replay`,
       orderPublicReference,
@@ -120,6 +121,7 @@ describeWithDatabase('payment initialization (PostgreSQL)', () => {
     const service = createService(providerMock());
     const idempotencyKey = `payment:${suffix}:conflict`;
     await service.initialize({
+      channel: 'WEB',
       clientIp: '203.0.113.10',
       idempotencyKey,
       orderPublicReference,
@@ -127,6 +129,7 @@ describeWithDatabase('payment initialization (PostgreSQL)', () => {
 
     await expect(
       service.initialize({
+        channel: 'WEB',
         clientIp: '203.0.113.10',
         idempotencyKey,
         orderPublicReference: randomUUID(),
@@ -142,6 +145,7 @@ describeWithDatabase('payment initialization (PostgreSQL)', () => {
 
     await expect(
       createService(provider).initialize({
+        channel: 'WEB',
         clientIp: '203.0.113.10',
         idempotencyKey: `payment:${suffix}:timeout`,
         orderPublicReference,
@@ -182,6 +186,7 @@ describeWithDatabase('payment initialization (PostgreSQL)', () => {
 
     await expect(
       createService(provider).initialize({
+        channel: 'WEB',
         clientIp: '203.0.113.10',
         idempotencyKey: `payment:${suffix}:success-race`,
         orderPublicReference,
@@ -203,7 +208,7 @@ describeWithDatabase('payment initialization (PostgreSQL)', () => {
     const rateLimiter: PaymentRateLimiter = { consume: jest.fn() };
     return new DefaultPaymentInitializationService(
       repository,
-      provider,
+      { USSD: provider, WEB: provider },
       rateLimiter,
       {
         callbackUrl: 'https://app.example.com/payment/callback',

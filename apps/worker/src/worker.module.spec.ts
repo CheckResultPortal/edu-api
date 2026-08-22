@@ -1,4 +1,4 @@
-import { ConfigService } from '@nestjs/config';
+﻿import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 
 describe('WorkerModule', () => {
@@ -12,6 +12,9 @@ describe('WorkerModule', () => {
       NODE_ENV: 'test',
       REDIS_URL: 'redis://localhost:6379',
       PAYSTACK_SECRET_KEY: 'sk_test_012345678901234567890123456789',
+      MOOLRE_API_USER: 'edu-integration',
+      MOOLRE_PUBLIC_KEY: 'pk_test_0123456789012345678901234567890',
+      MOOLRE_ACCOUNT_NUMBER: '100000157291',
       ADMIN_APPLICATION_ORIGIN: 'https://admin.example.com',
       ADMIN_SESSION_HMAC_KEY: '0123456789012345678901234567890123456789012',
       ADMIN_SECRET_ENCRYPTION_KEY_ID: 'test-v1',

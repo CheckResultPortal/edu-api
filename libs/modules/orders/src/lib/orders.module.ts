@@ -15,9 +15,11 @@ import { createRedisClient } from '@edu-api/redis';
 
 import {
   DefaultOrderCreationService,
+  DefaultUssdOrderCreationService,
   ORDER_CREATION_REPOSITORY,
   ORDER_CREATION_SERVICE,
   ORDER_RATE_LIMITER,
+  ORDER_USSD_CREATION_SERVICE,
   type OrderCreationRepository,
   type OrderRateLimiter,
 } from './application/order-creation-service';
@@ -66,8 +68,23 @@ import { PublicOrdersController } from './presentation/public-orders.controller'
           decodePrivacyHmacKey(config),
         ),
     },
+    {
+      provide: ORDER_USSD_CREATION_SERVICE,
+      inject: [ORDER_CREATION_REPOSITORY, ORDER_RATE_LIMITER, ConfigService],
+      useFactory: (
+        repository: OrderCreationRepository,
+        rateLimiter: OrderRateLimiter,
+        config: ConfigService,
+      ): DefaultUssdOrderCreationService =>
+        new DefaultUssdOrderCreationService(
+          repository,
+          rateLimiter,
+          config.getOrThrow('ORDER_IDEMPOTENCY_TTL_MS'),
+          decodePrivacyHmacKey(config),
+        ),
+    },
   ],
-  exports: [ORDER_CREATION_SERVICE],
+  exports: [ORDER_CREATION_SERVICE, ORDER_USSD_CREATION_SERVICE],
 })
 export class OrdersCoreModule {}
 
