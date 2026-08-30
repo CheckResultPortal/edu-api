@@ -33,17 +33,37 @@ describe('NaloUssdProvider', () => {
   });
 
   it.each([
-    ['wrong USERID', { MSGTYPE: true, MSISDN: '233244123456', USERDATA: '1', USERID: 'OTHER' }],
-    ['missing USERID', { MSGTYPE: true, MSISDN: '233244123456', USERDATA: '1' }],
-    ['non-boolean MSGTYPE', { MSGTYPE: 'true', MSISDN: '233244123456', USERDATA: '1', USERID: 'NALOTest' }],
-    ['alphabetic MSISDN', { MSGTYPE: true, MSISDN: 'abc', USERDATA: '1', USERID: 'NALOTest' }],
-    ['missing USERDATA', { MSGTYPE: true, MSISDN: '233244123456', USERID: 'NALOTest' }],
+    [
+      'wrong USERID',
+      { MSGTYPE: true, MSISDN: '233244123456', USERDATA: '1', USERID: 'OTHER' },
+    ],
+    [
+      'missing USERID',
+      { MSGTYPE: true, MSISDN: '233244123456', USERDATA: '1' },
+    ],
+    [
+      'non-boolean MSGTYPE',
+      {
+        MSGTYPE: 'true',
+        MSISDN: '233244123456',
+        USERDATA: '1',
+        USERID: 'NALOTest',
+      },
+    ],
+    [
+      'alphabetic MSISDN',
+      { MSGTYPE: true, MSISDN: 'abc', USERDATA: '1', USERID: 'NALOTest' },
+    ],
+    [
+      'missing USERDATA',
+      { MSGTYPE: true, MSISDN: '233244123456', USERID: 'NALOTest' },
+    ],
     ['non-object body', 'not-an-object'],
   ])('rejects %s', (_name, payload) => {
     expect(() => provider.parseRequest(payload)).toThrow(UssdRequestError);
   });
 
-  it('renders the Nalo response envelope without extra fields', () => {
+  it('renders the Nalo response envelope with the required USERID echo', () => {
     expect(
       provider.buildResponse(
         { input: '2', isNewSession: false, msisdn: '233244123456' },
@@ -53,6 +73,7 @@ describe('NaloUssdProvider', () => {
       MSG: 'Pick one:\n1. WAEC',
       MSGTYPE: true,
       MSISDN: '233244123456',
+      USERID: 'NALOTest',
       USERDATA: '2',
     });
   });

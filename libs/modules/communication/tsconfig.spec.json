@@ -8,6 +8,6 @@
   "references": [
     { "path": "../../shared/database/tsconfig.lib.json" },
     { "path": "../../shared/observability/tsconfig.lib.json" },
-    { "path": "../administration/tsconfig.lib.json" }
+    { "path": "../../platform/encryption/tsconfig.lib.json" }
   ]
 }

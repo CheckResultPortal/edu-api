@@ -7,8 +7,12 @@ import {
 } from '@nestjs/platform-fastify';
 import { randomUUID } from 'node:crypto';
 
-import { trustProxyFromEnvironment } from '@edu-api/config';
-import { configureHttpFoundation, configureOpenApi } from '@edu-api/http';
+import { corsAllowedOrigins, trustProxyFromEnvironment } from '@edu-api/config';
+import {
+  configureApiSecurity,
+  configureHttpFoundation,
+  configureOpenApi,
+} from '@edu-api/http';
 import { StructuredLogger } from '@edu-api/observability';
 
 import { AdminApiModule } from './admin-api.module';
@@ -46,6 +50,14 @@ async function bootstrap(): Promise<void> {
   const globalPrefix = 'v1';
 
   app.setGlobalPrefix(globalPrefix);
+  configureApiSecurity(app, {
+    allowedOrigins: corsAllowedOrigins(
+      config.get<string>('CORS_ALLOWED_ORIGINS'),
+      new URL(config.getOrThrow<string>('ADMIN_APPLICATION_ORIGIN')).origin,
+    ),
+    credentials: true,
+    production: config.getOrThrow<string>('NODE_ENV') === 'production',
+  });
   configureOpenApi(app, serviceName);
   configureHttpFoundation(app, logger);
   app.enableShutdownHooks();

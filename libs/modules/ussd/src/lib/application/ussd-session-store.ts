@@ -5,7 +5,9 @@ export type UssdFlowState =
   | 'QUANTITY'
   | 'DELIVERY'
   | 'EMAIL'
-  | 'CONFIRM';
+  | 'FIRST_NAME'
+  | 'CONFIRM'
+  | 'PAYMENT_PENDING';
 
 /**
  * Transient, Redis-only session state. It never holds payment truth:
@@ -21,8 +23,11 @@ export interface UssdSessionData {
   readonly quantity?: number;
   readonly deliveryPreference?: 'SMS_ONLY' | 'EMAIL_ONLY' | 'SMS_AND_EMAIL';
   readonly email?: string;
+  readonly firstName?: string;
   /** Set when the confirm step starts so retries reuse the same references. */
   readonly confirmId?: string;
+  /** Retained without contact data while a payment start is being recovered. */
+  readonly paymentOrderPublicReference?: string;
 }
 
 export interface UssdSessionStore {

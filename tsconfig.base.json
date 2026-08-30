@@ -42,6 +42,7 @@
       "@edu-api/stock-monitoring": [
         "./libs/modules/stock-monitoring/src/index.ts"
       ],
+      "@edu-api/reconciliation": ["./libs/modules/reconciliation/src/index.ts"],
       "@edu-api/administration": ["./libs/modules/administration/src/index.ts"]
     }
   },

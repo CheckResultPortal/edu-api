@@ -1,16 +1,16 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 
-import { type AdminIdentityConfiguration } from '@edu-api/administration';
 import { createPrismaClient, type DatabaseClient } from '@edu-api/database';
 import { createSecretKeyring, encryptSecret } from '@edu-api/encryption';
 
 import { AdminInvitationEmailDeliveryService } from './admin-invitation-email-delivery.service';
+import { type AdminInvitationDeliveryConfiguration } from './admin-invitation-delivery-reader';
 import type { EmailProvider } from './email-provider';
 
 const databaseUrl = process.env.COMMUNICATION_TEST_DATABASE_URL;
 const describeWithDatabase =
   databaseUrl === undefined ? describe.skip : describe;
-const configuration: AdminIdentityConfiguration = {
+const configuration: AdminInvitationDeliveryConfiguration = {
   applicationOrigin: 'https://admin.example.test',
   hmacKey: Buffer.alloc(32, 21),
   secretEncryptionKeyId: 'test-v1',

@@ -43,6 +43,19 @@ describe('RedisOrderRateLimiter', () => {
     ).rejects.toEqual(new OrderRateLimitExceededError(6));
   });
 
+  it('uses only the per-phone counter for authenticated gateway traffic', async () => {
+    const evalMock = jest.fn().mockResolvedValue([1, 600_000]);
+    const limiter = new RedisOrderRateLimiter(
+      fakeRedis(evalMock),
+      configuration,
+      privacyHmacKey,
+    );
+
+    await limiter.consume({ phoneNumber: '+233241234567' });
+
+    expect(evalMock).toHaveBeenCalledTimes(1);
+  });
+
   it('fails open when transient Redis infrastructure is unavailable', async () => {
     const limiter = new RedisOrderRateLimiter(
       fakeRedis(jest.fn().mockRejectedValue(new Error('redis unavailable'))),

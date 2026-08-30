@@ -18,6 +18,10 @@ import {
   type VoucherInventoryService,
   VOUCHER_INVENTORY_SERVICE,
 } from '@edu-api/voucher-inventory';
+import {
+  COMMUNICATION_ADMIN_OPERATIONS,
+  CommunicationAdminModule,
+} from '@edu-api/communication';
 
 import {
   ADMIN_CATALOG_OPERATIONS_SERVICE,
@@ -33,14 +37,23 @@ import { PrismaAdminIdentityService } from './application/prisma-admin-identity.
 import { AdminIdentityController } from './presentation/admin-identity.controller';
 import { AdminCatalogController } from './presentation/admin-catalog.controller';
 import { AdminVoucherInventoryController } from './presentation/admin-voucher-inventory.controller';
+import { AdminOperationsController } from './presentation/admin-operations.controller';
+import { ADMIN_OPERATIONS_QUERY } from './application/admin-operations-query';
+import { PrismaAdminOperationsQuery } from './infrastructure/prisma-admin-operations-query';
 import { AdminSessionGuard } from './presentation/admin-session.guard';
 
 @Module({
-  imports: [DatabaseModule, CatalogCoreModule, VoucherInventoryCoreModule],
+  imports: [
+    DatabaseModule,
+    CatalogCoreModule,
+    VoucherInventoryCoreModule,
+    CommunicationAdminModule,
+  ],
   controllers: [
     AdminIdentityController,
     AdminCatalogController,
     AdminVoucherInventoryController,
+    AdminOperationsController,
   ],
   providers: [
     {
@@ -96,12 +109,20 @@ import { AdminSessionGuard } from './presentation/admin-session.guard';
         ),
     },
     AdminSessionGuard,
+    {
+      provide: ADMIN_OPERATIONS_QUERY,
+      inject: [DATABASE_CLIENT],
+      useFactory: (database: DatabaseClient): PrismaAdminOperationsQuery =>
+        new PrismaAdminOperationsQuery(database),
+    },
   ],
   exports: [
     ADMIN_CATALOG_OPERATIONS_SERVICE,
     ADMIN_VOUCHER_INVENTORY_OPERATIONS_SERVICE,
     ADMIN_IDENTITY_SERVICE,
     AdminSessionGuard,
+    ADMIN_OPERATIONS_QUERY,
+    COMMUNICATION_ADMIN_OPERATIONS,
   ],
 })
 export class AdministrationModule {}

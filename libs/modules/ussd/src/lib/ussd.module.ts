@@ -7,12 +7,12 @@ import {
   type CatalogProductQuery,
 } from '@edu-api/catalog';
 import { DatabaseModule } from '@edu-api/database';
+import { ORDER_USSD_CREATION_SERVICE, OrdersCoreModule } from '@edu-api/orders';
 import {
-  ORDER_USSD_CREATION_SERVICE,
-  OrdersCoreModule,
-} from '@edu-api/orders';
-import {
+  PaymentInitializationInProgressError,
   PAYMENT_INITIALIZATION_SERVICE,
+  PaymentProviderRejectedError,
+  PaymentProviderUnknownOutcomeError,
   PaymentsCoreModule,
   PaymentsModule,
   type PaymentInitializationService,
@@ -30,15 +30,16 @@ import {
   type UssdOrderCreator,
   type UssdProductQuery,
 } from './application/ussd-flow-service';
-import {
-  USSD_PROVIDER,
-  type UssdProvider,
-} from './application/ussd-provider';
+import { USSD_PROVIDER, type UssdProvider } from './application/ussd-provider';
 import {
   USSD_SESSION_STORE,
   type UssdSessionStore,
 } from './application/ussd-session-store';
 import { NaloUssdProvider } from './infrastructure/nalo-ussd-provider';
+import {
+  NALO_GATEWAY_ACCESS_POLICY,
+  NaloGatewayAccessPolicy,
+} from './infrastructure/nalo-gateway-access-policy';
 import { RedisUssdSessionStore } from './infrastructure/redis-ussd-session-store';
 import { NaloUssdController } from './presentation/nalo-ussd.controller';
 
@@ -50,7 +51,16 @@ import { NaloUssdController } from './presentation/nalo-ussd.controller';
       inject: [ConfigService],
       useFactory: (config: ConfigService): UssdProvider =>
         new NaloUssdProvider({
-          expectedUserId: config.getOrThrow<string>('NALO_USER_ID'),
+          expectedUserId: config.get<string>('NALO_USER_ID') ?? '',
+        }),
+    },
+    {
+      provide: NALO_GATEWAY_ACCESS_POLICY,
+      inject: [ConfigService],
+      useFactory: (config: ConfigService): NaloGatewayAccessPolicy =>
+        new NaloGatewayAccessPolicy({
+          enabled: config.getOrThrow<boolean>('USSD_ENABLED'),
+          trustedSourceIps: config.get<string>('NALO_TRUSTED_SOURCE_IPS'),
         }),
     },
     {
@@ -74,7 +84,12 @@ import { NaloUssdController } from './presentation/nalo-ussd.controller';
       }),
     },
   ],
-  exports: [USSD_PROVIDER, USSD_SESSION_STORE, USSD_PRODUCT_QUERY],
+  exports: [
+    USSD_PROVIDER,
+    USSD_SESSION_STORE,
+    USSD_PRODUCT_QUERY,
+    NALO_GATEWAY_ACCESS_POLICY,
+  ],
 })
 export class UssdCoreModule {}
 
@@ -88,7 +103,31 @@ export class UssdCoreModule {}
     },
     {
       provide: USSD_PAYMENT_INITIALIZER,
-      useExisting: PAYMENT_INITIALIZATION_SERVICE,
+      inject: [PAYMENT_INITIALIZATION_SERVICE],
+      useFactory: (payments: PaymentInitializationService) => ({
+        initialize: async (command: {
+          readonly channel: 'USSD';
+          readonly clientIp: string;
+          readonly idempotencyKey: string;
+          readonly orderPublicReference: string;
+          readonly payerPhoneNumber: string;
+        }) => {
+          try {
+            return await payments.initialize(command);
+          } catch (error) {
+            if (
+              error instanceof PaymentProviderUnknownOutcomeError ||
+              error instanceof PaymentInitializationInProgressError
+            ) {
+              return { status: 'UNKNOWN' as const };
+            }
+            if (error instanceof PaymentProviderRejectedError) {
+              return { status: 'FAILED' as const };
+            }
+            throw error;
+          }
+        },
+      }),
     },
     {
       provide: USSD_FLOW_SERVICE,
@@ -106,13 +145,22 @@ export class UssdCoreModule {}
         paymentInitializer: PaymentInitializationService,
         config: ConfigService,
       ): DefaultUssdFlowService =>
-        new DefaultUssdFlowService(sessions, products, orderCreator, paymentInitializer, {
-          maximumProducts: config.getOrThrow<number>('USSD_MAX_PRODUCTS'),
-          quantityMaximum: 20,
-          sessionTtlMilliseconds: config.getOrThrow<number>(
-            'USSD_SESSION_TTL_MS',
-          ),
-        } satisfies UssdFlowConfiguration),
+        new DefaultUssdFlowService(
+          sessions,
+          products,
+          orderCreator,
+          paymentInitializer,
+          {
+            maximumProducts: config.getOrThrow<number>('USSD_MAX_PRODUCTS'),
+            quantityMaximum: 20,
+            sessionTtlMilliseconds: config.getOrThrow<number>(
+              'USSD_SESSION_TTL_MS',
+            ),
+            paymentPendingTtlMilliseconds: config.getOrThrow<number>(
+              'USSD_PENDING_PAYMENT_TTL_MS',
+            ),
+          } satisfies UssdFlowConfiguration,
+        ),
     },
     {
       provide: StructuredLogger,

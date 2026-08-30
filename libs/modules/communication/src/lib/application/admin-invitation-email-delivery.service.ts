@@ -2,12 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { randomInt } from 'node:crypto';
 
 import type { DatabaseClient } from '@edu-api/database';
-import {
-  PrismaAdminInvitationDeliveryReader,
-  type AdminIdentityConfiguration,
-} from '@edu-api/administration';
-
 import type { EmailProvider } from './email-provider';
+import {
+  AdminInvitationDeliveryReader,
+  type AdminInvitationDeliveryConfiguration,
+} from './admin-invitation-delivery-reader';
 
 const invitationDeliveryEventType = 'ADMIN_INVITATION_DELIVERY_REQUESTED';
 const processingLeaseMs = 60_000;
@@ -21,15 +20,15 @@ export interface AdminInvitationDeliveryWorkerOptions {
 
 @Injectable()
 export class AdminInvitationEmailDeliveryService {
-  private readonly invitations: PrismaAdminInvitationDeliveryReader;
+  private readonly invitations: AdminInvitationDeliveryReader;
 
   constructor(
     private readonly database: DatabaseClient,
-    configuration: AdminIdentityConfiguration,
+    configuration: AdminInvitationDeliveryConfiguration,
     private readonly provider: EmailProvider,
     private readonly options: AdminInvitationDeliveryWorkerOptions,
   ) {
-    this.invitations = new PrismaAdminInvitationDeliveryReader(
+    this.invitations = new AdminInvitationDeliveryReader(
       database,
       configuration,
     );

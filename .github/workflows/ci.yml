@@ -30,13 +30,13 @@ jobs:
       postgres:
         image: postgres:18
         env:
-          POSTGRES_DB: mould_elections
-          POSTGRES_USER: mould_elections
-          POSTGRES_PASSWORD: mould_elections
+          POSTGRES_DB: eduvoucher
+          POSTGRES_USER: eduvoucher
+          POSTGRES_PASSWORD: eduvoucher
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U mould_elections -d mould_elections"
+          --health-cmd "pg_isready -U eduvoucher -d eduvoucher"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
@@ -61,17 +61,47 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec prisma generate
         env:
-          DATABASE_URL: postgresql://mould_elections:mould_elections@localhost:5432/mould_elections?schema=public
+          DATABASE_URL: postgresql://eduvoucher:eduvoucher@localhost:5432/eduvoucher?schema=public
       - run: pnpm exec prisma validate
         env:
-          DATABASE_URL: postgresql://mould_elections:mould_elections@localhost:5432/mould_elections?schema=public
+          DATABASE_URL: postgresql://eduvoucher:eduvoucher@localhost:5432/eduvoucher?schema=public
+      - run: pnpm exec prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://eduvoucher:eduvoucher@localhost:5432/eduvoucher?schema=public
       - run: pnpm exec nx sync:check
       - run: pnpm format:check
       - run: pnpm lint
       - run: pnpm test
-      - run: pnpm exec nx run-many -t e2e --projects=voter-api-e2e,management-api-e2e
+      - run: pnpm exec nx run public-api-e2e:e2e
         env:
-          DATABASE_URL: postgresql://mould_elections:mould_elections@localhost:5432/mould_elections?schema=public
+          DATABASE_URL: postgresql://eduvoucher:eduvoucher@localhost:5432/eduvoucher?schema=public
+          REDIS_URL: redis://localhost:6379
+          NODE_ENV: test
+          LOG_LEVEL: error
+          SERVICE_NAME: public-api
+          PORT: 3001
+          ORDER_PRIVACY_HMAC_KEY: "0123456789012345678901234567890123456789012"
+          PAYSTACK_SECRET_KEY: "sk_test_012345678901234567890123456789"
+          PAYSTACK_CALLBACK_URL: "http://localhost:3000/payment/callback"
+          USSD_ENABLED: "false"
+      - run: pnpm exec nx run admin-api-e2e:e2e
+        env:
+          DATABASE_URL: postgresql://eduvoucher:eduvoucher@localhost:5432/eduvoucher?schema=public
+          REDIS_URL: redis://localhost:6379
+          NODE_ENV: test
+          LOG_LEVEL: error
+          SERVICE_NAME: admin-api
+          PORT: 3002
+          ADMIN_APPLICATION_ORIGIN: "https://admin.example.com"
+          ADMIN_SESSION_HMAC_KEY: "0123456789012345678901234567890123456789012"
+          ADMIN_SECRET_ENCRYPTION_KEY_ID: test-v1
+          ADMIN_SECRET_ENCRYPTION_KEY: "0123456789012345678901234567890123456789012"
+          VOUCHER_SECRET_ENCRYPTION_KEY_ID: test-v1
+          VOUCHER_SECRET_ENCRYPTION_KEY: "1234567890123456789012345678901234567890123"
+          VOUCHER_PIN_FINGERPRINT_KEY: "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG"
+      - run: pnpm exec nx run worker-e2e:e2e
+        env:
+          DATABASE_URL: postgresql://eduvoucher:eduvoucher@localhost:5432/eduvoucher?schema=public
           REDIS_URL: redis://localhost:6379
           NODE_ENV: test
           LOG_LEVEL: error

@@ -3,9 +3,32 @@ import {
   validatePublicApiEnvironment,
   validateWorkerEnvironment,
   trustProxyFromEnvironment,
+  corsAllowedOrigins,
 } from './environment';
 
 describe('environment validation', () => {
+  describe('corsAllowedOrigins', () => {
+    it('normalizes a bounded exact-origin allowlist', () => {
+      expect(
+        corsAllowedOrigins(
+          'https://shop.example.com, https://admin.example.com',
+          'https://fallback.example.com',
+        ),
+      ).toEqual(['https://shop.example.com', 'https://admin.example.com']);
+    });
+
+    it('rejects wildcard and path-based entries', () => {
+      expect(() =>
+        corsAllowedOrigins('*', 'https://fallback.example.com'),
+      ).toThrow('must not contain a wildcard');
+      expect(() =>
+        corsAllowedOrigins(
+          'https://shop.example.com/path',
+          'https://fallback.example.com',
+        ),
+      ).toThrow('must be an exact HTTP(S) origin');
+    });
+  });
   describe('public API', () => {
     it('applies valid defaults', () => {
       const configuration = validatePublicApiEnvironment({
@@ -41,15 +64,45 @@ describe('environment validation', () => {
         MOOLRE_ACCOUNT_NUMBER: moolrePaymentEnvironment.MOOLRE_ACCOUNT_NUMBER,
         MOOLRE_BASE_URL: 'https://api.moolre.com/',
         MOOLRE_REQUEST_TIMEOUT_MS: 10000,
+        USSD_ENABLED: true,
         NALO_USER_ID: naloUssdEnvironment.NALO_USER_ID,
+        NALO_TRUSTED_SOURCE_IPS: naloUssdEnvironment.NALO_TRUSTED_SOURCE_IPS,
         USSD_MAX_PRODUCTS: 4,
         USSD_SESSION_TTL_MS: 300000,
+        USSD_PENDING_PAYMENT_TTL_MS: 900000,
         PAYMENT_IDEMPOTENCY_TTL_MS: 86400000,
         PAYMENT_INITIAL_VERIFICATION_DELAY_MS: 120000,
         PAYMENT_RATE_LIMIT_WINDOW_MS: 600000,
         PAYMENT_RATE_LIMIT_IP_MAXIMUM: 30,
         PAYMENT_RATE_LIMIT_ORDER_MAXIMUM: 10,
       });
+    });
+
+    it('keeps web checkout bootable while USSD is disabled', () => {
+      const configuration = validatePublicApiEnvironment({
+        SERVICE_NAME: 'public-api',
+        DATABASE_URL: 'postgresql://user:password@localhost:5432/database',
+        REDIS_URL: 'redis://localhost:6379',
+        ORDER_PRIVACY_HMAC_KEY: privacyHmacKey,
+        ...paystackPublicEnvironment,
+      });
+
+      expect(configuration.USSD_ENABLED).toBe(false);
+      expect(configuration.MOOLRE_API_USER).toBeUndefined();
+      expect(configuration.NALO_USER_ID).toBeUndefined();
+    });
+
+    it('requires collection credentials and trusted Nalo sources when enabled', () => {
+      expect(() =>
+        validatePublicApiEnvironment({
+          SERVICE_NAME: 'public-api',
+          DATABASE_URL: 'postgresql://user:password@localhost:5432/database',
+          REDIS_URL: 'redis://localhost:6379',
+          ORDER_PRIVACY_HMAC_KEY: privacyHmacKey,
+          ...paystackPublicEnvironment,
+          USSD_ENABLED: 'true',
+        }),
+      ).toThrow('NALO_TRUSTED_SOURCE_IPS');
     });
 
     it('bounds trusted reverse-proxy hops', () => {
@@ -60,7 +113,7 @@ describe('environment validation', () => {
           REDIS_URL: 'redis://localhost:6379',
           ORDER_PRIVACY_HMAC_KEY: privacyHmacKey,
           ...paystackPublicEnvironment,
-        ...naloUssdEnvironment,
+          ...naloUssdEnvironment,
           ...moolrePaymentEnvironment,
           TRUST_PROXY_HOPS: '1',
         }).TRUST_PROXY_HOPS,
@@ -72,7 +125,7 @@ describe('environment validation', () => {
           REDIS_URL: 'redis://localhost:6379',
           ORDER_PRIVACY_HMAC_KEY: privacyHmacKey,
           ...paystackPublicEnvironment,
-        ...naloUssdEnvironment,
+          ...naloUssdEnvironment,
           ...moolrePaymentEnvironment,
           TRUST_PROXY_HOPS: 'all',
         }),
@@ -104,7 +157,7 @@ describe('environment validation', () => {
           REDIS_URL: 'redis://localhost:6379',
           ORDER_PRIVACY_HMAC_KEY: privacyHmacKey,
           ...paystackPublicEnvironment,
-        ...naloUssdEnvironment,
+          ...naloUssdEnvironment,
           ...moolrePaymentEnvironment,
           PORT: '70000',
         }),
@@ -195,6 +248,7 @@ describe('environment validation', () => {
         RESEND_FROM_EMAIL: 'EduVoucher <admin@example.com>',
         MOOLRE_SMS_VAS_KEY: 'moolre-test-key',
         MOOLRE_SMS_SENDER_ID: 'EduVoucher',
+        CUSTOMER_SUPPORT_PHONE: '+233300000000',
       });
 
       expect(configuration).toEqual({
@@ -227,6 +281,7 @@ describe('environment validation', () => {
         MOOLRE_ACCOUNT_NUMBER: moolrePaymentEnvironment.MOOLRE_ACCOUNT_NUMBER,
         MOOLRE_BASE_URL: 'https://api.moolre.com/',
         MOOLRE_REQUEST_TIMEOUT_MS: 10000,
+        USSD_ENABLED: false,
         PAYMENT_VERIFICATION_BATCH_SIZE: 25,
         PAYMENT_IDEMPOTENCY_CLEANUP_BATCH_SIZE: 1000,
         PAYMENT_VERIFICATION_LEASE_MS: 60000,
@@ -237,8 +292,10 @@ describe('environment validation', () => {
         RESEND_FROM_EMAIL: 'EduVoucher <admin@example.com>',
         MOOLRE_SMS_VAS_KEY: 'moolre-test-key',
         MOOLRE_SMS_SENDER_ID: 'EduVoucher',
+        CUSTOMER_SUPPORT_PHONE: '+233300000000',
         MOOLRE_SMS_BASE_URL: 'https://api.moolre.com',
         MOOLRE_SMS_REQUEST_TIMEOUT_MS: 10000,
+        USSD_PAYMENT_PROMPT_BATCH_SIZE: 25,
         VOUCHER_DELIVERY_BATCH_SIZE: 25,
         VOUCHER_DELIVERY_POLL_INTERVAL_MS: 5000,
         VOUCHER_DELIVERY_PROCESSING_LEASE_MS: 120000,
@@ -266,6 +323,8 @@ describe('environment validation', () => {
         STOCK_MONITORING_POLL_INTERVAL_MS: 5000,
         STOCK_ALERT_OUTBOX_BATCH_SIZE: 25,
         STOCK_ALERT_OUTBOX_LEASE_MS: 120000,
+        RECONCILIATION_BATCH_SIZE: 50,
+        RECONCILIATION_POLL_INTERVAL_MS: 60000,
       });
     });
 
@@ -325,7 +384,9 @@ const moolrePaymentEnvironment = {
 } as const;
 
 const naloUssdEnvironment = {
+  NALO_TRUSTED_SOURCE_IPS: '203.0.113.10,203.0.113.11',
   NALO_USER_ID: 'NALOTest',
+  USSD_ENABLED: true,
 } as const;
 
 const validWorkerEnvironment = {
@@ -348,4 +409,5 @@ const validWorkerEnvironment = {
   RESEND_FROM_EMAIL: 'EduVoucher <admin@example.com>',
   MOOLRE_SMS_VAS_KEY: 'moolre-test-key',
   MOOLRE_SMS_SENDER_ID: 'EduVoucher',
+  CUSTOMER_SUPPORT_PHONE: '+233300000000',
 } as const;

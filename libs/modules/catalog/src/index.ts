@@ -1,5 +1,6 @@
 export * from './lib/application/catalog-admin-errors';
 export * from './lib/application/catalog-admin-service';
+export * from './lib/application/catalog-group-query';
 export * from './lib/application/catalog-product-reference-query';
 export * from './lib/application/catalog-product-query';
 export * from './lib/catalog.module';

@@ -36,7 +36,9 @@ describe('DefaultPaymentInitializationService', () => {
     });
 
     await expect(
-      service(repository, { USSD: ussdProvider, WEB: provider }).initialize(command()),
+      service(repository, { USSD: ussdProvider, WEB: provider }).initialize(
+        command(),
+      ),
     ).resolves.toMatchObject({
       amountMinor: '5000',
       provider: 'PAYSTACK',
@@ -59,7 +61,9 @@ describe('DefaultPaymentInitializationService', () => {
     const provider = providerMock();
 
     await expect(
-      service(repository, { USSD: ussdProvider, WEB: provider }).initialize(command()),
+      service(repository, { USSD: ussdProvider, WEB: provider }).initialize(
+        command(),
+      ),
     ).resolves.toMatchObject({
       accessCode: 'existing-access',
       status: 'PENDING',
@@ -78,7 +82,9 @@ describe('DefaultPaymentInitializationService', () => {
     });
 
     await expect(
-      service(repository, { USSD: ussdProvider, WEB: provider }).initialize(command()),
+      service(repository, { USSD: ussdProvider, WEB: provider }).initialize(
+        command(),
+      ),
     ).rejects.toBeInstanceOf(PaymentProviderUnknownOutcomeError);
     expect(repository.recordFailure).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -86,6 +92,31 @@ describe('DefaultPaymentInitializationService', () => {
         paymentAttemptId: BigInt(11),
       }),
     );
+  });
+
+  it('does not apply a shared gateway IP limit to USSD initialization', async () => {
+    const repository = repositoryMock({
+      claim: jest.fn().mockResolvedValue(
+        claim({
+          isNew: false,
+          purchaseChannel: 'USSD',
+          status: 'PENDING',
+        }),
+      ),
+    });
+
+    await service(repository, {
+      USSD: ussdProvider,
+      WEB: providerMock(),
+    }).initialize({
+      ...command(),
+      channel: 'USSD',
+      payerPhoneNumber: '+233241234567',
+    });
+
+    expect(rateLimiter.consume).toHaveBeenCalledWith({
+      orderPublicReference: command().orderPublicReference,
+    });
   });
 });
 

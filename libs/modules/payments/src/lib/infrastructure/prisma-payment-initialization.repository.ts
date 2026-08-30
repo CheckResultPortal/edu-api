@@ -2,6 +2,7 @@ import { Prisma } from '../../../../../../generated/prisma/client';
 
 import type { DatabaseClient } from '@edu-api/database';
 import type { PaymentOrderQuery } from '@edu-api/orders';
+import { assertValidOutboxEvent } from '@edu-api/outbox';
 
 import {
   PaymentIdempotencyConflictError,
@@ -181,8 +182,42 @@ export class PrismaPaymentInitializationRepository
           where: {
             scope_key: { scope: idempotencyScope, key: input.idempotencyKey },
           },
-          data: { responseReference: payment.publicReference },
+          data: {
+            responseReference: payment.publicReference,
+            ...(input.purchaseChannel === 'USSD'
+              ? {
+                  completedAt: now,
+                  responseStatus: 201,
+                  status: 'COMPLETED' as const,
+                }
+              : {}),
+          },
         });
+
+        if (input.purchaseChannel === 'USSD') {
+          const payload = {
+            orderPublicReference: order.publicReference,
+            paymentPublicReference: payment.publicReference,
+            providerReference: input.providerReference,
+            version: 1,
+          };
+          assertValidOutboxEvent({
+            aggregateId: payment.id.toString(),
+            aggregateType: 'PaymentAttempt',
+            dedupeKey: `ussd-payment-prompt:${payment.id.toString()}`,
+            eventType: 'UssdPaymentPromptRequested',
+            payload,
+          });
+          await transaction.outboxEvent.create({
+            data: {
+              aggregateId: payment.id,
+              aggregateType: 'PaymentAttempt',
+              dedupeKey: `ussd-payment-prompt:${payment.id.toString()}`,
+              eventType: 'UssdPaymentPromptRequested',
+              payload,
+            },
+          });
+        }
 
         return {
           accessCode: null,

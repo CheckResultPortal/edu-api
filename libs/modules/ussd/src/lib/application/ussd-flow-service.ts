@@ -22,6 +22,7 @@ export interface UssdProductQuery {
 export interface UssdOrderCreationCommand {
   readonly deliveryPreference: 'SMS_ONLY' | 'EMAIL_ONLY' | 'SMS_AND_EMAIL';
   readonly email?: string;
+  readonly firstName: string;
   readonly idempotencyKey: string;
   readonly phoneNumber: string;
   readonly productPublicId: string;
@@ -42,7 +43,7 @@ export interface UssdOrderCreator {
 }
 
 export interface UssdPaymentInitializationResult {
-  readonly status: 'PENDING' | 'SUCCEEDED';
+  readonly status: 'FAILED' | 'PENDING' | 'SUCCEEDED' | 'UNKNOWN';
 }
 
 export interface UssdPaymentInitializer {
@@ -57,6 +58,7 @@ export interface UssdPaymentInitializer {
 
 export interface UssdFlowConfiguration {
   readonly maximumProducts: number;
+  readonly paymentPendingTtlMilliseconds: number;
   readonly quantityMaximum: number;
   readonly sessionTtlMilliseconds: number;
 }
@@ -73,8 +75,8 @@ const MAXIMUM_EMAIL_LENGTH = 320;
 
 /**
  * The guest purchase conversation: product -> quantity -> delivery ->
- * (email) -> confirm -> order + Moolre prompt. The session never waits for
- * payment completion and holds no payment truth.
+ * (email) -> first name -> confirm -> order + Moolre prompt. The session never
+ * waits for payment completion and holds no payment truth.
  */
 export class DefaultUssdFlowService {
   constructor(
@@ -93,10 +95,11 @@ export class DefaultUssdFlowService {
       return { continueSession: false, message: 'Invalid session.' };
     }
 
-    if (request.isNewSession) {
-      await this.sessions.delete(request.msisdn);
-    }
     let session = await this.sessions.get(request.msisdn);
+    if (request.isNewSession && session?.state !== 'PAYMENT_PENDING') {
+      await this.sessions.delete(request.msisdn);
+      session = null;
+    }
     if (session === null || session.state === undefined) {
       session = { state: 'PRODUCT' };
     }
@@ -110,8 +113,12 @@ export class DefaultUssdFlowService {
         return this.handleDeliveryPreference(request, session);
       case 'EMAIL':
         return this.handleEmailEntry(request, session);
+      case 'FIRST_NAME':
+        return this.handleFirstNameEntry(request, session);
       case 'CONFIRM':
         return this.handleConfirmation(request, session, context);
+      case 'PAYMENT_PENDING':
+        return this.handlePendingPayment(request, session, context);
     }
   }
 
@@ -200,7 +207,8 @@ export class DefaultUssdFlowService {
     );
     return {
       continueSession: true,
-      message: 'How should we reach you?\n1. SMS only\n2. Email only\n3. SMS and Email',
+      message:
+        'How should we reach you?\n1. SMS only\n2. Email only\n3. SMS and Email',
     };
   }
 
@@ -208,7 +216,10 @@ export class DefaultUssdFlowService {
     request: CanonicalUssdRequest,
     session: UssdSessionData,
   ): Promise<CanonicalUssdResponse> {
-    const preferences: Record<string, 'SMS_ONLY' | 'EMAIL_ONLY' | 'SMS_AND_EMAIL'> = {
+    const preferences: Record<
+      string,
+      'SMS_ONLY' | 'EMAIL_ONLY' | 'SMS_AND_EMAIL'
+    > = {
       '1': 'SMS_ONLY',
       '2': 'EMAIL_ONLY',
       '3': 'SMS_AND_EMAIL',
@@ -223,11 +234,10 @@ export class DefaultUssdFlowService {
     }
 
     if (preference === 'SMS_ONLY') {
-      return this.enterConfirmation(request.msisdn, {
+      return this.enterFirstName(request.msisdn, {
         ...session,
         deliveryPreference: preference,
         email: undefined,
-        state: 'CONFIRM',
       });
     }
 
@@ -258,11 +268,36 @@ export class DefaultUssdFlowService {
       };
     }
 
-    return this.enterConfirmation(request.msisdn, {
+    return this.enterFirstName(request.msisdn, {
       ...session,
       email,
-      state: 'CONFIRM',
     });
+  }
+
+  private async enterFirstName(
+    msisdn: string,
+    session: UssdSessionData,
+  ): Promise<CanonicalUssdResponse> {
+    await this.sessions.set(
+      msisdn,
+      { ...session, state: 'FIRST_NAME' },
+      this.configuration.sessionTtlMilliseconds,
+    );
+    return { continueSession: true, message: 'Enter your first name:' };
+  }
+
+  private async handleFirstNameEntry(
+    request: CanonicalUssdRequest,
+    session: UssdSessionData,
+  ): Promise<CanonicalUssdResponse> {
+    const firstName = normalizeFirstName(request.input);
+    if (firstName === null) {
+      return {
+        continueSession: true,
+        message: 'Invalid first name.\nEnter your first name:',
+      };
+    }
+    return this.enterConfirmation(request.msisdn, { ...session, firstName });
   }
 
   private async enterConfirmation(
@@ -272,7 +307,7 @@ export class DefaultUssdFlowService {
     const confirmId = randomConfirmId();
     await this.sessions.set(
       msisdn,
-      { ...session, confirmId },
+      { ...session, confirmId, state: 'CONFIRM' },
       this.configuration.sessionTtlMilliseconds,
     );
     return {
@@ -319,6 +354,7 @@ export class DefaultUssdFlowService {
         {
           deliveryPreference: session.deliveryPreference ?? 'SMS_ONLY',
           ...(session.email === undefined ? {} : { email: session.email }),
+          firstName: session.firstName ?? '',
           idempotencyKey: `ussd-order-${session.confirmId}`,
           phoneNumber,
           productPublicId: session.productPublicId ?? '',
@@ -327,7 +363,7 @@ export class DefaultUssdFlowService {
         context,
       );
 
-      await this.paymentInitializer.initialize({
+      const payment = await this.paymentInitializer.initialize({
         channel: 'USSD',
         clientIp: context.clientIp,
         idempotencyKey: `ussd-pay-${session.confirmId}`,
@@ -335,7 +371,27 @@ export class DefaultUssdFlowService {
         payerPhoneNumber: phoneNumber,
       });
 
-      await this.sessions.delete(request.msisdn);
+      if (payment.status === 'FAILED') {
+        await this.sessions.delete(request.msisdn);
+        return {
+          continueSession: false,
+          message: 'We could not start your payment. Please dial again later.',
+        };
+      }
+
+      await this.persistPendingPayment(
+        request.msisdn,
+        session,
+        order.publicReference,
+      );
+      if (payment.status === 'UNKNOWN') {
+        return {
+          continueSession: false,
+          message:
+            'Your payment request may be processing. Do not start another payment. ' +
+            'Your voucher will be delivered after verification.',
+        };
+      }
       return {
         continueSession: false,
         message:
@@ -354,11 +410,77 @@ export class DefaultUssdFlowService {
       };
     }
   }
+
+  private async handlePendingPayment(
+    request: CanonicalUssdRequest,
+    session: UssdSessionData,
+    context: UssdFlowContext,
+  ): Promise<CanonicalUssdResponse> {
+    const phoneNumber = canonicalizeMsisdn(request.msisdn);
+    if (
+      phoneNumber === null ||
+      session.confirmId === undefined ||
+      session.paymentOrderPublicReference === undefined
+    ) {
+      await this.sessions.delete(request.msisdn);
+      return {
+        continueSession: false,
+        message: 'This payment session expired. Please dial again.',
+      };
+    }
+
+    try {
+      const payment = await this.paymentInitializer.initialize({
+        channel: 'USSD',
+        clientIp: context.clientIp,
+        idempotencyKey: `ussd-pay-${session.confirmId}`,
+        orderPublicReference: session.paymentOrderPublicReference,
+        payerPhoneNumber: phoneNumber,
+      });
+      if (payment.status === 'SUCCEEDED') {
+        await this.sessions.delete(request.msisdn);
+        return {
+          continueSession: false,
+          message: 'Payment confirmed. Your voucher will be delivered shortly.',
+        };
+      }
+      if (payment.status === 'FAILED') {
+        await this.sessions.delete(request.msisdn);
+        return {
+          continueSession: false,
+          message: 'Your payment did not complete. Please dial again to retry.',
+        };
+      }
+    } catch {
+      // A database/provider outage cannot turn a pending payment into a new one.
+    }
+
+    return {
+      continueSession: false,
+      message:
+        'Your payment is still being verified. Do not start another payment. ' +
+        'Your voucher will be delivered after verification.',
+    };
+  }
+
+  private async persistPendingPayment(
+    msisdn: string,
+    session: UssdSessionData,
+    orderPublicReference: string,
+  ): Promise<void> {
+    await this.sessions.set(
+      msisdn,
+      {
+        confirmId: session.confirmId,
+        paymentOrderPublicReference: orderPublicReference,
+        state: 'PAYMENT_PENDING',
+      },
+      this.configuration.paymentPendingTtlMilliseconds,
+    );
+  }
 }
 
-function renderProductMenu(
-  products: readonly UssdProductListItem[],
-): string {
+function renderProductMenu(products: readonly UssdProductListItem[]): string {
   const lines = products.map(
     (product, index) =>
       `${index + 1}. ${truncate(product.name, 40)} ${formatCedis(product.sellingPriceMinor)}`,
@@ -392,10 +514,7 @@ function deliveryLabel(
   }
 }
 
-function parseChoice(
-  input: string,
-  maximum: number,
-): number | null {
+function parseChoice(input: string, maximum: number): number | null {
   const trimmed = input.trim();
   if (!/^[0-9]{1,3}$/.test(trimmed)) return null;
   const value = Number.parseInt(trimmed, 10);
@@ -432,4 +551,19 @@ function truncate(value: string, maximumLength: number): string {
   return value.length <= maximumLength
     ? value
     : `${value.slice(0, maximumLength - 1)}…`;
+}
+
+function normalizeFirstName(value: string): string | null {
+  const firstName = value.trim().replace(/\s+/g, ' ');
+  if (
+    firstName.length === 0 ||
+    Array.from(firstName).length > 100 ||
+    Array.from(firstName).some((character) => {
+      const codePoint = character.codePointAt(0);
+      return codePoint !== undefined && (codePoint <= 31 || codePoint === 127);
+    })
+  ) {
+    return null;
+  }
+  return firstName;
 }

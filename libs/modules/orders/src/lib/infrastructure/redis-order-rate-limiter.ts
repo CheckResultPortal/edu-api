@@ -36,15 +36,17 @@ export class RedisOrderRateLimiter implements OrderRateLimiter {
   }
 
   async consume(input: {
-    readonly clientIp: string;
+    readonly clientIp?: string;
     readonly phoneNumber: string;
   }): Promise<void> {
     try {
       await this.ensureConnected();
-      await this.consumeCounter(
-        `order-rate:ip:${safeHash('ip', input.clientIp, this.privacyHmacKey)}`,
-        this.configuration.ipMaximum,
-      );
+      if (input.clientIp !== undefined) {
+        await this.consumeCounter(
+          `order-rate:ip:${safeHash('ip', input.clientIp, this.privacyHmacKey)}`,
+          this.configuration.ipMaximum,
+        );
+      }
       await this.consumeCounter(
         `order-rate:phone:${safeHash(
           'phone',

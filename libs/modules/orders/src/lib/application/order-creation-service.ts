@@ -55,7 +55,8 @@ export interface OrderCreationRepository {
 
 export interface OrderRateLimiter {
   consume(input: {
-    readonly clientIp: string;
+    /** Omitted for authenticated gateway traffic; phone limits still apply. */
+    readonly clientIp?: string;
     readonly phoneNumber: string;
   }): Promise<void>;
 }
@@ -81,12 +82,11 @@ export class DefaultUssdOrderCreationService {
 
   async create(
     command: UssdGuestOrderCommand,
-    context: OrderCreationContext,
+    _context: OrderCreationContext,
   ): Promise<GuestOrder> {
     const input = validateUssdGuestOrderInput(command);
     const idempotencyKey = assertOrderIdempotencyKey(command.idempotencyKey);
     await this.rateLimiter.consume({
-      clientIp: context.clientIp,
       phoneNumber: input.phoneNumber,
     });
 

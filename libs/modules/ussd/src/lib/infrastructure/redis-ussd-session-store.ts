@@ -46,6 +46,8 @@ function isSessionData(value: unknown): value is UssdSessionData {
     state === 'QUANTITY' ||
     state === 'DELIVERY' ||
     state === 'EMAIL' ||
-    state === 'CONFIRM'
+    state === 'FIRST_NAME' ||
+    state === 'CONFIRM' ||
+    state === 'PAYMENT_PENDING'
   );
 }

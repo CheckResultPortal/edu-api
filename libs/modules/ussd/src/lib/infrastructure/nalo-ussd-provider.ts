@@ -22,9 +22,7 @@ interface ParsedNaloPayload {
  * Nalo field names and session semantics stay inside this adapter.
  */
 export class NaloUssdProvider implements UssdProvider {
-  constructor(
-    private readonly configuration: NaloUssdProviderConfiguration,
-  ) {}
+  constructor(private readonly configuration: NaloUssdProviderConfiguration) {}
 
   parseRequest(input: unknown): CanonicalUssdRequest {
     if (!isPlainObject(input)) throw new UssdRequestError();
@@ -53,19 +51,15 @@ export class NaloUssdProvider implements UssdProvider {
       MSG: response.message,
       MSGTYPE: response.continueSession,
       MSISDN: request.msisdn,
+      USERID: this.configuration.expectedUserId,
       USERDATA: request.input,
     };
   }
 }
 
-function requireMsisdn(
-  value: Readonly<Record<string, unknown>>,
-): string {
+function requireMsisdn(value: Readonly<Record<string, unknown>>): string {
   const entry = value['MSISDN'];
-  if (
-    typeof entry !== 'string' ||
-    !/^[0-9]{9,15}$/.test(entry)
-  ) {
+  if (typeof entry !== 'string' || !/^[0-9]{9,15}$/.test(entry)) {
     throw new UssdRequestError();
   }
   return entry;

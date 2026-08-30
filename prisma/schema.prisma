@@ -77,6 +77,11 @@ enum StockLevel {
   EMPTY
 }
 
+enum ReconciliationFindingStatus {
+  OPEN
+  RESOLVED
+}
+
 enum VoucherStatus {
   AVAILABLE
   SOLD
@@ -250,20 +255,20 @@ model CatalogGroup {
 }
 
 model Product {
-  id                   BigInt              @id @default(autoincrement())
-  publicId             String              @unique @default(uuid()) @db.Uuid
+  id                   BigInt                @id @default(autoincrement())
+  publicId             String                @unique @default(uuid()) @db.Uuid
   catalogGroupId       BigInt
-  code                 String              @unique
+  code                 String                @unique
   name                 String
   description          String?
   sellingPriceMinor    BigInt
-  currency             String              @db.Char(3)
+  currency             String                @db.Char(3)
   resultCheckerUrl     String?
-  lowStockThreshold    Int                 @default(0)
-  isActive             Boolean             @default(true)
-  createdAt            DateTime            @default(now()) @db.Timestamptz(6)
-  updatedAt            DateTime            @updatedAt @db.Timestamptz(6)
-  catalogGroup         CatalogGroup        @relation(fields: [catalogGroupId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  lowStockThreshold    Int                   @default(0)
+  isActive             Boolean               @default(true)
+  createdAt            DateTime              @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime              @updatedAt @db.Timestamptz(6)
+  catalogGroup         CatalogGroup          @relation(fields: [catalogGroupId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   voucherBatches       VoucherBatch[]
   vouchers             Voucher[]
   orderItems           OrderItem[]
@@ -330,6 +335,8 @@ model Order {
   paymentApplication  PaymentApplication?
 
   @@index([createdAt, id])
+  @@index([phoneNumber, createdAt, id])
+  @@index([email, createdAt, id])
   @@index([purchaseChannel, createdAt, id])
 }
 
@@ -379,6 +386,7 @@ model PaymentAttempt {
   @@unique([provider, providerTransactionId])
   @@index([orderId, createdAt, id])
   @@index([status, nextVerificationAt, id])
+  @@index([providerReference, id])
 }
 
 model PaymentProviderEvent {
@@ -483,6 +491,7 @@ model Voucher {
   @@unique([productId, pinFingerprint])
   @@unique([id, productId])
   @@index([batchId, id])
+  @@index([serialNumber, id])
 }
 
 model VoucherAllocation {
@@ -504,13 +513,13 @@ model VoucherAllocation {
 }
 
 model Communication {
-  id          BigInt               @id @default(autoincrement())
-  publicId    String               @unique @default(uuid()) @db.Uuid
-  allocationId BigInt              @unique
-  purpose     CommunicationPurpose
-  createdAt   DateTime             @default(now()) @db.Timestamptz(6)
-  allocation  VoucherAllocation    @relation(fields: [allocationId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  deliveries  CommunicationDelivery[]
+  id           BigInt                  @id @default(autoincrement())
+  publicId     String                  @unique @default(uuid()) @db.Uuid
+  allocationId BigInt                  @unique
+  purpose      CommunicationPurpose
+  createdAt    DateTime                @default(now()) @db.Timestamptz(6)
+  allocation   VoucherAllocation       @relation(fields: [allocationId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  deliveries   CommunicationDelivery[]
 }
 
 model CommunicationDelivery {
@@ -585,4 +594,22 @@ model IdempotencyRecord {
 
   @@unique([scope, key])
   @@index([scope, expiresAt, id])
+}
+
+model ReconciliationFinding {
+  id              BigInt                      @id @default(autoincrement())
+  publicId        String                      @unique @default(uuid()) @db.Uuid
+  fingerprint     String                      @unique
+  type            String
+  severity        String
+  status          ReconciliationFindingStatus @default(OPEN)
+  summary         String
+  details         Json
+  occurrenceCount Int                         @default(1)
+  firstDetectedAt DateTime                    @default(now()) @db.Timestamptz(6)
+  lastDetectedAt  DateTime                    @default(now()) @db.Timestamptz(6)
+  resolvedAt      DateTime?                   @db.Timestamptz(6)
+
+  @@index([status, lastDetectedAt, id])
+  @@index([type, status, lastDetectedAt, id])
 }

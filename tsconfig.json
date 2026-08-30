@@ -80,6 +80,9 @@
     },
     {
       "path": "./libs/modules/ussd"
+    },
+    {
+      "path": "./libs/modules/reconciliation"
     }
   ]
 }

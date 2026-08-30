@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { INestApplication } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { FastifyReply, FastifyRequest } from 'fastify';
+import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { Observable, catchError, map, throwError } from 'rxjs';
 
 import { StructuredLogger } from '@edu-api/observability';
@@ -183,6 +183,41 @@ export function configureHttpFoundation(
     new RequestLoggingInterceptor(logger),
     new ResponseEnvelopeInterceptor(),
   );
+}
+
+export function configureApiSecurity(
+  app: INestApplication,
+  options: {
+    readonly allowedOrigins: readonly string[];
+    readonly credentials: boolean;
+    readonly production: boolean;
+  },
+): void {
+  app.enableCors({
+    origin: [...options.allowedOrigins],
+    credentials: options.credentials,
+    allowedHeaders: ['Content-Type', 'Idempotency-Key'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    maxAge: 24 * 60 * 60,
+  });
+  const fastify = app.getHttpAdapter().getInstance() as FastifyInstance;
+  fastify.addHook('onSend', (_request, reply, payload, done) => {
+    reply
+      .header('cache-control', 'no-store')
+      .header('cross-origin-opener-policy', 'same-origin')
+      .header('cross-origin-resource-policy', 'same-site')
+      .header('permissions-policy', 'camera=(), geolocation=(), microphone=()')
+      .header('referrer-policy', 'no-referrer')
+      .header('x-content-type-options', 'nosniff')
+      .header('x-frame-options', 'DENY');
+    if (options.production) {
+      reply.header(
+        'strict-transport-security',
+        'max-age=31536000; includeSubDomains',
+      );
+    }
+    done(null, payload);
+  });
 }
 
 export function configureOpenApi(

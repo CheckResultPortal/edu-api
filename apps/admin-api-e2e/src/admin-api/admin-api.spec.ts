@@ -82,6 +82,20 @@ describe('GET /v1/health/live', () => {
             post: expect.any(Object),
           },
         ),
+        '/v1/admin/operations/dashboard': expect.objectContaining({
+          get: expect.any(Object),
+        }),
+        '/v1/admin/operations/orders': expect.objectContaining({
+          get: expect.any(Object),
+        }),
+        '/v1/admin/operations/inventory': expect.objectContaining({
+          get: expect.any(Object),
+        }),
+        '/v1/admin/operations/deliveries/{deliveryPublicId}/retry':
+          expect.objectContaining({ post: expect.any(Object) }),
+        '/v1/admin/operations/reconciliation-findings': expect.objectContaining(
+          { get: expect.any(Object) },
+        ),
       }),
     );
   });

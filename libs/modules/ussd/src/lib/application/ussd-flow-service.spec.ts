@@ -10,12 +10,17 @@ import type { UssdSessionData, UssdSessionStore } from './ussd-session-store';
 describe('DefaultUssdFlowService', () => {
   const configuration = {
     maximumProducts: 4,
+    paymentPendingTtlMilliseconds: 900_000,
     quantityMaximum: 20,
     sessionTtlMilliseconds: 300_000,
   };
 
   function flow(overrides?: {
-    products?: readonly { name: string; publicId: string; sellingPriceMinor: string }[];
+    products?: readonly {
+      name: string;
+      publicId: string;
+      sellingPriceMinor: string;
+    }[];
     orderCreator?: UssdOrderCreator;
     paymentInitializer?: UssdPaymentInitializer;
   }) {
@@ -39,9 +44,7 @@ describe('DefaultUssdFlowService', () => {
           },
         ],
     };
-    const orderCreator =
-      overrides?.orderCreator ??
-      makeOrderCreator();
+    const orderCreator = overrides?.orderCreator ?? makeOrderCreator();
     const paymentInitializer =
       overrides?.paymentInitializer ?? makePaymentInitializer();
 
@@ -76,23 +79,16 @@ describe('DefaultUssdFlowService', () => {
     });
   });
 
-  it('walks product, quantity and SMS-only delivery to a summary', async () => {
+  it('collects a first name before showing an SMS-only summary', async () => {
     const { service, sessions } = flow();
     await service.handle(initialDial, context);
-    await service.handle(
-      continuation('233244123456', '1'),
-      context,
-    );
-    await service.handle(
-      continuation('233244123456', '3'),
-      context,
-    );
-    await service.handle(
-      continuation('233244123456', '1'),
-      context,
-    );
+    await service.handle(continuation('233244123456', '1'), context);
+    await service.handle(continuation('233244123456', '3'), context);
+    await service.handle(continuation('233244123456', '1'), context);
+    expect(sessions.get('233244123456')).toMatchObject({ state: 'FIRST_NAME' });
+    await service.handle(continuation('233244123456', 'Ama'), context);
     const session = sessions.get('233244123456');
-    expect(session).toMatchObject({ state: 'CONFIRM' });
+    expect(session).toMatchObject({ firstName: 'Ama', state: 'CONFIRM' });
   });
 
   it('collects an email when the preference includes one', async () => {
@@ -100,10 +96,7 @@ describe('DefaultUssdFlowService', () => {
     await service.handle(initialDial, context);
     await service.handle(continuation('233244123456', '1'), context);
     await service.handle(continuation('233244123456', '3'), context);
-    await service.handle(
-      continuation('233244123456', '2'),
-      context,
-    );
+    await service.handle(continuation('233244123456', '2'), context);
     expect(sessions.get('233244123456')).toMatchObject({ state: 'EMAIL' });
 
     await service.handle(
@@ -112,8 +105,10 @@ describe('DefaultUssdFlowService', () => {
     );
     expect(sessions.get('233244123456')).toMatchObject({
       email: 'buyer@example.com',
-      state: 'CONFIRM',
+      state: 'FIRST_NAME',
     });
+    await service.handle(continuation('233244123456', 'Ama'), context);
+    expect(sessions.get('233244123456')).toMatchObject({ state: 'CONFIRM' });
   });
 
   it('creates exactly one order plus one Moolre prompt on confirm', async () => {
@@ -133,6 +128,7 @@ describe('DefaultUssdFlowService', () => {
     expect(orderCreator.create).toHaveBeenCalledWith(
       expect.objectContaining({
         deliveryPreference: 'SMS_ONLY',
+        firstName: 'Ama',
         phoneNumber: '+233244123456',
         quantity: 3,
       }),
@@ -148,24 +144,44 @@ describe('DefaultUssdFlowService', () => {
     );
   });
 
-  it('never creates a second prompt when confirm repeats', async () => {
+  it('never creates a second order when a pending payment session is retried', async () => {
     const orderCreator = makeOrderCreator();
     const { service } = flow({ orderCreator });
 
     await walkToSummary(service);
     await service.handle(continuation('233244123456', '1'), context);
-    // Session is deleted after the first attempt; a duplicate screen must
-    // not reach the order or payment services again.
-    await service.handle(continuation('233244123456', '1'), context);
+    await service.handle(
+      { ...initialDial, input: '714*5#', isNewSession: true },
+      context,
+    );
 
     expect(orderCreator.create).toHaveBeenCalledTimes(1);
   });
 
+  it('retains only payment-safe state after an uncertain provider outcome', async () => {
+    const paymentInitializer = makePaymentInitializer();
+    (paymentInitializer.initialize as jest.Mock).mockResolvedValue({
+      status: 'UNKNOWN',
+    });
+    const { service, sessions } = flow({ paymentInitializer });
+
+    await walkToSummary(service);
+    const outcome = await service.handle(
+      continuation('233244123456', '1'),
+      context,
+    );
+
+    expect(outcome.message).toContain('Do not start another payment');
+    expect(sessions.get('233244123456')).toEqual({
+      confirmId: expect.any(String),
+      paymentOrderPublicReference: '6b0f6e55-0f5e-4c3a-9d3e-2a7c1a111111',
+      state: 'PAYMENT_PENDING',
+    });
+  });
+
   it('ends safely without internal detail when services fail', async () => {
     const failing = makeOrderCreator();
-    (failing.create as jest.Mock).mockRejectedValue(
-      new Error('database down'),
-    );
+    (failing.create as jest.Mock).mockRejectedValue(new Error('database down'));
     const { service } = flow({ orderCreator: failing });
 
     await walkToSummary(service);
@@ -208,19 +224,15 @@ describe('DefaultUssdFlowService', () => {
     };
   }
 
-  function continuation(
-    msisdn: string,
-    input: string,
-  ): CanonicalUssdRequest {
+  function continuation(msisdn: string, input: string): CanonicalUssdRequest {
     return { input, isNewSession: false, msisdn };
   }
 
-  async function walkToSummary(
-    service: DefaultUssdFlowService,
-  ): Promise<void> {
+  async function walkToSummary(service: DefaultUssdFlowService): Promise<void> {
     await service.handle(initialDial, context);
     await service.handle(continuation('233244123456', '1'), context);
     await service.handle(continuation('233244123456', '3'), context);
     await service.handle(continuation('233244123456', '1'), context);
+    await service.handle(continuation('233244123456', 'Ama'), context);
   }
 });

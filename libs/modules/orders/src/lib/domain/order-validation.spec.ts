@@ -2,6 +2,7 @@ import { OrderInputValidationError } from '../application/order-creation-errors'
 import {
   assertOrderIdempotencyKey,
   parseGuestOrderRequest,
+  validateUssdGuestOrderInput,
   validateWebGuestOrderInput,
 } from './order-validation';
 
@@ -92,6 +93,30 @@ describe('guest order validation', () => {
     expect(() =>
       validateWebGuestOrderInput({
         email: 'buyer@example.com',
+        firstName: '   ',
+        phoneNumber: '+233241234567',
+        productPublicId,
+        quantity: 1,
+      }),
+    ).toThrow(OrderInputValidationError);
+  });
+
+  it('requires and normalizes the USSD first name', () => {
+    expect(
+      validateUssdGuestOrderInput({
+        deliveryPreference: 'SMS_ONLY',
+        firstName: '  Ama  ',
+        phoneNumber: '+233241234567',
+        productPublicId,
+        quantity: 1,
+      }),
+    ).toMatchObject({
+      firstName: 'Ama',
+      purchaseChannel: 'USSD',
+    });
+    expect(() =>
+      validateUssdGuestOrderInput({
+        deliveryPreference: 'SMS_ONLY',
         firstName: '   ',
         phoneNumber: '+233241234567',
         productPublicId,

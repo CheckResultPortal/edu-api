@@ -51,4 +51,41 @@ describe('ResendEmailProvider', () => {
       category: 'UNKNOWN_OUTCOME',
     });
   });
+
+  it('maps PDF and CSV attachments into the Resend request', async () => {
+    const fetcher = jest
+      .fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ id: 'resend-message-id' }), {
+          status: 200,
+        }),
+      );
+    const provider = new ResendEmailProvider({
+      apiKey: 're_test',
+      fetch: fetcher,
+    });
+    await provider.send({
+      ...input,
+      attachments: [
+        {
+          contentBase64: Buffer.from('%PDF-test').toString('base64'),
+          contentType: 'application/pdf',
+          filename: 'voucher.pdf',
+        },
+      ],
+    });
+
+    const request = fetcher.mock.calls[0]?.[1];
+    expect(JSON.parse(String(request?.body))).toEqual(
+      expect.objectContaining({
+        attachments: [
+          {
+            content: Buffer.from('%PDF-test').toString('base64'),
+            content_type: 'application/pdf',
+            filename: 'voucher.pdf',
+          },
+        ],
+      }),
+    );
+  });
 });

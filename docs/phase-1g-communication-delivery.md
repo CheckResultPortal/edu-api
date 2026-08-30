@@ -17,6 +17,13 @@ Communication consumes `VoucherAllocated` and never changes voucher ownership.
 - The encrypted PIN is read and decrypted only after the delivery has an atomic
   processing claim, immediately before the provider call. It is never logged,
   persisted in an attempt, or included in metrics.
+- An email delivery generates a PDF and CSV voucher artifact in memory from the
+  existing allocation immediately before the provider call. Both attachments
+  contain the same serial/PIN pair, are never written to PostgreSQL, Redis,
+  BullMQ, logs, audits, or permanent attachment storage, and are discarded with
+  the send scope.
+- Email text and HTML include the deployment-configured customer support number.
+  SMS-only USSD orders do not create email artifacts.
 
 ## Transactions, idempotency, and recovery
 
@@ -34,11 +41,12 @@ use capped exponential backoff with jitter; other failures need attention.
 ## Provider configuration and operations
 
 The worker needs `MOOLRE_SMS_VAS_KEY`, an approved
-`MOOLRE_SMS_SENDER_ID`, and the existing Resend configuration. Credentials are
-deployment-injected only. Monitor sent, retried, unknown, and needs-attention
-counts by channel/provider, along with stale processing leases and pending
-outbox age. Validate sender-ID approval and real delivery behavior in Moolre's
-sandbox before production rollout.
+`MOOLRE_SMS_SENDER_ID`, `CUSTOMER_SUPPORT_PHONE`, and the existing Resend
+configuration. Credentials and support configuration are deployment-injected
+only. Monitor sent, retried, unknown, and needs-attention counts by
+channel/provider, along with stale processing leases and pending outbox age.
+Validate sender-ID approval and real delivery behavior in Moolre's sandbox
+before production rollout.
 
 ## Tests and release
 

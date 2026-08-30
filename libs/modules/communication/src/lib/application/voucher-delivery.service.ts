@@ -9,6 +9,7 @@ import type { DatabaseClient } from '@edu-api/database';
 
 import type { EmailProvider } from './email-provider';
 import type { SmsProvider } from './sms-provider';
+import { generateVoucherDeliveryArtifacts } from './voucher-delivery-artifacts';
 
 export interface VoucherDeliveryWorkerOptions {
   readonly emailFrom: string;
@@ -16,6 +17,7 @@ export interface VoucherDeliveryWorkerOptions {
   readonly maximumRetryDelayMs: number;
   readonly processingLeaseMs: number;
   readonly retryBaseDelayMs: number;
+  readonly supportPhone: string;
 }
 
 interface ClaimedDelivery {
@@ -27,6 +29,9 @@ interface ClaimedDelivery {
   readonly destination: string;
   readonly encryptedPin: unknown;
   readonly leaseUntil: Date;
+  readonly orderPublicReference: string;
+  readonly productName: string;
+  readonly resultCheckerUrl?: string;
   readonly serialNumber: string;
 }
 
@@ -130,24 +135,6 @@ export class VoucherDeliveryService {
     return recovered;
   }
 
-  /** Atomically makes a safe, non-ambiguous needs-attention delivery eligible again. */
-  async requestManualRetry(deliveryPublicId: string): Promise<boolean> {
-    const updated = await this.database.communicationDelivery.updateMany({
-      where: {
-        publicId: deliveryPublicId,
-        state: 'NEEDS_ATTENTION',
-        lastFailureCategory: { not: 'UNKNOWN_OUTCOME' },
-      },
-      data: {
-        lastFailureCategory: null,
-        needsAttentionAt: null,
-        nextAttemptAt: new Date(),
-        state: 'PENDING',
-      },
-    });
-    return updated.count === 1;
-  }
-
   private async claim(deliveryId: bigint): Promise<ClaimedDelivery | null> {
     const now = new Date();
     const leaseUntil = new Date(now.getTime() + this.options.processingLeaseMs);
@@ -178,6 +165,12 @@ export class VoucherDeliveryService {
               select: {
                 allocation: {
                   select: {
+                    fulfilmentUnit: {
+                      select: { orderPublicReference: true },
+                    },
+                    product: {
+                      select: { name: true, resultCheckerUrl: true },
+                    },
                     voucher: {
                       select: { encryptedPin: true, serialNumber: true },
                     },
@@ -205,6 +198,15 @@ export class VoucherDeliveryService {
         destination: delivery.destination,
         encryptedPin: delivery.communication.allocation.voucher.encryptedPin,
         leaseUntil,
+        orderPublicReference:
+          delivery.communication.allocation.fulfilmentUnit.orderPublicReference,
+        productName: delivery.communication.allocation.product.name,
+        ...(delivery.communication.allocation.product.resultCheckerUrl === null
+          ? {}
+          : {
+              resultCheckerUrl:
+                delivery.communication.allocation.product.resultCheckerUrl,
+            }),
         serialNumber: delivery.communication.allocation.voucher.serialNumber,
       };
     });
@@ -230,6 +232,7 @@ export class VoucherDeliveryService {
       const pin = decryptSecret(claimed.encryptedPin, this.keyring);
       const text = `EduVoucher result checker voucher. Serial: ${claimed.serialNumber}. PIN: ${pin}`;
       const reference = referenceFor(claimed.deliveryPublicId);
+      const support = `For support, call ${this.options.supportPhone}.`;
       result =
         claimed.channel === 'SMS'
           ? await this.smsProvider.send({
@@ -238,11 +241,22 @@ export class VoucherDeliveryService {
               to: claimed.destination,
             })
           : await this.emailProvider.send({
+              attachments: await generateVoucherDeliveryArtifacts({
+                deliveryPublicId: claimed.deliveryPublicId,
+                orderPublicReference: claimed.orderPublicReference,
+                pin,
+                productName: claimed.productName,
+                ...(claimed.resultCheckerUrl === undefined
+                  ? {}
+                  : { resultCheckerUrl: claimed.resultCheckerUrl }),
+                serialNumber: claimed.serialNumber,
+                supportPhone: this.options.supportPhone,
+              }),
               from: this.options.emailFrom,
               to: claimed.destination,
               subject: 'Your EduVoucher result checker voucher',
-              text,
-              html: `<p>Your EduVoucher result checker voucher.</p><p>Serial: <strong>${escapeHtml(claimed.serialNumber)}</strong><br>PIN: <strong>${escapeHtml(pin)}</strong></p>`,
+              text: `${text}\n\n${support}`,
+              html: `<p>Your EduVoucher result checker voucher.</p><p>Serial: <strong>${escapeHtml(claimed.serialNumber)}</strong><br>PIN: <strong>${escapeHtml(pin)}</strong></p><p>${escapeHtml(support)}</p><p>Your PDF and CSV voucher copies are attached.</p>`,
               idempotencyKey: reference,
             });
     } catch {

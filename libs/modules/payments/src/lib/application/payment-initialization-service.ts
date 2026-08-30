@@ -106,7 +106,8 @@ export interface PaymentInitializationService {
 
 export interface PaymentRateLimiter {
   consume(input: {
-    readonly clientIp: string;
+    /** Omitted for authenticated USSD gateway traffic. */
+    readonly clientIp?: string;
     readonly orderPublicReference: string;
   }): Promise<void>;
 }
@@ -145,7 +146,7 @@ export class DefaultPaymentInitializationService
     );
     const idempotencyKey = assertPaymentIdempotencyKey(command.idempotencyKey);
     await this.rateLimiter.consume({
-      clientIp: command.clientIp,
+      ...(command.channel === 'WEB' ? { clientIp: command.clientIp } : {}),
       orderPublicReference,
     });
     const now = new Date();
@@ -172,6 +173,22 @@ export class DefaultPaymentInitializationService
     });
 
     if (!claim.isNew) return this.replay(claim);
+
+    // USSD prompt dispatch is a durable outbox responsibility. The short
+    // handset session returns after PostgreSQL has committed the attempt; a
+    // worker contacts Moolre and payment recovery verifies the final result.
+    if (claim.purchaseChannel === 'USSD') {
+      return {
+        accessCode: null,
+        amountMinor: claim.expectedAmountMinor.toString(),
+        authorizationUrl: null,
+        currency: claim.currency,
+        paymentPublicReference: claim.paymentPublicReference,
+        provider: this.providers.USSD.code,
+        providerReference: claim.providerReference,
+        status: 'PENDING',
+      };
+    }
 
     const provider = this.providers[claim.purchaseChannel];
     try {
@@ -224,6 +241,18 @@ export class DefaultPaymentInitializationService
   }
 
   private replay(claim: PaymentInitializationClaim): PaymentInitialization {
+    if (claim.purchaseChannel === 'USSD' && claim.status === 'INITIALIZING') {
+      return {
+        accessCode: null,
+        amountMinor: claim.expectedAmountMinor.toString(),
+        authorizationUrl: null,
+        currency: claim.currency,
+        paymentPublicReference: claim.paymentPublicReference,
+        provider: this.providers.USSD.code,
+        providerReference: claim.providerReference,
+        status: 'PENDING',
+      };
+    }
     if (claim.status === 'SUCCEEDED') {
       return {
         accessCode: claim.accessCode,

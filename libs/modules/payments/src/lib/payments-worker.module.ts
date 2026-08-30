@@ -7,6 +7,11 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
+import {
+  DATABASE_CLIENT,
+  DatabaseModule,
+  type DatabaseClient,
+} from '@edu-api/database';
 import { StructuredLogger } from '@edu-api/observability';
 
 import {
@@ -26,6 +31,7 @@ import {
   type PaymentSuccessRepository,
 } from './application/payment-success-service';
 import { PaymentsCoreModule } from './payments.module';
+import { UssdPaymentPromptOutboxConsumer } from './infrastructure/ussd-payment-prompt-outbox-consumer';
 
 @Injectable()
 class PaymentRecoveryPoller
@@ -37,6 +43,7 @@ class PaymentRecoveryPoller
   constructor(
     @Inject(PAYMENT_RECOVERY_SERVICE)
     private readonly recovery: PaymentRecoveryService,
+    private readonly ussdPrompts: UssdPaymentPromptOutboxConsumer,
     private readonly config: ConfigService,
     private readonly logger: StructuredLogger,
   ) {}
@@ -58,14 +65,18 @@ class PaymentRecoveryPoller
     if (this.isRunning) return;
     this.isRunning = true;
     try {
+      const prompts = await this.ussdPrompts.processAvailable(
+        this.config.getOrThrow<number>('USSD_PAYMENT_PROMPT_BATCH_SIZE'),
+      );
       const result = await this.recovery.runCycle();
       if (
+        prompts !== 0 ||
         result.applied !== 0 ||
         result.needsAttention !== 0 ||
         result.cleanedIdempotencyRecords !== 0
       ) {
         this.logger.log(
-          `Payment recovery claimed ${result.claimed}, applied ${result.applied}, needs-attention ${result.needsAttention}, cleaned-idempotency ${result.cleanedIdempotencyRecords}.`,
+          `Payment recovery dispatched ${prompts} USSD prompt event(s), claimed ${result.claimed}, applied ${result.applied}, needs-attention ${result.needsAttention}, cleaned-idempotency ${result.cleanedIdempotencyRecords}.`,
           'PaymentRecovery',
         );
       }
@@ -82,8 +93,30 @@ class PaymentRecoveryPoller
 }
 
 @Module({
-  imports: [PaymentsCoreModule],
+  imports: [DatabaseModule, PaymentsCoreModule],
   providers: [
+    {
+      provide: UssdPaymentPromptOutboxConsumer,
+      inject: [
+        DATABASE_CLIENT,
+        MOOLRE_PAYMENT_PROVIDER,
+        PAYMENT_SUCCESS_REPOSITORY,
+        ConfigService,
+      ],
+      useFactory: (
+        database: DatabaseClient,
+        moolre: PaymentProvider,
+        successes: PaymentSuccessRepository,
+        config: ConfigService,
+      ) =>
+        new UssdPaymentPromptOutboxConsumer(database, moolre, successes, {
+          initialVerificationDelayMs: config.getOrThrow<number>(
+            'PAYMENT_VERIFICATION_BASE_DELAY_MS',
+          ),
+          leaseMs: config.getOrThrow<number>('PAYMENT_VERIFICATION_LEASE_MS'),
+          workerId: `${config.getOrThrow<string>('SERVICE_NAME')}:${process.pid}:ussd-prompt`,
+        }),
+    },
     {
       provide: PAYMENT_RECOVERY_SERVICE,
       inject: [

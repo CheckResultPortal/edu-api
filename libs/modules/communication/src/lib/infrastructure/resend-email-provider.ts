@@ -38,6 +38,15 @@ export class ResendEmailProvider implements EmailProvider {
           subject: input.subject,
           html: input.html,
           text: input.text,
+          ...(input.attachments === undefined
+            ? {}
+            : {
+                attachments: input.attachments.map((attachment) => ({
+                  content: attachment.contentBase64,
+                  content_type: attachment.contentType,
+                  filename: attachment.filename,
+                })),
+              }),
         }),
       });
       const payload: unknown = await response.json().catch(() => null);

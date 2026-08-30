@@ -11,14 +11,14 @@ import {
   DatabaseModule,
   type DatabaseClient,
 } from '@edu-api/database';
-import {
-  decodeBase64UrlKey,
-  type AdminIdentityConfiguration,
-} from '@edu-api/administration';
 import { createSecretKeyring, type SecretKeyring } from '@edu-api/encryption';
 import { StructuredLogger } from '@edu-api/observability';
 
 import { AdminInvitationEmailDeliveryService } from './application/admin-invitation-email-delivery.service';
+import {
+  decodeCommunicationKey,
+  type AdminInvitationDeliveryConfiguration,
+} from './application/admin-invitation-delivery-reader';
 import type { EmailProvider } from './application/email-provider';
 import type { SmsProvider } from './application/sms-provider';
 import { VoucherDeliveryService } from './application/voucher-delivery.service';
@@ -195,17 +195,17 @@ class VoucherDeliveryPoller
         config: ConfigService,
         provider: EmailProvider,
       ) => {
-        const identity: AdminIdentityConfiguration = {
+        const identity: AdminInvitationDeliveryConfiguration = {
           applicationOrigin: config.getOrThrow<string>(
             'ADMIN_APPLICATION_ORIGIN',
           ),
-          hmacKey: decodeBase64UrlKey(
+          hmacKey: decodeCommunicationKey(
             config.getOrThrow<string>('ADMIN_SESSION_HMAC_KEY'),
           ),
           secretEncryptionKeyId: config.getOrThrow<string>(
             'ADMIN_SECRET_ENCRYPTION_KEY_ID',
           ),
-          secretEncryptionKey: decodeBase64UrlKey(
+          secretEncryptionKey: decodeCommunicationKey(
             config.getOrThrow<string>('ADMIN_SECRET_ENCRYPTION_KEY'),
           ),
         };
@@ -271,13 +271,13 @@ class VoucherDeliveryPoller
           activeKeyId: config.getOrThrow<string>(
             'VOUCHER_SECRET_ENCRYPTION_KEY_ID',
           ),
-          fingerprintKey: decodeBase64UrlKey(
+          fingerprintKey: decodeCommunicationKey(
             config.getOrThrow<string>('VOUCHER_PIN_FINGERPRINT_KEY'),
           ),
           keys: [
             {
               id: config.getOrThrow<string>('VOUCHER_SECRET_ENCRYPTION_KEY_ID'),
-              material: decodeBase64UrlKey(
+              material: decodeCommunicationKey(
                 config.getOrThrow<string>('VOUCHER_SECRET_ENCRYPTION_KEY'),
               ),
             },
@@ -297,6 +297,7 @@ class VoucherDeliveryPoller
           retryBaseDelayMs: config.getOrThrow<number>(
             'VOUCHER_DELIVERY_RETRY_BASE_DELAY_MS',
           ),
+          supportPhone: config.getOrThrow<string>('CUSTOMER_SUPPORT_PHONE'),
         });
       },
     },

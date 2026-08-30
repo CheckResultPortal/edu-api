@@ -4,6 +4,7 @@ import {
   HttpCode,
   HttpStatus,
   Inject,
+  NotFoundException,
   Post,
   RawBody,
   Req,
@@ -21,6 +22,10 @@ import {
 import { UssdRequestError } from '../application/ussd-errors';
 import type { UssdProvider } from '../application/ussd-provider';
 import { USSD_PROVIDER } from '../application/ussd-provider';
+import {
+  NALO_GATEWAY_ACCESS_POLICY,
+  type NaloGatewayAccessPolicy,
+} from '../infrastructure/nalo-gateway-access-policy';
 
 @Controller('ussd/nalo')
 @ApiTags('USSD sessions')
@@ -28,6 +33,8 @@ export class NaloUssdController {
   constructor(
     @Inject(USSD_PROVIDER) private readonly provider: UssdProvider,
     @Inject(USSD_FLOW_SERVICE) private readonly flow: UssdFlowService,
+    @Inject(NALO_GATEWAY_ACCESS_POLICY)
+    private readonly gatewayAccess: NaloGatewayAccessPolicy,
     private readonly logger: StructuredLogger,
   ) {}
 
@@ -38,6 +45,12 @@ export class NaloUssdController {
     @RawBody() rawBody: Buffer | undefined,
     @Req() request: FastifyRequest,
   ): Promise<Record<string, unknown>> {
+    // USERID is not a secret. Do not parse or act on a body from an unknown
+    // source, and hide the disabled route from callers until Nalo is ready.
+    if (!this.gatewayAccess.enabled || !this.gatewayAccess.allows(request.ip)) {
+      throw new NotFoundException();
+    }
+
     let parsed;
     try {
       if (rawBody === undefined) throw new UssdRequestError();

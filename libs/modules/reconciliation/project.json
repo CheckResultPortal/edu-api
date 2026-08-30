@@ -1,0 +1,8 @@
+{
+  "name": "reconciliation",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/modules/reconciliation/src",
+  "projectType": "library",
+  "tags": ["scope:reconciliation", "type:module"],
+  "targets": {}
+}

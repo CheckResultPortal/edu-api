@@ -6,7 +6,14 @@ export type EmailProviderFailureCategory =
   | 'TEMPORARY'
   | 'UNKNOWN_OUTCOME';
 
+export interface EmailAttachment {
+  readonly contentBase64: string;
+  readonly contentType: string;
+  readonly filename: string;
+}
+
 export interface SendEmailInput {
+  readonly attachments?: readonly EmailAttachment[];
   readonly from: string;
   readonly html: string;
   readonly idempotencyKey: string;

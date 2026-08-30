@@ -7,6 +7,7 @@ import { createPrismaClient, type DatabaseClient } from '@edu-api/database';
 let database: DatabaseClient;
 let productId: bigint;
 let productPublicId: string;
+let catalogGroupPublicId: string;
 const e2eIdempotencyKeys: string[] = [];
 
 beforeAll(async () => {
@@ -16,8 +17,9 @@ beforeAll(async () => {
   const suffix = randomUUID().replace(/-/g, '').toUpperCase();
   const group = await database.catalogGroup.create({
     data: { code: `PUBLIC_E2E_${suffix}`, name: 'Public E2E', sortOrder: 0 },
-    select: { id: true },
+    select: { id: true, publicId: true },
   });
+  catalogGroupPublicId = group.publicId;
   const product = await database.product.create({
     data: {
       catalogGroupId: group.id,
@@ -130,6 +132,10 @@ describe('public API', () => {
         '/v1/health/ready': expect.objectContaining({
           get: expect.any(Object),
         }),
+        '/v1/catalog-groups': expect.objectContaining({
+          get: expect.any(Object),
+        }),
+        '/v1/products': expect.objectContaining({ get: expect.any(Object) }),
         '/v1/orders': expect.objectContaining({ post: expect.any(Object) }),
         '/v1/orders/{orderPublicReference}/payments': expect.objectContaining({
           post: expect.any(Object),
@@ -149,6 +155,24 @@ describe('public API', () => {
       'productPublicId',
       'quantity',
     ]);
+  });
+
+  it('lists the public catalog group hierarchy', async () => {
+    const res = await axios.get('/v1/catalog-groups?limit=100');
+
+    expect(res.status).toBe(200);
+    expect(res.data.data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: catalogGroupPublicId,
+          type: 'catalog-groups',
+          attributes: expect.objectContaining({
+            name: 'Public E2E',
+            parentPublicId: null,
+          }),
+        }),
+      ]),
+    );
   });
 
   it('rejects a client-controlled price before order processing', async () => {

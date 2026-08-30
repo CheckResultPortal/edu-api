@@ -31,8 +31,8 @@ export interface ValidatedWebGuestOrderInput {
 }
 
 /**
- * Web orders always carry a first name and email; USSD orders derive the
- * phone from the session and may omit both.
+ * Both channels require a first name and derive a trusted source. USSD derives
+ * the phone from its gateway session and may omit only email for SMS delivery.
  */
 export type ValidatedWebChannelOrderInput = ValidatedWebGuestOrderInput & {
   readonly email: string;
@@ -104,6 +104,7 @@ export function validateWebGuestOrderInput(
 export interface CreateUssdGuestOrderDraft {
   readonly deliveryPreference: OrderDeliveryPreference;
   readonly email?: string;
+  readonly firstName: string;
   readonly phoneNumber: string;
   readonly productPublicId: string;
   readonly quantity: number;
@@ -144,7 +145,7 @@ export function validateUssdGuestOrderInput(
   return {
     deliveryPreference: preference,
     email: requiresEmail ? normalizeRequiredEmail(input.email ?? '') : null,
-    firstName: null,
+    firstName: normalizeFirstName(input.firstName),
     phoneNumber: normalizeGhanaPhoneNumber(input.phoneNumber),
     productPublicId,
     purchaseChannel: 'USSD',

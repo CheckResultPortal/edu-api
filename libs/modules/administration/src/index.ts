@@ -7,4 +7,5 @@ export * from './lib/application/administration-types';
 export * from './lib/application/admin-invitation-delivery';
 export * from './lib/application/admin-catalog-operations';
 export * from './lib/application/admin-voucher-inventory-operations';
+export * from './lib/application/admin-operations-query';
 export * from './lib/administration.module';

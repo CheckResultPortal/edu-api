@@ -26,6 +26,12 @@
       "path": "../../libs/modules/voucher-inventory/tsconfig.lib.json"
     },
     {
+      "path": "../../libs/modules/reconciliation/tsconfig.lib.json"
+    },
+    {
+      "path": "../../libs/modules/stock-monitoring/tsconfig.lib.json"
+    },
+    {
       "path": "../../libs/modules/payments/tsconfig.lib.json"
     },
     {
@@ -36,9 +42,6 @@
     },
     {
       "path": "../../libs/modules/communication/tsconfig.lib.json"
-    },
-    {
-      "path": "../../libs/modules/stock-monitoring/tsconfig.lib.json"
     },
     {
       "path": "../../libs/shared/config/tsconfig.lib.json"
