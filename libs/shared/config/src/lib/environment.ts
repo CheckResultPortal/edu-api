@@ -128,7 +128,6 @@ const environmentBoolean = z
   .transform((value) => value === true || value === 'true');
 
 const ussdFeatureEnvironmentShape = {
-  // Disabled by default until Nalo provides the production gateway source IPs.
   USSD_ENABLED: environmentBoolean.default(false),
 } as const;
 
@@ -640,7 +639,7 @@ function requireEnvironmentValue(
   if (value !== undefined) return;
   context.addIssue({
     code: 'custom',
-    message: `is required when USSD_ENABLED=true`,
+    message: `is required`,
     path: [field],
   });
 }

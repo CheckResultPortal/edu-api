@@ -10,5 +10,4 @@ export * from './lib/payments.module';
 export * from './lib/payments-worker.module';
 export * from './lib/application/moolre-webhook-service';
 export * from './lib/infrastructure/moolre-payment-provider';
-export * from './lib/infrastructure/disabled-moolre-payment-provider';
 export * from './lib/presentation/moolre-webhook.controller';
