@@ -158,8 +158,8 @@ export const publicApiEnvironmentSchema = httpEnvironmentSchema
     ...moolreProviderEnvironmentShape,
     ...ussdFeatureEnvironmentShape,
     PAYSTACK_CALLBACK_URL: z.url(),
-    NALO_USER_ID: z.string().trim().min(1).max(64).optional(),
-    NALO_TRUSTED_SOURCE_IPS: z.string().trim().max(1_000).optional(),
+    NALO_USER_ID: z.string().trim().min(1).max(64),
+    NALO_TRUSTED_SOURCE_IPS: z.string().trim().max(1_000),
     USSD_MAX_PRODUCTS: z.coerce.number().int().min(1).max(8).default(4),
     USSD_SESSION_TTL_MS: z.coerce
       .number()
@@ -203,19 +203,6 @@ export const publicApiEnvironmentSchema = httpEnvironmentSchema
       .min(1)
       .max(100)
       .default(10),
-  })
-  .superRefine((configuration, context) => {
-    if (!configuration.USSD_ENABLED) return;
-    requireEnvironmentValue(
-      configuration.NALO_USER_ID,
-      'NALO_USER_ID',
-      context,
-    );
-    requireEnvironmentValue(
-      configuration.NALO_TRUSTED_SOURCE_IPS,
-      'NALO_TRUSTED_SOURCE_IPS',
-      context,
-    );
   });
 
 export const adminApiEnvironmentSchema = httpEnvironmentSchema.extend({
@@ -595,17 +582,4 @@ function assertExactHttpOrigin(value: string): string {
     throw new Error(`CORS origin must be an exact HTTP(S) origin: ${value}`);
   }
   return url.origin;
-}
-
-function requireEnvironmentValue(
-  value: string | undefined,
-  field: string,
-  context: z.RefinementCtx,
-): void {
-  if (value !== undefined) return;
-  context.addIssue({
-    code: 'custom',
-    message: `is required`,
-    path: [field],
-  });
 }
