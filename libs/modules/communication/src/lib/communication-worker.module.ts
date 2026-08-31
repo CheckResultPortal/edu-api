@@ -15,6 +15,7 @@ import { createSecretKeyring, type SecretKeyring } from '@edu-api/encryption';
 import { StructuredLogger } from '@edu-api/observability';
 
 import { AdminInvitationEmailDeliveryService } from './application/admin-invitation-email-delivery.service';
+import { AdminPasswordResetEmailOutboxConsumer } from './application/admin-password-reset-email-outbox-consumer';
 import {
   decodeCommunicationKey,
   type AdminInvitationDeliveryConfiguration,
@@ -80,6 +81,57 @@ class AdminInvitationEmailDeliveryPoller
         'Admin invitation delivery cycle failed; retrying on the next scheduled poll.',
         undefined,
         'AdminInvitationEmailDelivery',
+      );
+    } finally {
+      this.isRunning = false;
+    }
+  }
+}
+
+@Injectable()
+class AdminPasswordResetEmailPoller
+  implements OnApplicationBootstrap, OnApplicationShutdown
+{
+  private interval: NodeJS.Timeout | undefined;
+  private isRunning = false;
+
+  constructor(
+    private readonly resets: AdminPasswordResetEmailOutboxConsumer,
+    private readonly config: ConfigService,
+    private readonly logger: StructuredLogger,
+  ) {}
+
+  onApplicationBootstrap(): void {
+    if (this.config.getOrThrow<string>('NODE_ENV') === 'test') return;
+    void this.runCycle();
+    this.interval = setInterval(
+      () => void this.runCycle(),
+      this.config.getOrThrow<number>('ADMIN_INVITATION_EMAIL_POLL_INTERVAL_MS'),
+    );
+  }
+
+  onApplicationShutdown(): void {
+    if (this.interval !== undefined) clearInterval(this.interval);
+  }
+
+  private async runCycle(): Promise<void> {
+    if (this.isRunning) return;
+    this.isRunning = true;
+    try {
+      const processed = await this.resets.processAvailable(
+        this.config.getOrThrow<number>('ADMIN_INVITATION_EMAIL_BATCH_SIZE'),
+      );
+      if (processed !== 0) {
+        this.logger.log(
+          `Admin password-reset delivery cycle completed: processed=${processed}`,
+          'AdminPasswordResetEmailDelivery',
+        );
+      }
+    } catch {
+      this.logger.error(
+        'Admin password-reset delivery cycle failed; retrying on the next scheduled poll.',
+        undefined,
+        'AdminPasswordResetEmailDelivery',
       );
     } finally {
       this.isRunning = false;
@@ -224,6 +276,43 @@ class VoucherDeliveryPoller
         );
       },
     },
+    {
+      provide: AdminPasswordResetEmailOutboxConsumer,
+      inject: [DATABASE_CLIENT, ConfigService, ADMIN_INVITATION_EMAIL_PROVIDER],
+      useFactory: (
+        database: DatabaseClient,
+        config: ConfigService,
+        provider: EmailProvider,
+      ) => {
+        const identity: AdminInvitationDeliveryConfiguration = {
+          applicationOrigin: config.getOrThrow<string>(
+            'ADMIN_APPLICATION_ORIGIN',
+          ),
+          hmacKey: decodeCommunicationKey(
+            config.getOrThrow<string>('ADMIN_SESSION_HMAC_KEY'),
+          ),
+          secretEncryptionKeyId: config.getOrThrow<string>(
+            'ADMIN_SECRET_ENCRYPTION_KEY_ID',
+          ),
+          secretEncryptionKey: decodeCommunicationKey(
+            config.getOrThrow<string>('ADMIN_SECRET_ENCRYPTION_KEY'),
+          ),
+        };
+        return new AdminPasswordResetEmailOutboxConsumer(
+          database,
+          identity,
+          provider,
+          {
+            from: config.getOrThrow<string>('RESEND_FROM_EMAIL'),
+            leaseMs: 60_000,
+            maximumAutomaticAttempts: config.getOrThrow<number>(
+              'ADMIN_INVITATION_EMAIL_MAX_ATTEMPTS',
+            ),
+            workerId: `${config.getOrThrow<string>('SERVICE_NAME')}:${process.pid}`,
+          },
+        );
+      },
+    },
     PrismaVoucherDeliverySourceReader,
     {
       provide: VoucherAllocatedOutboxConsumer,
@@ -302,6 +391,7 @@ class VoucherDeliveryPoller
       },
     },
     AdminInvitationEmailDeliveryPoller,
+    AdminPasswordResetEmailPoller,
     VoucherDeliveryPoller,
   ],
 })

@@ -21,3 +21,10 @@ export class AdminValidationError extends Error {
     super(message);
   }
 }
+
+export class AdminPasswordResetError extends Error {
+  constructor(message = 'Administrator password reset is not usable.') {
+    super(message);
+    this.name = 'AdminPasswordResetError';
+  }
+}

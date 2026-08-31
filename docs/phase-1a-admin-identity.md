@@ -22,6 +22,10 @@ PIN.
   random secret. A pending secret and enabled secret are AES-256-GCM encrypted
   using the configured versioned key. The raw secret is returned only once to
   the authenticated administrator during enrollment and is never logged.
+  Enrollment responses return a standard `otpauth://` provisioning URI for the
+  admin UI to render as a QR code. It is compatible with Google Authenticator,
+  Microsoft Authenticator, Authy, and other RFC 6238 applications; the raw
+  secret is not returned as a separate API field.
 - A first login creates a short-lived, single-use enrollment challenge. Existing
   administrators receive a short-lived, single-use TOTP verification challenge.
   A session is issued only after TOTP succeeds.
@@ -91,6 +95,21 @@ email/password values, refuses once a Super Admin exists, records an audit event
 and leaves TOTP enrollment mandatory at first login. It is never an HTTP route.
 Lost-TOTP recovery is a future Super Admin workflow with a separate audited
 decision; no insecure bypass is included here.
+
+## Password reset amendment
+
+Administrators can request a password-reset email without revealing whether an
+address exists. A fresh 32-byte opaque bearer is HMAC-fingerprinted for
+redemption and AES-GCM-encrypted solely for the worker's email-delivery edge;
+it expires after 15 minutes, is single-use, and a request is throttled to one
+per administrator per minute. The request, reset record, security event, and
+outbox event are committed atomically. The worker makes the Resend call outside
+the transaction, retries only explicit temporary/rate-limit outcomes, and puts
+an ambiguous outcome into needs-attention rather than risking a resend.
+
+Redeeming a reset verifies the token atomically, stores a new Argon2id hash,
+clears login lockout state, revokes every active session, and writes an audit
+event. It does not bypass the mandatory TOTP second factor.
 
 Track login successes/failures, lockouts, TOTP failures, active sessions, and
 expired/consumed challenge rejection. Alert on failed-login or lockout spikes.

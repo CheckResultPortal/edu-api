@@ -10,7 +10,7 @@ RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
 
 WORKDIR /app
 
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml prisma.config.ts ./
 COPY prisma ./prisma
 
 RUN pnpm install --frozen-lockfile
@@ -41,6 +41,7 @@ ARG APP_NAME
 # Copy only what's needed at runtime
 COPY --from=base /app/node_modules ./node_modules
 COPY --from=base /app/prisma ./prisma
+COPY --from=base /app/prisma.config.ts ./prisma.config.ts
 COPY --from=build /app/dist/apps/${APP_NAME} ./dist
 
 ENV NODE_ENV=production

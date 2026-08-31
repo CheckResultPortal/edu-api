@@ -11,6 +11,11 @@ export interface AdminInvitationDelivery {
   readonly invitationUrl: string;
 }
 
+export interface AdminPasswordResetDelivery {
+  readonly email: string;
+  readonly passwordResetUrl: string;
+}
+
 /**
  * This read facade is the only cross-module contract needed by Communication.
  * It decrypts the bearer only at the delivery edge and never puts it in queues,
@@ -67,6 +72,44 @@ export class PrismaAdminInvitationDeliveryReader {
       invitationId: invitation.id,
       invitationPublicId: invitation.publicId,
       invitationUrl: invitationUrl.toString(),
+    };
+  }
+
+  async getPendingPasswordReset(
+    passwordResetPublicId: string,
+    now = new Date(),
+  ): Promise<AdminPasswordResetDelivery | null> {
+    const reset = await this.database.adminPasswordReset.findUnique({
+      where: { publicId: passwordResetPublicId },
+      select: {
+        adminUser: { select: { email: true, isActive: true } },
+        consumedAt: true,
+        encryptedToken: true,
+        expiresAt: true,
+        revokedAt: true,
+      },
+    });
+    if (
+      reset === null ||
+      !reset.adminUser.isActive ||
+      reset.consumedAt !== null ||
+      reset.revokedAt !== null ||
+      reset.expiresAt <= now ||
+      !isEncryptedSecret(reset.encryptedToken)
+    ) {
+      return null;
+    }
+    const passwordResetUrl = new URL(
+      '/admin/password-reset',
+      this.applicationOrigin,
+    );
+    passwordResetUrl.searchParams.set(
+      'token',
+      decryptSecret(reset.encryptedToken, this.keyring),
+    );
+    return {
+      email: reset.adminUser.email,
+      passwordResetUrl: passwordResetUrl.toString(),
     };
   }
 }

@@ -32,6 +32,36 @@ export function generateTotpSecret(): string {
   return encodeBase32(randomBytes(20));
 }
 
+/**
+ * RFC 6238 provisioning URI understood by Google Authenticator, Microsoft
+ * Authenticator, Authy, and other standard TOTP applications. The URI is a
+ * one-time enrollment secret: callers must render it only in the immediate
+ * enrollment response and must never log or persist it separately.
+ */
+export function createTotpProvisioningUri(input: {
+  readonly accountName: string;
+  readonly issuer: string;
+  readonly secret: string;
+}): string {
+  const issuer = input.issuer.trim();
+  const accountName = input.accountName.trim();
+  if (issuer.length === 0 || accountName.length === 0) {
+    throw new Error('TOTP issuer and account name are required.');
+  }
+  if (!/^[A-Z2-7]+$/.test(input.secret)) {
+    throw new Error('TOTP secret is not valid base32.');
+  }
+  const label = encodeURIComponent(`${issuer}:${accountName}`);
+  const query = new URLSearchParams({
+    algorithm: 'SHA1',
+    digits: '6',
+    issuer,
+    period: '30',
+    secret: input.secret,
+  });
+  return `otpauth://totp/${label}?${query.toString()}`;
+}
+
 export function verifyTotpCode(
   secret: string,
   code: string,

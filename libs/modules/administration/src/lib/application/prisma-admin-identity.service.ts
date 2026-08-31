@@ -18,6 +18,7 @@ import {
 } from '../domain/admin-invitation';
 import {
   createAdminBearer,
+  createTotpProvisioningUri,
   dummyAdminPasswordHash,
   fingerprintAdminBearer,
   generateTotpSecret,
@@ -29,6 +30,7 @@ import {
   AdminAuthenticationError,
   AdminAuthorizationError,
   AdminInvitationError,
+  AdminPasswordResetError,
   AdminValidationError,
 } from './admin-identity-errors';
 import { createAdminIdentityKeyring } from './admin-identity-configuration';
@@ -40,7 +42,9 @@ import type {
   BeginAdminLoginResult,
   CompleteAdminLoginInput,
   CompleteAdminLoginResult,
+  CompleteAdminPasswordResetInput,
   InviteAdministratorInput,
+  RequestAdminPasswordResetInput,
 } from './admin-identity-ports';
 import type {
   AdminAuthChallengePurpose,
@@ -51,6 +55,8 @@ import type {
 import {
   adminChallengeLifetimeMs,
   adminLockDurationMs,
+  adminPasswordResetLifetimeMs,
+  adminPasswordResetRequestCooldownMs,
   adminSessionLifetimeMs,
   maxFailedAdminAuthenticationAttempts,
 } from './administration-types';
@@ -137,6 +143,14 @@ export class PrismaAdminIdentityService implements AdminIdentityService {
     );
     const enrollmentSecret =
       purpose === 'TOTP_ENROLLMENT' ? generateTotpSecret() : undefined;
+    const enrollmentProvisioningUri =
+      enrollmentSecret === undefined
+        ? undefined
+        : createTotpProvisioningUri({
+            accountName: email,
+            issuer: 'EduVoucher',
+            secret: enrollmentSecret,
+          });
 
     await this.database.$transaction(async (transaction) => {
       const current = await transaction.adminUser.findUnique({
@@ -190,7 +204,9 @@ export class PrismaAdminIdentityService implements AdminIdentityService {
     return {
       challengeBearer,
       purpose,
-      ...(enrollmentSecret === undefined ? {} : { enrollmentSecret }),
+      ...(enrollmentProvisioningUri === undefined
+        ? {}
+        : { enrollmentProvisioningUri }),
     };
   }
 
@@ -457,7 +473,10 @@ export class PrismaAdminIdentityService implements AdminIdentityService {
   async acceptAdministratorInvitation(
     input: AcceptAdministratorInvitationInput,
     context: RequestContext,
-  ): Promise<{ enrollmentBearer: string; totpSecret: string }> {
+  ): Promise<{
+    enrollmentBearer: string;
+    enrollmentProvisioningUri: string;
+  }> {
     const now = new Date();
     const invitationFingerprint = this.fingerprint(
       input.invitationBearer,
@@ -547,7 +566,156 @@ export class PrismaAdminIdentityService implements AdminIdentityService {
       });
     });
 
-    return { enrollmentBearer, totpSecret };
+    return {
+      enrollmentBearer,
+      enrollmentProvisioningUri: createTotpProvisioningUri({
+        accountName: invitation.email,
+        issuer: 'EduVoucher',
+        secret: totpSecret,
+      }),
+    };
+  }
+
+  async requestPasswordReset(
+    input: RequestAdminPasswordResetInput,
+    context: RequestContext,
+  ): Promise<void> {
+    let email: string;
+    try {
+      email = normalizeAdminInvitationEmail(input.email);
+    } catch {
+      return;
+    }
+    const now = new Date();
+    const administrator = await this.database.adminUser.findUnique({
+      where: { email },
+      select: { id: true, isActive: true },
+    });
+    if (administrator === null || !administrator.isActive) return;
+
+    const bearer = createAdminBearer();
+    const tokenFingerprint = this.fingerprint(bearer, 'admin-password-reset');
+    const expiresAt = this.after(now, adminPasswordResetLifetimeMs);
+    const encryptedToken = asJson(encryptSecret(bearer, this.keyring));
+    await this.database.$transaction(async (transaction) => {
+      const current = await transaction.adminUser.findUnique({
+        where: { id: administrator.id },
+        select: { isActive: true },
+      });
+      if (current === null || !current.isActive) return;
+      const recent = await transaction.adminPasswordReset.findFirst({
+        where: {
+          adminUserId: administrator.id,
+          consumedAt: null,
+          revokedAt: null,
+          requestedAt: {
+            gt: this.after(now, -adminPasswordResetRequestCooldownMs),
+          },
+        },
+        select: { id: true },
+      });
+      if (recent !== null) return;
+      await transaction.adminPasswordReset.updateMany({
+        where: {
+          adminUserId: administrator.id,
+          consumedAt: null,
+          revokedAt: null,
+        },
+        data: { encryptedToken: Prisma.DbNull, revokedAt: now },
+      });
+      const reset = await transaction.adminPasswordReset.create({
+        data: {
+          adminUserId: administrator.id,
+          tokenFingerprint,
+          encryptedToken,
+          expiresAt,
+        },
+        select: { id: true, publicId: true },
+      });
+      const event = {
+        aggregateId: reset.id.toString(),
+        aggregateType: 'AdminPasswordReset',
+        dedupeKey: `admin-password-reset-email:${reset.id.toString()}`,
+        eventType: 'ADMIN_PASSWORD_RESET_DELIVERY_REQUESTED',
+        payload: { passwordResetPublicId: reset.publicId },
+      } as const;
+      assertValidOutboxEvent(event);
+      await transaction.outboxEvent.create({
+        data: {
+          aggregateId: reset.id,
+          aggregateType: event.aggregateType,
+          dedupeKey: event.dedupeKey,
+          eventType: event.eventType,
+          payload: event.payload,
+        },
+      });
+      await transaction.adminSecurityEvent.create({
+        data: {
+          adminUserId: administrator.id,
+          eventType: 'ADMIN_PASSWORD_RESET_REQUESTED',
+          correlationId: context.correlationId,
+          metadata: {},
+        },
+      });
+    });
+  }
+
+  async completePasswordReset(
+    input: CompleteAdminPasswordResetInput,
+    context: RequestContext,
+  ): Promise<void> {
+    if (!isBearer(input.resetBearer)) throw new AdminPasswordResetError();
+    let passwordHash: string;
+    try {
+      passwordHash = await hashAdminPassword(input.password);
+    } catch {
+      throw new AdminPasswordResetError();
+    }
+    const now = new Date();
+    const tokenFingerprint = this.fingerprint(
+      input.resetBearer,
+      'admin-password-reset',
+    );
+    await this.database.$transaction(async (transaction) => {
+      const reset = await transaction.adminPasswordReset.findUnique({
+        where: { tokenFingerprint },
+        select: { adminUserId: true, id: true },
+      });
+      if (reset === null) throw new AdminPasswordResetError();
+      const consumed = await transaction.adminPasswordReset.updateMany({
+        where: {
+          id: reset.id,
+          tokenFingerprint,
+          consumedAt: null,
+          revokedAt: null,
+          expiresAt: { gt: now },
+          adminUser: { isActive: true },
+        },
+        data: { consumedAt: now, encryptedToken: Prisma.DbNull },
+      });
+      if (consumed.count !== 1) throw new AdminPasswordResetError();
+      await transaction.adminUser.update({
+        where: { id: reset.adminUserId },
+        data: {
+          failedAuthenticationCount: 0,
+          lockedUntil: null,
+          passwordChangedAt: now,
+          passwordHash,
+        },
+      });
+      await transaction.adminSession.updateMany({
+        where: { adminUserId: reset.adminUserId, revokedAt: null },
+        data: { revokedAt: now },
+      });
+      await transaction.adminSecurityEvent.create({
+        data: {
+          adminUserId: reset.adminUserId,
+          eventType: 'ADMIN_PASSWORD_RESET_COMPLETED',
+          correlationId: context.correlationId,
+          metadata: {},
+        },
+      });
+    });
   }
 
   async getAuthenticatedAdministrator(

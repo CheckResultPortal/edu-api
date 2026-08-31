@@ -106,14 +106,9 @@ const paystackProviderEnvironmentShape = {
 } as const;
 
 const moolreProviderEnvironmentShape = {
-  // Collection credentials are required only when the separately gated USSD
-  // channel is enabled. Moolre SMS keeps its own independent configuration.
-  MOOLRE_API_USER: z.string().trim().min(1).max(128).optional(),
-  MOOLRE_PUBLIC_KEY: z.string().trim().min(20).max(512).optional(),
-  MOOLRE_ACCOUNT_NUMBER: z
-    .string()
-    .regex(/^[0-9]{6,20}$/)
-    .optional(),
+  MOOLRE_API_USER: z.string().trim().min(1).max(128),
+  MOOLRE_PUBLIC_KEY: z.string().trim().min(20).max(512),
+  MOOLRE_ACCOUNT_NUMBER: z.string().regex(/^[0-9]{6,20}$/),
   MOOLRE_BASE_URL: z.url().default('https://api.moolre.com/'),
   MOOLRE_REQUEST_TIMEOUT_MS: z.coerce
     .number()
@@ -211,7 +206,6 @@ export const publicApiEnvironmentSchema = httpEnvironmentSchema
   })
   .superRefine((configuration, context) => {
     if (!configuration.USSD_ENABLED) return;
-    requireMoolreCollectionConfiguration(configuration, context);
     requireEnvironmentValue(
       configuration.NALO_USER_ID,
       'NALO_USER_ID',
@@ -473,9 +467,6 @@ export const workerEnvironmentSchema = commonEnvironmentSchema
       .default(60_000),
   })
   .superRefine((configuration, context) => {
-    if (configuration.USSD_ENABLED) {
-      requireMoolreCollectionConfiguration(configuration, context);
-    }
     if (
       configuration.VOUCHER_ALLOCATION_RETRY_MAX_DELAY_MS <
       configuration.VOUCHER_ALLOCATION_RETRY_BASE_DELAY_MS
@@ -604,31 +595,6 @@ function assertExactHttpOrigin(value: string): string {
     throw new Error(`CORS origin must be an exact HTTP(S) origin: ${value}`);
   }
   return url.origin;
-}
-
-function requireMoolreCollectionConfiguration(
-  configuration: {
-    readonly MOOLRE_API_USER?: string;
-    readonly MOOLRE_PUBLIC_KEY?: string;
-    readonly MOOLRE_ACCOUNT_NUMBER?: string;
-  },
-  context: z.RefinementCtx,
-): void {
-  requireEnvironmentValue(
-    configuration.MOOLRE_API_USER,
-    'MOOLRE_API_USER',
-    context,
-  );
-  requireEnvironmentValue(
-    configuration.MOOLRE_PUBLIC_KEY,
-    'MOOLRE_PUBLIC_KEY',
-    context,
-  );
-  requireEnvironmentValue(
-    configuration.MOOLRE_ACCOUNT_NUMBER,
-    'MOOLRE_ACCOUNT_NUMBER',
-    context,
-  );
 }
 
 function requireEnvironmentValue(

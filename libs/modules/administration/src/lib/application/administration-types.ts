@@ -24,4 +24,6 @@ export const maxFailedAdminAuthenticationAttempts = 5;
 export const adminLockDurationMs = 15 * 60 * 1000;
 export const adminSessionLifetimeMs = 12 * 60 * 60 * 1000;
 export const adminChallengeLifetimeMs = 10 * 60 * 1000;
+export const adminPasswordResetLifetimeMs = 15 * 60 * 1000;
+export const adminPasswordResetRequestCooldownMs = 60 * 1000;
 export const outboxLeaseDurationMs = 60 * 1000;

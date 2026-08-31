@@ -33,6 +33,7 @@ import {
   AdminAuthenticationError,
   AdminAuthorizationError,
   AdminInvitationError,
+  AdminPasswordResetError,
   AdminValidationError,
 } from '../application/admin-identity-errors';
 import {
@@ -93,6 +94,23 @@ const acceptInvitationRequestSchema: RequestBodySchema = {
   },
 };
 
+const passwordResetRequestSchema: RequestBodySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['email'],
+  properties: { email: { type: 'string', format: 'email' } },
+};
+
+const passwordResetSchema: RequestBodySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['resetBearer', 'password'],
+  properties: {
+    resetBearer: { type: 'string' },
+    password: { type: 'string' },
+  },
+};
+
 @Controller('admin')
 @ApiTags('Administration identity')
 @ApiProduces('application/vnd.api+json')
@@ -120,9 +138,9 @@ export class AdminIdentityController {
       return jsonApiResource('admin-login-challenges', 'current', {
         challengeBearer: result.challengeBearer,
         purpose: result.purpose,
-        ...(result.enrollmentSecret === undefined
+        ...(result.enrollmentProvisioningUri === undefined
           ? {}
-          : { totpSecret: result.enrollmentSecret }),
+          : { totpProvisioningUri: result.enrollmentProvisioningUri }),
       });
     } catch (error) {
       throw this.asException(error, true);
@@ -262,10 +280,58 @@ export class AdminIdentityController {
       );
       return jsonApiResource('admin-totp-enrollments', 'current', {
         challengeBearer: result.enrollmentBearer,
-        totpSecret: result.totpSecret,
+        totpProvisioningUri: result.enrollmentProvisioningUri,
       });
     } catch (error) {
       throw this.asException(error);
+    }
+  }
+
+  @Post('auth/password-reset-requests')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Request a one-time administrator password reset email',
+  })
+  @ApiOkResponse({
+    description:
+      'The same response is returned whether or not the email is registered.',
+  })
+  @ApiBody({ schema: passwordResetRequestSchema })
+  async requestPasswordReset(
+    @Body() body: unknown,
+    @Req() request: AdminAuthenticatedRequest,
+  ) {
+    await this.identity.requestPasswordReset(
+      { email: stringField(objectBody(body), 'email') },
+      requestContext(request),
+    );
+    return jsonApiResource('admin-password-reset-requests', 'current', {
+      accepted: true,
+    });
+  }
+
+  @Post('auth/password-resets')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Use a one-time administrator password reset' })
+  @ApiBody({ schema: passwordResetSchema })
+  async completePasswordReset(
+    @Body() body: unknown,
+    @Req() request: AdminAuthenticatedRequest,
+  ) {
+    const object = objectBody(body);
+    try {
+      await this.identity.completePasswordReset(
+        {
+          password: stringField(object, 'password'),
+          resetBearer: stringField(object, 'resetBearer'),
+        },
+        requestContext(request),
+      );
+      return jsonApiResource('admin-password-resets', 'current', {
+        completed: true,
+      });
+    } catch (error) {
+      throw this.asException(error, true);
     }
   }
 
@@ -284,13 +350,16 @@ export class AdminIdentityController {
     }
     if (
       error instanceof AdminInvitationError ||
+      error instanceof AdminPasswordResetError ||
       error instanceof AdminValidationError
     ) {
       return new BadRequestException({
         code:
           error instanceof AdminInvitationError
             ? 'ADMIN_INVITATION_INVALID'
-            : 'ADMIN_INPUT_INVALID',
+            : error instanceof AdminPasswordResetError
+              ? 'ADMIN_PASSWORD_RESET_INVALID'
+              : 'ADMIN_INPUT_INVALID',
         message: genericAuthentication
           ? 'The supplied administrator credentials are invalid.'
           : error.message,

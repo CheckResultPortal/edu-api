@@ -1,5 +1,6 @@
 import {
   createAdminBearer,
+  createTotpProvisioningUri,
   fingerprintAdminBearer,
   generateTotpSecret,
   hashAdminPassword,
@@ -31,4 +32,16 @@ describe('admin credentials', () => {
       fingerprintAdminBearer(bearer, key, 'admin-auth-challenge'),
     );
   });
+
+  it('creates a standards-compatible Authenticator provisioning URI', () => {
+    const uri = createTotpProvisioningUri({
+      accountName: 'admin@example.test',
+      issuer: 'EduVoucher',
+      secret: 'JBSWY3DPEHPK3PXP',
+    });
+    expect(uri).toBe(
+      'otpauth://totp/EduVoucher%3Aadmin%40example.test?algorithm=SHA1&digits=6&issuer=EduVoucher&period=30&secret=JBSWY3DPEHPK3PXP',
+    );
+  });
+
 });

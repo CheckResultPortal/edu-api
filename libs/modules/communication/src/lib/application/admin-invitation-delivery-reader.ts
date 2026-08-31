@@ -19,6 +19,13 @@ export interface AdminInvitationDelivery {
   readonly invitationUrl: string;
 }
 
+export interface AdminPasswordResetDelivery {
+  readonly email: string;
+  readonly passwordResetId: bigint;
+  readonly passwordResetPublicId: string;
+  readonly passwordResetUrl: string;
+}
+
 /** Reads the administration-owned invitation through a narrow delivery edge. */
 export class AdminInvitationDeliveryReader {
   private readonly applicationOrigin: URL;
@@ -79,6 +86,48 @@ export class AdminInvitationDeliveryReader {
       invitationId: invitation.id,
       invitationPublicId: invitation.publicId,
       invitationUrl: invitationUrl.toString(),
+    };
+  }
+
+  async getPendingPasswordReset(
+    passwordResetPublicId: string,
+    now = new Date(),
+  ): Promise<AdminPasswordResetDelivery | null> {
+    const reset = await this.database.adminPasswordReset.findUnique({
+      where: { publicId: passwordResetPublicId },
+      select: {
+        adminUser: { select: { email: true, isActive: true } },
+        consumedAt: true,
+        encryptedToken: true,
+        expiresAt: true,
+        id: true,
+        publicId: true,
+        revokedAt: true,
+      },
+    });
+    if (
+      reset === null ||
+      !reset.adminUser.isActive ||
+      reset.consumedAt !== null ||
+      reset.revokedAt !== null ||
+      reset.expiresAt <= now ||
+      !isEncryptedSecret(reset.encryptedToken)
+    ) {
+      return null;
+    }
+    const passwordResetUrl = new URL(
+      '/admin/password-reset',
+      this.applicationOrigin,
+    );
+    passwordResetUrl.searchParams.set(
+      'token',
+      decryptSecret(reset.encryptedToken, this.keyring),
+    );
+    return {
+      email: reset.adminUser.email,
+      passwordResetId: reset.id,
+      passwordResetPublicId: reset.publicId,
+      passwordResetUrl: passwordResetUrl.toString(),
     };
   }
 }

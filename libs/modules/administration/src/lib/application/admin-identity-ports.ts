@@ -35,6 +35,14 @@ export interface AdminIdentityService {
     input: AcceptAdministratorInvitationInput,
     context: RequestContext,
   ): Promise<AcceptAdministratorInvitationResult>;
+  requestPasswordReset(
+    input: RequestAdminPasswordResetInput,
+    context: RequestContext,
+  ): Promise<void>;
+  completePasswordReset(
+    input: CompleteAdminPasswordResetInput,
+    context: RequestContext,
+  ): Promise<void>;
   getAuthenticatedAdministrator(
     sessionBearer: string,
   ): Promise<AuthenticatedAdmin | null>;
@@ -48,7 +56,7 @@ export interface BeginAdminLoginInput {
 
 export interface BeginAdminLoginResult {
   readonly challengeBearer: string;
-  readonly enrollmentSecret?: string;
+  readonly enrollmentProvisioningUri?: string;
   readonly purpose: AdminAuthChallengePurpose;
 }
 
@@ -76,7 +84,16 @@ export interface AcceptAdministratorInvitationInput {
   readonly password: string;
 }
 
+export interface RequestAdminPasswordResetInput {
+  readonly email: string;
+}
+
+export interface CompleteAdminPasswordResetInput {
+  readonly password: string;
+  readonly resetBearer: string;
+}
+
 export interface AcceptAdministratorInvitationResult {
   readonly enrollmentBearer: string;
-  readonly totpSecret: string;
+  readonly enrollmentProvisioningUri: string;
 }

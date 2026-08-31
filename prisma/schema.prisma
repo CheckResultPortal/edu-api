@@ -195,6 +195,25 @@ model AdminUser {
   challenges                AdminAuthChallenge[]
   securityEvents            AdminSecurityEvent[]
   invitationsSent           AdminInvitation[]    @relation("AdminInvitationSender")
+  passwordResets            AdminPasswordReset[]
+}
+
+// Password-reset bearers are never stored in plaintext. The encrypted copy is
+// available only to the worker at the email-delivery edge; the HMAC fingerprint
+// is the one-time redemption boundary.
+model AdminPasswordReset {
+  id               BigInt    @id @default(autoincrement())
+  publicId         String    @unique @default(uuid()) @db.Uuid
+  adminUserId      BigInt
+  tokenFingerprint String    @unique
+  encryptedToken   Json?
+  expiresAt        DateTime  @db.Timestamptz(6)
+  consumedAt       DateTime? @db.Timestamptz(6)
+  revokedAt        DateTime? @db.Timestamptz(6)
+  requestedAt      DateTime  @default(now()) @db.Timestamptz(6)
+  adminUser        AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([adminUserId, expiresAt])
 }
 
 model AdminAuthChallenge {

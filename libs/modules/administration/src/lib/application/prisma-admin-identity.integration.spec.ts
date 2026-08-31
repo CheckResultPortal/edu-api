@@ -55,6 +55,21 @@ describeWithDatabase('PrismaAdminIdentityService (PostgreSQL)', () => {
   });
 
   afterEach(async () => {
+    const passwordResets = await database.adminPasswordReset.findMany({
+      where: { adminUserId: actor.id },
+      select: { id: true },
+    });
+    if (passwordResets.length !== 0) {
+      await database.outboxEvent.deleteMany({
+        where: {
+          aggregateType: 'AdminPasswordReset',
+          aggregateId: { in: passwordResets.map((reset) => reset.id) },
+        },
+      });
+      await database.adminPasswordReset.deleteMany({
+        where: { id: { in: passwordResets.map((reset) => reset.id) } },
+      });
+    }
     const invitations = await database.adminInvitation.findMany({
       where: {
         OR: [{ email: invitationEmail }, { invitedByAdminUserId: actor.id }],
@@ -120,7 +135,10 @@ describeWithDatabase('PrismaAdminIdentityService (PostgreSQL)', () => {
     );
 
     expect(started.purpose).toBe('TOTP_ENROLLMENT');
-    expect(started.enrollmentSecret).toBeDefined();
+    expect(started.enrollmentProvisioningUri).toMatch(/^otpauth:\/\/totp\//);
+    const enrollmentSecret = new URL(
+      started.enrollmentProvisioningUri as string,
+    ).searchParams.get('secret') as string;
     await expect(
       database.adminSession.count({ where: { adminUserId: actor.id } }),
     ).resolves.toBe(0);
@@ -128,7 +146,7 @@ describeWithDatabase('PrismaAdminIdentityService (PostgreSQL)', () => {
     const completed = await identity.completeLogin(
       {
         challengeBearer: started.challengeBearer,
-        code: testTotpCode(started.enrollmentSecret as string),
+        code: testTotpCode(enrollmentSecret),
       },
       { correlationId: 'integration-totp' },
     );
@@ -139,7 +157,7 @@ describeWithDatabase('PrismaAdminIdentityService (PostgreSQL)', () => {
       identity.completeLogin(
         {
           challengeBearer: started.challengeBearer,
-          code: testTotpCode(started.enrollmentSecret as string),
+          code: testTotpCode(enrollmentSecret),
         },
         { correlationId: 'integration-replay' },
       ),
@@ -237,6 +255,58 @@ describeWithDatabase('PrismaAdminIdentityService (PostgreSQL)', () => {
     await expect(
       reader.getPendingInvitation(resent.publicId),
     ).resolves.not.toBeNull();
+  });
+
+  it('consumes a password reset once and revokes every existing session', async () => {
+    await database.adminSession.create({
+      data: {
+        adminUserId: actor.id,
+        tokenFingerprint: `test-session-${randomUUID()}`,
+        expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+      },
+    });
+    await identity.requestPasswordReset(
+      { email: actorEmail },
+      { correlationId: 'integration-password-reset-request' },
+    );
+    const reset = await database.adminPasswordReset.findFirstOrThrow({
+      where: { adminUserId: actor.id },
+      select: { publicId: true },
+    });
+    const delivery = await new PrismaAdminInvitationDeliveryReader(
+      database,
+      configuration,
+    ).getPendingPasswordReset(reset.publicId);
+    const bearer = new URL(
+      delivery?.passwordResetUrl as string,
+    ).searchParams.get('token') as string;
+    const newPassword = 'a-new-long-test-only-admin-password';
+
+    const results = await Promise.allSettled([
+      identity.completePasswordReset(
+        { password: newPassword, resetBearer: bearer },
+        { correlationId: 'integration-password-reset-a' },
+      ),
+      identity.completePasswordReset(
+        { password: newPassword, resetBearer: bearer },
+        { correlationId: 'integration-password-reset-b' },
+      ),
+    ]);
+
+    expect(
+      results.filter((result) => result.status === 'fulfilled'),
+    ).toHaveLength(1);
+    await expect(
+      database.adminSession.count({
+        where: { adminUserId: actor.id, revokedAt: null },
+      }),
+    ).resolves.toBe(0);
+    await expect(
+      identity.beginLogin(
+        { email: actorEmail, password: newPassword },
+        { correlationId: 'integration-password-reset-login' },
+      ),
+    ).resolves.toMatchObject({ purpose: 'TOTP_ENROLLMENT' });
   });
 });
 

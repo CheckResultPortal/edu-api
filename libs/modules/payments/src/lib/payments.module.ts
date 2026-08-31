@@ -44,6 +44,7 @@ import {
   type PaymentSuccessRepository,
 } from './application/payment-success-service';
 import { MoolrePaymentProvider } from './infrastructure/moolre-payment-provider';
+import { DisabledMoolrePaymentProvider } from './infrastructure/disabled-moolre-payment-provider';
 import { PaystackPaymentProvider } from './infrastructure/paystack-payment-provider';
 import { PrismaPaymentInitializationRepository } from './infrastructure/prisma-payment-initialization.repository';
 import { PrismaPaymentRecoveryRepository } from './infrastructure/prisma-payment-recovery.repository';
@@ -71,8 +72,13 @@ import { PublicPaymentsController } from './presentation/public-payments.control
     {
       provide: MOOLRE_PAYMENT_PROVIDER,
       inject: [ConfigService],
-      useFactory: (config: ConfigService): MoolrePaymentProvider =>
-        new MoolrePaymentProvider({
+      useFactory: (
+        config: ConfigService,
+      ): MoolrePaymentProvider | DisabledMoolrePaymentProvider => {
+        if (!config.getOrThrow<boolean>('USSD_ENABLED')) {
+          return new DisabledMoolrePaymentProvider();
+        }
+        return new MoolrePaymentProvider({
           baseUrl: config.getOrThrow<string>('MOOLRE_BASE_URL'),
           requestTimeoutMs: config.getOrThrow<number>(
             'MOOLRE_REQUEST_TIMEOUT_MS',
@@ -80,7 +86,8 @@ import { PublicPaymentsController } from './presentation/public-payments.control
           apiUser: config.getOrThrow<string>('MOOLRE_API_USER'),
           publicKey: config.getOrThrow<string>('MOOLRE_PUBLIC_KEY'),
           accountNumber: config.getOrThrow<string>('MOOLRE_ACCOUNT_NUMBER'),
-        }),
+        });
+      },
     },
     {
       provide: PAYMENT_PROVIDER,
