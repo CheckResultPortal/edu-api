@@ -207,6 +207,7 @@ export class PaymentsCoreModule {}
         new DefaultMoolreVerificationWebhookService(provider, repository),
     },
   ],
+  exports: [PAYMENT_INITIALIZATION_SERVICE],
 })
 export class PaymentsModule {}
 

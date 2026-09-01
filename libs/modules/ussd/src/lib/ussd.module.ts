@@ -94,7 +94,12 @@ import { NaloUssdController } from './presentation/nalo-ussd.controller';
 export class UssdCoreModule {}
 
 @Module({
-  imports: [UssdCoreModule, PaymentsCoreModule, PaymentsModule],
+  imports: [
+    UssdCoreModule,
+    OrdersCoreModule,
+    PaymentsCoreModule,
+    PaymentsModule,
+  ],
   controllers: [NaloUssdController],
   providers: [
     {

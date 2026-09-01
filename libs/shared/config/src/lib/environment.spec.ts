@@ -92,6 +92,24 @@ describe('environment validation', () => {
       expect(configuration.NALO_USER_ID).toBeUndefined();
     });
 
+    it('treats blank USSD provider variables as unset while USSD is disabled', () => {
+      const configuration = validatePublicApiEnvironment({
+        SERVICE_NAME: 'public-api',
+        DATABASE_URL: 'postgresql://user:password@localhost:5432/database',
+        REDIS_URL: 'redis://localhost:6379',
+        ORDER_PRIVACY_HMAC_KEY: privacyHmacKey,
+        ...paystackPublicEnvironment,
+        MOOLRE_API_USER: '',
+        MOOLRE_PUBLIC_KEY: '',
+        MOOLRE_ACCOUNT_NUMBER: '',
+        NALO_USER_ID: '',
+        NALO_TRUSTED_SOURCE_IPS: '',
+      });
+
+      expect(configuration.MOOLRE_API_USER).toBeUndefined();
+      expect(configuration.NALO_USER_ID).toBeUndefined();
+    });
+
     it('requires collection credentials and trusted Nalo sources when enabled', () => {
       expect(() =>
         validatePublicApiEnvironment({

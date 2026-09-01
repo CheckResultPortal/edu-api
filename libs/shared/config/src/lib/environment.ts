@@ -118,6 +118,37 @@ const moolreProviderEnvironmentShape = {
     .default(10_000),
 } as const;
 
+const optionalEnvironmentString = (minimum: number, maximum: number) =>
+  z.preprocess(
+    (value) =>
+      typeof value === 'string' && value.trim().length === 0
+        ? undefined
+        : value,
+    z.string().trim().min(minimum).max(maximum).optional(),
+  );
+
+const optionalMoolreProviderEnvironmentShape = {
+  MOOLRE_API_USER: optionalEnvironmentString(1, 128),
+  MOOLRE_PUBLIC_KEY: optionalEnvironmentString(20, 512),
+  MOOLRE_ACCOUNT_NUMBER: z.preprocess(
+    (value) =>
+      typeof value === 'string' && value.trim().length === 0
+        ? undefined
+        : value,
+    z
+      .string()
+      .regex(/^[0-9]{6,20}$/)
+      .optional(),
+  ),
+  MOOLRE_BASE_URL: z.url().default('https://api.moolre.com/'),
+  MOOLRE_REQUEST_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .min(1_000)
+    .max(30_000)
+    .default(10_000),
+} as const;
+
 const environmentBoolean = z
   .union([z.boolean(), z.enum(['true', 'false'])])
   .transform((value) => value === true || value === 'true');
@@ -155,11 +186,17 @@ export const publicApiEnvironmentSchema = httpEnvironmentSchema
       .max(1_000)
       .default(10),
     ...paystackProviderEnvironmentShape,
-    ...moolreProviderEnvironmentShape,
+    ...optionalMoolreProviderEnvironmentShape,
     ...ussdFeatureEnvironmentShape,
     PAYSTACK_CALLBACK_URL: z.url(),
-    NALO_USER_ID: z.string().trim().min(1).max(64),
-    NALO_TRUSTED_SOURCE_IPS: z.string().trim().max(1_000),
+    NALO_USER_ID: optionalEnvironmentString(1, 64),
+    NALO_TRUSTED_SOURCE_IPS: z.preprocess(
+      (value) =>
+        typeof value === 'string' && value.trim().length === 0
+          ? undefined
+          : value,
+      z.string().trim().max(1_000).optional(),
+    ),
     USSD_MAX_PRODUCTS: z.coerce.number().int().min(1).max(8).default(4),
     USSD_SESSION_TTL_MS: z.coerce
       .number()
@@ -203,6 +240,31 @@ export const publicApiEnvironmentSchema = httpEnvironmentSchema
       .min(1)
       .max(100)
       .default(10),
+  })
+  .superRefine((configuration, context) => {
+    if (!configuration.USSD_ENABLED) {
+      return;
+    }
+
+    const requiredFields = [
+      ['MOOLRE_API_USER', configuration.MOOLRE_API_USER],
+      ['MOOLRE_PUBLIC_KEY', configuration.MOOLRE_PUBLIC_KEY],
+      ['MOOLRE_ACCOUNT_NUMBER', configuration.MOOLRE_ACCOUNT_NUMBER],
+      ['NALO_USER_ID', configuration.NALO_USER_ID],
+      ['NALO_TRUSTED_SOURCE_IPS', configuration.NALO_TRUSTED_SOURCE_IPS],
+    ] as const;
+
+    for (const [field, value] of requiredFields) {
+      if (value !== undefined) {
+        continue;
+      }
+
+      context.addIssue({
+        code: 'custom',
+        message: 'is required when USSD_ENABLED=true',
+        path: [field],
+      });
+    }
   });
 
 export const adminApiEnvironmentSchema = httpEnvironmentSchema.extend({
