@@ -47,6 +47,7 @@ describe('GET /v1/health/live', () => {
           get: expect.any(Object),
         }),
         '/v1/admin/catalog-groups': expect.objectContaining({
+          get: expect.any(Object),
           post: expect.any(Object),
         }),
         '/v1/admin/catalog-groups/{publicId}': expect.objectContaining({

@@ -7,9 +7,11 @@ import {
   HttpCode,
   HttpStatus,
   Inject,
+  Get,
   NotFoundException,
   Param,
   Patch,
+  Query,
   Post,
   Put,
   Req,
@@ -23,6 +25,7 @@ import {
   ApiOperation,
   ApiParam,
   ApiProduces,
+  ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
 
@@ -37,8 +40,11 @@ import {
   type CreateCatalogProductInput,
   type UpdateCatalogGroupInput,
   type UpdateCatalogProductInput,
+  CATALOG_GROUP_QUERY,
+  type CatalogGroupQuery,
+  parseCatalogGroupsQuery,
 } from '@edu-api/catalog';
-import { jsonApiResource } from '@edu-api/http';
+import { jsonApiCollection, jsonApiResource } from '@edu-api/http';
 
 import {
   ADMIN_CATALOG_OPERATIONS_SERVICE,
@@ -141,7 +147,53 @@ export class AdminCatalogController {
   constructor(
     @Inject(ADMIN_CATALOG_OPERATIONS_SERVICE)
     private readonly catalog: AdminCatalogOperationsService,
+    @Inject(CATALOG_GROUP_QUERY)
+    private readonly groups: CatalogGroupQuery,
   ) {}
+
+  @Get('catalog-groups')
+  @ApiOperation({ summary: 'List catalog groups for administration' })
+  @ApiQuery({ name: 'cursor', required: false })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    schema: { minimum: 1, maximum: 100 },
+  })
+  @ApiOkResponse({ description: 'A bounded page of catalog groups.' })
+  async listGroups(
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ) {
+    try {
+      const page = await this.groups.listGroups(
+        parseCatalogGroupsQuery({
+          ...(cursor === undefined ? {} : { cursor }),
+          ...(limit === undefined ? {} : { limit }),
+        }),
+      );
+      return jsonApiCollection(
+        'catalog-groups',
+        page.items.map((group) => ({
+          id: group.publicId,
+          attributes: {
+            code: group.code,
+            name: group.name,
+            parentPublicId: group.parentPublicId,
+            sortOrder: group.sortOrder,
+          },
+        })),
+        { nextCursor: page.nextCursor },
+      );
+    } catch (error) {
+      throw new BadRequestException({
+        code: 'INVALID_CATALOG_GROUP_QUERY',
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Catalog group query parameters are invalid.',
+      });
+    }
+  }
 
   @Post('catalog-groups')
   @HttpCode(HttpStatus.CREATED)
