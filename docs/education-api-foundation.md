@@ -9,7 +9,7 @@ The product engineering pack, when supplied locally as eduvoucher-engineering-do
 ## Compliance boundary
 
 - NestJS runs on Fastify. HTTP APIs are versioned under /v1.
-- Operational endpoints use a JSON:API-shaped data/errors envelope with a correlation ID. Product teams must deliberately implement and document the applicable contract for feature endpoints.
+- Operational endpoints use a JSON:API-shaped data/errors envelope with a correlation ID. Responses and errors use `application/vnd.api+json`; ordinary request bodies use `application/json` with the endpoint's documented flat schema. A non-JSON body format, such as the administrative CSV import, must declare its own media type explicitly. Product teams must deliberately implement and document the applicable contract for feature endpoints.
 - openapi.json exposes the generated OpenAPI contract.
 - health/live verifies liveness without dependency access.
 - health/ready runs PostgreSQL SELECT 1 and Redis PING concurrently; failure returns DEPENDENCY_UNAVAILABLE without connection details.

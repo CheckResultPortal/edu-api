@@ -12,6 +12,17 @@ describe('assertValidOutboxEvent', () => {
     ).not.toThrow();
   });
 
+  it('accepts a password-reset reference without carrying password material', () => {
+    expect(() =>
+      assertValidOutboxEvent({
+        aggregateId: '42',
+        aggregateType: 'AdminPasswordReset',
+        eventType: 'ADMIN_PASSWORD_RESET_DELIVERY_REQUESTED',
+        payload: { resetPublicId: 'c3d09494-d000-4a2e-a2c3-8a6aef890193' },
+      }),
+    ).not.toThrow();
+  });
+
   it('rejects secret-bearing payload fields', () => {
     expect(() =>
       assertValidOutboxEvent({

@@ -124,6 +124,8 @@ class RequestLoggingInterceptor implements NestInterceptor {
 
 @Catch()
 class ApiExceptionFilter implements ExceptionFilter {
+  constructor(private readonly logger: StructuredLogger) {}
+
   catch(exception: unknown, host: ArgumentsHost): void {
     const response = host.switchToHttp().getResponse<FastifyReply>();
     const request = host.switchToHttp().getRequest<FastifyRequest>();
@@ -145,6 +147,13 @@ class ApiExceptionFilter implements ExceptionFilter {
       detail,
       meta: { correlationId: request.id, timestamp: new Date().toISOString() },
     };
+    if (!(exception instanceof HttpException)) {
+      this.logger.error(
+        `Unhandled HTTP error for ${request.method} ${request.routeOptions.url ?? 'unknown route'} (correlationId=${request.id}).`,
+        exception instanceof Error ? exception.stack : undefined,
+        'ApiExceptionFilter',
+      );
+    }
     response
       .header('x-correlation-id', request.id)
       .type('application/vnd.api+json')
@@ -178,7 +187,7 @@ export function configureHttpFoundation(
   logger: StructuredLogger,
 ): void {
   app.useLogger(logger);
-  app.useGlobalFilters(new ApiExceptionFilter());
+  app.useGlobalFilters(new ApiExceptionFilter(logger));
   app.useGlobalInterceptors(
     new RequestLoggingInterceptor(logger),
     new ResponseEnvelopeInterceptor(),

@@ -19,7 +19,6 @@ import {
   VOUCHER_INVENTORY_SERVICE,
 } from '@edu-api/voucher-inventory';
 import {
-  COMMUNICATION_ADMIN_OPERATIONS,
   CommunicationAdminModule,
 } from '@edu-api/communication';
 
@@ -122,7 +121,6 @@ import { AdminSessionGuard } from './presentation/admin-session.guard';
     ADMIN_IDENTITY_SERVICE,
     AdminSessionGuard,
     ADMIN_OPERATIONS_QUERY,
-    COMMUNICATION_ADMIN_OPERATIONS,
   ],
 })
 export class AdministrationModule {}

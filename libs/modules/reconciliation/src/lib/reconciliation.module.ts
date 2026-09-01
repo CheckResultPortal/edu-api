@@ -88,6 +88,20 @@ export class ReconciliationCoreModule {}
 
 @Module({
   imports: [ReconciliationCoreModule],
-  providers: [ReconciliationPoller],
+  providers: [
+    {
+      provide: StructuredLogger,
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) =>
+        new StructuredLogger({
+          environment: config.getOrThrow<string>('NODE_ENV'),
+          level: config.getOrThrow<
+            'fatal' | 'error' | 'warn' | 'log' | 'debug' | 'verbose'
+          >('LOG_LEVEL'),
+          service: config.getOrThrow<string>('SERVICE_NAME'),
+        }),
+    },
+    ReconciliationPoller,
+  ],
 })
 export class ReconciliationWorkerModule {}

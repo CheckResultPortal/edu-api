@@ -54,15 +54,16 @@ export class AdminPasswordResetEmailOutboxConsumer {
   ): Promise<readonly ClaimedEvent[]> {
     const now = new Date();
     const staleBefore = new Date(now.getTime() - this.options.leaseMs);
-    return this.database.$transaction(async (transaction) => {
-      const events = await transaction.$queryRaw<
-        Array<{
-          attempts: number;
-          id: bigint;
-          lastFailureCode: string | null;
-          payload: unknown;
-        }>
-      >`
+    return this.database.$transaction(
+      async (transaction) => {
+        const events = await transaction.$queryRaw<
+          Array<{
+            attempts: number;
+            id: bigint;
+            lastFailureCode: string | null;
+            payload: unknown;
+          }>
+        >`
         SELECT "attempts", "id", "lastFailureCode", "payload"
         FROM "OutboxEvent"
         WHERE "eventType" = ${eventType}
@@ -74,21 +75,26 @@ export class AdminPasswordResetEmailOutboxConsumer {
         LIMIT ${bounded(limit)}
         FOR UPDATE SKIP LOCKED
       `;
-      const claimed: ClaimedEvent[] = [];
-      for (const event of events) {
-        const updated = await transaction.outboxEvent.update({
-          where: { id: event.id },
-          data: {
-            attempts: { increment: 1 },
-            lockedAt: now,
-            lockOwner: this.options.workerId,
-          },
-          select: { attempts: true },
-        });
-        claimed.push({ ...event, attempts: updated.attempts });
-      }
-      return claimed;
-    });
+        const claimed: ClaimedEvent[] = [];
+        for (const event of events) {
+          const updated = await transaction.outboxEvent.update({
+            where: { id: event.id },
+            data: {
+              attempts: { increment: 1 },
+              lockedAt: now,
+              lockOwner: this.options.workerId,
+            },
+            select: { attempts: true },
+          });
+          claimed.push({ ...event, attempts: updated.attempts });
+        }
+        return claimed;
+      },
+      {
+        maxWait: 15_000,
+        timeout: 30_000,
+      },
+    );
   }
 
   private async process(event: ClaimedEvent): Promise<void> {
@@ -183,7 +189,7 @@ function passwordResetReference(payload: unknown): string | null {
   ) {
     return null;
   }
-  const value = (payload as Record<string, unknown>).passwordResetPublicId;
+  const value = (payload as Record<string, unknown>).resetPublicId;
   return typeof value === 'string' && isUuid(value) ? value : null;
 }
 

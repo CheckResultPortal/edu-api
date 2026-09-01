@@ -637,7 +637,7 @@ export class PrismaAdminIdentityService implements AdminIdentityService {
         aggregateType: 'AdminPasswordReset',
         dedupeKey: `admin-password-reset-email:${reset.id.toString()}`,
         eventType: 'ADMIN_PASSWORD_RESET_DELIVERY_REQUESTED',
-        payload: { passwordResetPublicId: reset.publicId },
+        payload: { resetPublicId: reset.publicId },
       } as const;
       assertValidOutboxEvent(event);
       await transaction.outboxEvent.create({

@@ -127,10 +127,10 @@ class AdminPasswordResetEmailPoller
           'AdminPasswordResetEmailDelivery',
         );
       }
-    } catch {
+    } catch (error) {
       this.logger.error(
         'Admin password-reset delivery cycle failed; retrying on the next scheduled poll.',
-        undefined,
+        errorTrace(error),
         'AdminPasswordResetEmailDelivery',
       );
     } finally {
@@ -396,3 +396,13 @@ class VoucherDeliveryPoller
   ],
 })
 export class CommunicationWorkerModule {}
+
+function errorTrace(error: unknown): string | undefined {
+  if (typeof error === 'string') return error;
+  if (typeof error !== 'object' || error === null) return undefined;
+  if ('stack' in error && typeof error.stack === 'string') return error.stack;
+  if ('message' in error && typeof error.message === 'string') {
+    return error.message;
+  }
+  return undefined;
+}

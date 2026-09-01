@@ -98,6 +98,16 @@ describe('GET /v1/health/live', () => {
         ),
       }),
     );
+    expect(
+      res.data.paths['/v1/admin/auth/login'].post.requestBody.content[
+        'application/json'
+      ].schema.required,
+    ).toEqual(['email', 'password']);
+    expect(
+      res.data.paths['/v1/admin/auth/login'].post.responses['200'].content[
+        'application/vnd.api+json'
+      ],
+    ).toBeDefined();
   });
 
   it('hosts interactive API documentation outside production', async () => {
