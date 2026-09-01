@@ -6,7 +6,7 @@
 # ---- Base: install all dependencies + generate Prisma client ----
 FROM node:22-slim AS base
 
-RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends openssl curl && rm -rf /var/lib/apt/lists/*
 RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
 
 WORKDIR /app
@@ -35,7 +35,7 @@ RUN pnpm exec nx build ${EDU_APP_NAME} --configuration=production
 FROM node:22-slim AS production
 
 RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
-RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends openssl curl && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
