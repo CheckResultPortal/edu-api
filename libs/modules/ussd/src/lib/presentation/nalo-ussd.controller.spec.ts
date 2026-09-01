@@ -49,6 +49,23 @@ describe('NaloUssdController', () => {
       ),
     ).resolves.toEqual({ MSG: 'Hello' });
   });
+
+  it('accepts a trusted USERID request without an optional IP allowlist', async () => {
+    const provider = providerMock();
+    const controller = new NaloUssdController(
+      provider,
+      flowMock(),
+      new NaloGatewayAccessPolicy({ enabled: true }),
+      loggerMock(),
+    );
+
+    await expect(
+      controller.handleSession(
+        Buffer.from(JSON.stringify({ USERID: 'NALOTest' })),
+        request('198.51.100.10'),
+      ),
+    ).resolves.toEqual({ MSG: 'Hello' });
+  });
 });
 
 function providerMock(): jest.Mocked<UssdProvider> {

@@ -66,6 +66,7 @@ export interface ClaimPaymentInitializationInput {
   readonly idempotencyKey: string;
   readonly initialVerificationAt: Date;
   readonly orderPublicReference: string;
+  readonly moolreChannel?: string;
   readonly paymentPublicReference: string;
   readonly providerCodes: Readonly<Record<PaymentChannel, string>>;
   readonly providerReference: string;
@@ -99,6 +100,7 @@ export interface PaymentInitializationService {
     readonly channel: PaymentChannel;
     readonly clientIp: string;
     readonly idempotencyKey: string;
+    readonly moolreChannel?: string;
     readonly orderPublicReference: string;
     readonly payerPhoneNumber?: string;
   }): Promise<PaymentInitialization>;
@@ -138,6 +140,7 @@ export class DefaultPaymentInitializationService
     readonly channel: PaymentChannel;
     readonly clientIp: string;
     readonly idempotencyKey: string;
+    readonly moolreChannel?: string;
     readonly orderPublicReference: string;
     readonly payerPhoneNumber?: string;
   }): Promise<PaymentInitialization> {
@@ -155,6 +158,9 @@ export class DefaultPaymentInitializationService
         now.getTime() + this.configuration.idempotencyTtlMs,
       ),
       idempotencyKey,
+      ...(command.moolreChannel === undefined
+        ? {}
+        : { moolreChannel: command.moolreChannel }),
       initialVerificationAt: new Date(
         now.getTime() + this.configuration.initialVerificationDelayMs,
       ),

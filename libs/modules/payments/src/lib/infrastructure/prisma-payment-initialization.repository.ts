@@ -196,6 +196,9 @@ export class PrismaPaymentInitializationRepository
 
         if (input.purchaseChannel === 'USSD') {
           const payload = {
+            ...(input.moolreChannel === undefined
+              ? {}
+              : { moolreChannel: input.moolreChannel }),
             orderPublicReference: order.publicReference,
             paymentPublicReference: payment.publicReference,
             providerReference: input.providerReference,

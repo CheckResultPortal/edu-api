@@ -123,6 +123,9 @@ export class UssdPaymentPromptOutboxConsumer {
         callbackUrl: 'https://invalid.example/',
         currency: 'GHS',
         email: '',
+        ...(payload.moolreChannel === undefined
+          ? {}
+          : { moolreChannel: payload.moolreChannel }),
         orderPublicReference: payment.order.publicReference,
         payerPhoneNumber: payment.order.phoneNumber,
         paymentPublicReference: payment.publicReference,
@@ -240,6 +243,7 @@ async function markPublished(
 }
 
 function parsePayload(value: unknown): {
+  readonly moolreChannel?: string;
   readonly orderPublicReference: string;
   readonly paymentPublicReference: string;
   readonly providerReference: string;
@@ -249,16 +253,16 @@ function parsePayload(value: unknown): {
   }
   const payload = value as Record<string, unknown>;
   const keys = Object.keys(payload).sort();
-  const expected = [
+  const required = [
     'orderPublicReference',
     'paymentPublicReference',
     'providerReference',
     'version',
   ];
   if (
-    keys.length !== expected.length ||
-    expected.some((key, index) => keys[index] !== key) ||
-    payload.version !== 1 ||
+    !required.every((key) => key in payload) ||
+    !keys.every((key) => required.includes(key) || key === 'moolreChannel') ||
+    (payload.version !== 1 && payload.version !== 2) ||
     typeof payload.orderPublicReference !== 'string' ||
     !uuid.test(payload.orderPublicReference) ||
     typeof payload.paymentPublicReference !== 'string' ||
@@ -269,7 +273,16 @@ function parsePayload(value: unknown): {
   ) {
     return null;
   }
+  const moolreChannel = payload.moolreChannel;
+  if (
+    moolreChannel !== undefined &&
+    (typeof moolreChannel !== 'string' ||
+      !['13', '6', '7'].includes(moolreChannel))
+  ) {
+    return null;
+  }
   return {
+    ...(moolreChannel === undefined ? {} : { moolreChannel }),
     orderPublicReference: payload.orderPublicReference,
     paymentPublicReference: payload.paymentPublicReference,
     providerReference: payload.providerReference,

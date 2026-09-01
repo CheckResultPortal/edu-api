@@ -92,7 +92,7 @@ export class MoolrePaymentProvider implements PaymentProvider {
     if (payer === undefined) {
       throw new PaymentProviderRequestError('INVALID_REQUEST');
     }
-    const channel = moolreChannelForPhoneNumber(payer);
+    const channel = input.moolreChannel ?? moolreChannelForPhoneNumber(payer);
     if (channel === null) {
       throw new PaymentProviderRequestError('INVALID_REQUEST');
     }
@@ -258,7 +258,10 @@ function parseVerifiedSuccess(
     throw new PaymentProviderRequestError('UNKNOWN_OUTCOME');
   }
   const ts = data['ts'];
-  if (typeof ts !== 'string' || !/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(ts)) {
+  if (
+    typeof ts !== 'string' ||
+    !/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(ts)
+  ) {
     throw new PaymentProviderRequestError('UNKNOWN_OUTCOME');
   }
   const paidAt = new Date(`${ts}Z`);

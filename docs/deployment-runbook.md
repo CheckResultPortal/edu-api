@@ -26,13 +26,16 @@ return ready only after PostgreSQL and Redis are healthy.
 ## Enabling Nalo USSD and Moolre collection
 
 The production compose file defaults `USSD_ENABLED` to `false`. Set it to
-`true` only after Nalo provides the real gateway source IPs, and inject all of:
+`true` only after configuring the real Nalo USERID and Moolre collection
+credentials, and inject all of:
 
-- `NALO_USER_ID` and `NALO_TRUSTED_SOURCE_IPS`;
+- `NALO_USER_ID`;
 - `MOOLRE_API_USER`, `MOOLRE_PUBLIC_KEY`, and `MOOLRE_ACCOUNT_NUMBER`.
 
-When enabled, public USSD requests are accepted only from the configured Nalo
-source IPs. The handset request creates a durable payment-prompt outbox event;
+`NALO_TRUSTED_SOURCE_IPS` is optional. When supplied, it is a comma-separated
+IP allowlist; when omitted, EduVoucher follows the production Mould approach
+of validating the Nalo USERID and applying rate limits. The handset request
+creates a durable payment-prompt outbox event;
 the worker makes the Moolre call outside the database transaction, then safely
 retries or reconciles it in the background. Do not expose Moolre credentials to
 the frontend or substitute unverified client payment state for provider

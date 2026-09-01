@@ -19,6 +19,12 @@ describe('NaloGatewayAccessPolicy', () => {
     expect(policy.allows('203.0.113.10')).toBe(false);
   });
 
+  it('allows any source when enabled without an optional allowlist', () => {
+    const policy = new NaloGatewayAccessPolicy({ enabled: true });
+
+    expect(policy.allows('198.51.100.10')).toBe(true);
+  });
+
   it('rejects an invalid trusted-source configuration at startup', () => {
     expect(
       () =>

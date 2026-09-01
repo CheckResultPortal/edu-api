@@ -51,6 +51,7 @@ export interface UssdPaymentInitializer {
     readonly channel: 'USSD';
     readonly clientIp: string;
     readonly idempotencyKey: string;
+    readonly moolreChannel?: string;
     readonly orderPublicReference: string;
     readonly payerPhoneNumber: string;
   }): Promise<UssdPaymentInitializationResult>;
@@ -95,9 +96,10 @@ export class DefaultUssdFlowService {
       return { continueSession: false, message: 'Invalid session.' };
     }
 
-    let session = await this.sessions.get(request.msisdn);
+    const sessionId = sessionIdentifier(request);
+    let session = await this.sessions.get(sessionId);
     if (request.isNewSession && session?.state !== 'PAYMENT_PENDING') {
-      await this.sessions.delete(request.msisdn);
+      await this.sessions.delete(sessionId);
       session = null;
     }
     if (session === null || session.state === undefined) {
@@ -139,7 +141,7 @@ export class DefaultUssdFlowService {
 
     if (!session.productMenuShown) {
       await this.sessions.set(
-        request.msisdn,
+        sessionIdentifier(request),
         { state: 'PRODUCT', productMenuShown: true },
         this.configuration.sessionTtlMilliseconds,
       );
@@ -165,7 +167,7 @@ export class DefaultUssdFlowService {
     }
 
     await this.sessions.set(
-      request.msisdn,
+      sessionIdentifier(request),
       {
         productPublicId: selected.publicId,
         productName: truncate(selected.name, 40),
@@ -234,7 +236,7 @@ export class DefaultUssdFlowService {
     }
 
     if (preference === 'SMS_ONLY') {
-      return this.enterFirstName(request.msisdn, {
+      return this.enterFirstName(sessionIdentifier(request), {
         ...session,
         deliveryPreference: preference,
         email: undefined,
@@ -242,7 +244,7 @@ export class DefaultUssdFlowService {
     }
 
     await this.sessions.set(
-      request.msisdn,
+      sessionIdentifier(request),
       { ...session, deliveryPreference: preference, state: 'EMAIL' },
       this.configuration.sessionTtlMilliseconds,
     );
@@ -268,7 +270,7 @@ export class DefaultUssdFlowService {
       };
     }
 
-    return this.enterFirstName(request.msisdn, {
+    return this.enterFirstName(sessionIdentifier(request), {
       ...session,
       email,
     });
@@ -297,7 +299,10 @@ export class DefaultUssdFlowService {
         message: 'Invalid first name.\nEnter your first name:',
       };
     }
-    return this.enterConfirmation(request.msisdn, { ...session, firstName });
+    return this.enterConfirmation(sessionIdentifier(request), {
+      ...session,
+      firstName,
+    });
   }
 
   private async enterConfirmation(
@@ -323,7 +328,7 @@ export class DefaultUssdFlowService {
   ): Promise<CanonicalUssdResponse> {
     const choice = request.input.trim();
     if (choice === '0' || choice.toUpperCase() === 'CANCEL') {
-      await this.sessions.delete(request.msisdn);
+      await this.sessions.delete(sessionIdentifier(request));
       return { continueSession: false, message: 'Order cancelled.' };
     }
     if (choice !== '1') {
@@ -336,7 +341,7 @@ export class DefaultUssdFlowService {
     // A confirmId means a previous attempt already ran for this screen;
     // duplicates must never create a second order or second payment prompt.
     if (session.confirmId === undefined) {
-      await this.sessions.delete(request.msisdn);
+      await this.sessions.delete(sessionIdentifier(request));
       return {
         continueSession: false,
         message: 'This session expired. Please dial again.',
@@ -345,7 +350,7 @@ export class DefaultUssdFlowService {
 
     const phoneNumber = canonicalizeMsisdn(request.msisdn);
     if (phoneNumber === null) {
-      await this.sessions.delete(request.msisdn);
+      await this.sessions.delete(sessionIdentifier(request));
       return { continueSession: false, message: 'Invalid session.' };
     }
 
@@ -367,12 +372,15 @@ export class DefaultUssdFlowService {
         channel: 'USSD',
         clientIp: context.clientIp,
         idempotencyKey: `ussd-pay-${session.confirmId}`,
+        ...(request.moolreChannel === undefined
+          ? {}
+          : { moolreChannel: request.moolreChannel }),
         orderPublicReference: order.publicReference,
         payerPhoneNumber: phoneNumber,
       });
 
       if (payment.status === 'FAILED') {
-        await this.sessions.delete(request.msisdn);
+        await this.sessions.delete(sessionIdentifier(request));
         return {
           continueSession: false,
           message: 'We could not start your payment. Please dial again later.',
@@ -380,7 +388,7 @@ export class DefaultUssdFlowService {
       }
 
       await this.persistPendingPayment(
-        request.msisdn,
+        sessionIdentifier(request),
         session,
         order.publicReference,
       );
@@ -402,7 +410,7 @@ export class DefaultUssdFlowService {
     } catch {
       // The order/payment services own their durable state and retries; the
       // handset only needs a safe terminal message without internal detail.
-      await this.sessions.delete(request.msisdn);
+      await this.sessions.delete(sessionIdentifier(request));
       return {
         continueSession: false,
         message:
@@ -422,7 +430,7 @@ export class DefaultUssdFlowService {
       session.confirmId === undefined ||
       session.paymentOrderPublicReference === undefined
     ) {
-      await this.sessions.delete(request.msisdn);
+      await this.sessions.delete(sessionIdentifier(request));
       return {
         continueSession: false,
         message: 'This payment session expired. Please dial again.',
@@ -434,18 +442,21 @@ export class DefaultUssdFlowService {
         channel: 'USSD',
         clientIp: context.clientIp,
         idempotencyKey: `ussd-pay-${session.confirmId}`,
+        ...(request.moolreChannel === undefined
+          ? {}
+          : { moolreChannel: request.moolreChannel }),
         orderPublicReference: session.paymentOrderPublicReference,
         payerPhoneNumber: phoneNumber,
       });
       if (payment.status === 'SUCCEEDED') {
-        await this.sessions.delete(request.msisdn);
+        await this.sessions.delete(sessionIdentifier(request));
         return {
           continueSession: false,
           message: 'Payment confirmed. Your voucher will be delivered shortly.',
         };
       }
       if (payment.status === 'FAILED') {
-        await this.sessions.delete(request.msisdn);
+        await this.sessions.delete(sessionIdentifier(request));
         return {
           continueSession: false,
           message: 'Your payment did not complete. Please dial again to retry.',
@@ -532,6 +543,10 @@ export function canonicalizeMsisdn(msisdn: string): string | null {
 
 function isRoutableMsisdn(msisdn: string): boolean {
   return /^[0-9]{9,15}$/.test(msisdn);
+}
+
+function sessionIdentifier(request: CanonicalUssdRequest): string {
+  return request.sessionId ?? request.msisdn;
 }
 
 function randomConfirmId(): string {

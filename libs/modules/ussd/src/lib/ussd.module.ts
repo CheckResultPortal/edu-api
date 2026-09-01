@@ -114,6 +114,7 @@ export class UssdCoreModule {}
           readonly channel: 'USSD';
           readonly clientIp: string;
           readonly idempotencyKey: string;
+          readonly moolreChannel?: string;
           readonly orderPublicReference: string;
           readonly payerPhoneNumber: string;
         }) => {

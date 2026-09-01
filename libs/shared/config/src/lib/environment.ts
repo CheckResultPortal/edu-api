@@ -251,7 +251,6 @@ export const publicApiEnvironmentSchema = httpEnvironmentSchema
       ['MOOLRE_PUBLIC_KEY', configuration.MOOLRE_PUBLIC_KEY],
       ['MOOLRE_ACCOUNT_NUMBER', configuration.MOOLRE_ACCOUNT_NUMBER],
       ['NALO_USER_ID', configuration.NALO_USER_ID],
-      ['NALO_TRUSTED_SOURCE_IPS', configuration.NALO_TRUSTED_SOURCE_IPS],
     ] as const;
 
     for (const [field, value] of requiredFields) {

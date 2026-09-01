@@ -8,6 +8,12 @@ export interface CanonicalUssdRequest {
   readonly input: string;
   /** True when the gateway signals an initial dial. */
   readonly isNewSession: boolean;
+  /** Gateway session identifier. Used as the Redis session key when supplied. */
+  readonly sessionId?: string;
+  /** Gateway network label, retained for payment-provider routing. */
+  readonly network?: string;
+  /** Moolre collection channel derived from the gateway network. */
+  readonly moolreChannel?: string;
 }
 
 /** Provider-neutral outgoing USSD screen. */

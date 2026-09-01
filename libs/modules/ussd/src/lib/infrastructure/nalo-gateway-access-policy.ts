@@ -9,9 +9,9 @@ export interface NaloGatewayAccessPolicyConfiguration {
 }
 
 /**
- * USERID is routing metadata, not webhook authentication. A live Nalo route
- * therefore accepts callbacks only from explicitly configured gateway egress
- * addresses. This boundary relies on the application's configured proxy hops.
+ * IP filtering is an optional deployment defence. Mould's production gateway
+ * integration relies on USERID validation and rate limiting, so an unset
+ * allowlist must not prevent a configured Nalo service from receiving calls.
  */
 export class NaloGatewayAccessPolicy {
   private readonly trustedSourceIps: ReadonlySet<string>;
@@ -19,9 +19,10 @@ export class NaloGatewayAccessPolicy {
   constructor(
     private readonly configuration: NaloGatewayAccessPolicyConfiguration,
   ) {
-    this.trustedSourceIps = configuration.enabled
-      ? parseTrustedSourceIps(configuration.trustedSourceIps)
-      : new Set();
+    this.trustedSourceIps =
+      configuration.enabled && configuration.trustedSourceIps?.trim()
+        ? parseTrustedSourceIps(configuration.trustedSourceIps)
+        : new Set();
   }
 
   get enabled(): boolean {
@@ -29,17 +30,15 @@ export class NaloGatewayAccessPolicy {
   }
 
   allows(clientIp: string): boolean {
+    if (!this.configuration.enabled) return false;
+    if (this.trustedSourceIps.size === 0) return true;
     const normalized = normalizeIp(clientIp);
     return normalized !== null && this.trustedSourceIps.has(normalized);
   }
 }
 
 function parseTrustedSourceIps(value: string | undefined): ReadonlySet<string> {
-  if (value === undefined) {
-    throw new Error(
-      'NALO_TRUSTED_SOURCE_IPS is required when USSD is enabled.',
-    );
-  }
+  if (value === undefined) return new Set();
   const ips = value.split(',').map((entry) => normalizeIp(entry));
   if (ips.length === 0 || ips.some((entry) => entry === null)) {
     throw new Error(

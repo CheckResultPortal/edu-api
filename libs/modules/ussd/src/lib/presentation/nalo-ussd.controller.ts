@@ -45,8 +45,8 @@ export class NaloUssdController {
     @RawBody() rawBody: Buffer | undefined,
     @Req() request: FastifyRequest,
   ): Promise<Record<string, unknown>> {
-    // USERID is not a secret. Do not parse or act on a body from an unknown
-    // source, and hide the disabled route from callers until Nalo is ready.
+    // Hide the route until Nalo is enabled. Deployments that configure the
+    // optional source-IP allowlist are rejected before their body is parsed.
     if (!this.gatewayAccess.enabled || !this.gatewayAccess.allows(request.ip)) {
       throw new NotFoundException();
     }

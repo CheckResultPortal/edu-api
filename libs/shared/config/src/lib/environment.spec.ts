@@ -110,7 +110,7 @@ describe('environment validation', () => {
       expect(configuration.NALO_USER_ID).toBeUndefined();
     });
 
-    it('requires collection credentials and trusted Nalo sources when enabled', () => {
+    it('requires collection credentials and the Nalo USERID when enabled', () => {
       expect(() =>
         validatePublicApiEnvironment({
           SERVICE_NAME: 'public-api',
@@ -120,7 +120,7 @@ describe('environment validation', () => {
           ...paystackPublicEnvironment,
           USSD_ENABLED: 'true',
         }),
-      ).toThrow('NALO_TRUSTED_SOURCE_IPS');
+      ).toThrow('NALO_USER_ID');
     });
 
     it('bounds trusted reverse-proxy hops', () => {

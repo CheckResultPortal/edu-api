@@ -10,6 +10,7 @@ export interface InitializeProviderPaymentInput {
   readonly currency: PaymentCurrency;
   readonly email: string;
   readonly orderPublicReference: string;
+  readonly moolreChannel?: string;
   readonly paymentPublicReference: string;
   readonly providerReference: string;
   /**
