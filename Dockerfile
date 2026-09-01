@@ -14,7 +14,10 @@ COPY package.json pnpm-workspace.yaml pnpm-lock.yaml prisma.config.ts ./
 COPY prisma ./prisma
 
 RUN pnpm install --frozen-lockfile
-RUN pnpm exec prisma generate
+
+# prisma generate only reads the config; no real connection is made.
+ARG DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
+RUN DATABASE_URL="$DATABASE_URL" pnpm exec prisma generate
 
 # ---- Build: compile the target app with Nx ----
 FROM base AS build
