@@ -51,4 +51,4 @@ ENV NODE_ENV=production
 
 USER node
 
-CMD ["sh", "-c", "pnpm exec prisma migrate deploy && node dist/main.js"]
+CMD ["sh", "-c", "./node_modules/.bin/prisma migrate deploy && node dist/main.js"]
