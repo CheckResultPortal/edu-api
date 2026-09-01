@@ -49,7 +49,7 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        APP_NAME: public-api
+        EDU_APP_NAME: public-api
     restart: unless-stopped
     environment:
       NODE_ENV: production
@@ -94,7 +94,7 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        APP_NAME: admin-api
+        EDU_APP_NAME: admin-api
     restart: unless-stopped
     environment:
       NODE_ENV: production
@@ -128,7 +128,7 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        APP_NAME: worker
+        EDU_APP_NAME: worker
     restart: unless-stopped
     environment:
       NODE_ENV: production

@@ -1,11 +1,12 @@
 # =============================================================================
 # Multi-stage Dockerfile for EduVoucher Nx monorepo
-# Build: docker build --build-arg APP_NAME=public-api -t edu-api .
+# Build: docker build --build-arg EDU_APP_NAME=public-api -t edu-api .
 # =============================================================================
 
 # ---- Base: install all dependencies + generate Prisma client ----
 FROM node:22-slim AS base
 
+RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
 RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
 
 WORKDIR /app
@@ -22,14 +23,13 @@ RUN DATABASE_URL="$DATABASE_URL" pnpm exec prisma generate
 # ---- Build: compile the target app with Nx ----
 FROM base AS build
 
-ARG APP_NAME
+ARG EDU_APP_NAME=public-api
 
-COPY tsconfig.base.json ./
-COPY nx.json ./
+COPY tsconfig.json tsconfig.base.json nx.json ./
 COPY libs ./libs
 COPY apps ./apps
 
-RUN pnpm exec nx build ${APP_NAME} --configuration=production
+RUN pnpm exec nx build ${EDU_APP_NAME} --configuration=production
 
 # ---- Production: minimal runtime image ----
 FROM node:22-slim AS production
@@ -39,13 +39,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -
 
 WORKDIR /app
 
-ARG APP_NAME
+ARG EDU_APP_NAME=public-api
 
 # Copy only what's needed at runtime
 COPY --from=base /app/node_modules ./node_modules
 COPY --from=base /app/prisma ./prisma
 COPY --from=base /app/prisma.config.ts ./prisma.config.ts
-COPY --from=build /app/dist/apps/${APP_NAME} ./dist
+COPY --from=build /app/dist/apps/${EDU_APP_NAME} ./dist
 
 ENV NODE_ENV=production
 

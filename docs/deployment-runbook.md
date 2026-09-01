@@ -5,6 +5,10 @@ and worker for Coolify or a compatible Docker Compose host. The application
 containers run `prisma migrate deploy` before starting; migration deployment is
 therefore safe to repeat but must use a backed-up production database.
 
+The Docker build target is `EDU_APP_NAME`, not `APP_NAME`. This avoids a name
+collision with Coolify's own application-name variable. Compose supplies the
+correct target automatically: `public-api`, `admin-api`, or `worker`.
+
 ## Required deployment configuration
 
 Inject these values using the host's secret store, never a committed `.env`
