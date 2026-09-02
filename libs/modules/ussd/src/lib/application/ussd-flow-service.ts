@@ -203,14 +203,13 @@ export class DefaultUssdFlowService {
     }
 
     await this.sessions.set(
-      request.msisdn,
+      sessionIdentifier(request),
       { ...session, quantity, state: 'DELIVERY' },
       this.configuration.sessionTtlMilliseconds,
     );
     return {
       continueSession: true,
-      message:
-        'How should we reach you?\n1. SMS only\n2. Email only\n3. SMS and Email',
+      message: renderDeliveryMenu(),
     };
   }
 
@@ -230,8 +229,7 @@ export class DefaultUssdFlowService {
     if (preference === undefined) {
       return {
         continueSession: true,
-        message:
-          'Invalid option.\nHow should we reach you?\n1. SMS only\n2. Email only\n3. SMS and Email',
+        message: `Invalid option.\n${renderDeliveryMenu()}`,
       };
     }
 
@@ -497,6 +495,15 @@ function renderProductMenu(products: readonly UssdProductListItem[]): string {
       `${index + 1}. ${truncate(product.name, 40)} ${formatCedis(product.sellingPriceMinor)}`,
   );
   return ['Buy a voucher:', ...lines].join('\n').slice(0, MAXIMUM_INPUT_LENGTH);
+}
+
+function renderDeliveryMenu(): string {
+  return [
+    'Choose delivery method:',
+    '1. SMS only',
+    '2. Email only',
+    '3. SMS and Email',
+  ].join('\n');
 }
 
 function renderSummary(session: UssdSessionData): string {

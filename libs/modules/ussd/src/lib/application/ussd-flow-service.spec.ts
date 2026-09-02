@@ -111,6 +111,33 @@ describe('DefaultUssdFlowService', () => {
     expect(sessions.get('233244123456')).toMatchObject({ state: 'CONFIRM' });
   });
 
+  it('keeps a Nalo session through the delivery preference step', async () => {
+    const { service, sessions } = flow();
+    const sessionId = 'nalo-session-123';
+    const sessionDial = { ...initialDial, sessionId };
+
+    await service.handle(sessionDial, context);
+    await service.handle(continuation('233244123456', '1', sessionId), context);
+    const deliveryMenu = await service.handle(
+      continuation('233244123456', '3', sessionId),
+      context,
+    );
+    expect(deliveryMenu.message).toContain(
+      'Choose delivery method:',
+    );
+
+    const outcome = await service.handle(
+      continuation('233244123456', '1', sessionId),
+      context,
+    );
+    expect(outcome.message).toBe('Enter your first name:');
+    expect(sessions.get(sessionId)).toMatchObject({
+      deliveryPreference: 'SMS_ONLY',
+      quantity: 3,
+      state: 'FIRST_NAME',
+    });
+  });
+
   it('creates exactly one order plus one Moolre prompt on confirm', async () => {
     const orderCreator = makeOrderCreator();
     const paymentInitializer = makePaymentInitializer();
@@ -224,8 +251,12 @@ describe('DefaultUssdFlowService', () => {
     };
   }
 
-  function continuation(msisdn: string, input: string): CanonicalUssdRequest {
-    return { input, isNewSession: false, msisdn };
+  function continuation(
+    msisdn: string,
+    input: string,
+    sessionId?: string,
+  ): CanonicalUssdRequest {
+    return { input, isNewSession: false, msisdn, sessionId };
   }
 
   async function walkToSummary(service: DefaultUssdFlowService): Promise<void> {
