@@ -23,6 +23,7 @@ import {
 import type { EmailProvider } from './application/email-provider';
 import type { SmsProvider } from './application/sms-provider';
 import { VoucherDeliveryService } from './application/voucher-delivery.service';
+import { VoucherRetrievalEmailDeliveryService } from './application/voucher-retrieval-email-delivery.service';
 import { MoolreSmsProvider } from './infrastructure/moolre-sms-provider';
 import { PrismaVoucherDeliverySourceReader } from './infrastructure/prisma-voucher-delivery-source-reader';
 import { ResendEmailProvider } from './infrastructure/resend-email-provider';
@@ -188,6 +189,62 @@ class VoucherDeliveryPoller
         'Voucher delivery cycle failed; retrying on the next scheduled poll.',
         undefined,
         'VoucherDelivery',
+      );
+    } finally {
+      this.isRunning = false;
+    }
+  }
+}
+
+@Injectable()
+class VoucherRetrievalEmailDeliveryPoller
+  implements OnApplicationBootstrap, OnApplicationShutdown
+{
+  private interval: NodeJS.Timeout | undefined;
+  private isRunning = false;
+
+  constructor(
+    private readonly deliveries: VoucherRetrievalEmailDeliveryService,
+    private readonly config: ConfigService,
+    private readonly logger: StructuredLogger,
+  ) {}
+
+  onApplicationBootstrap(): void {
+    if (this.config.getOrThrow<string>('NODE_ENV') === 'test') return;
+    void this.runCycle();
+    this.interval = setInterval(
+      () => void this.runCycle(),
+      this.config.getOrThrow<number>(
+        'VOUCHER_RETRIEVAL_EMAIL_POLL_INTERVAL_MS',
+      ),
+    );
+  }
+
+  onApplicationShutdown(): void {
+    if (this.interval !== undefined) clearInterval(this.interval);
+  }
+
+  private async runCycle(): Promise<void> {
+    if (this.isRunning) return;
+    this.isRunning = true;
+    try {
+      const batchSize = this.config.getOrThrow<number>(
+        'VOUCHER_RETRIEVAL_EMAIL_BATCH_SIZE',
+      );
+      const recovered =
+        await this.deliveries.recoverStalledDeliveries(batchSize);
+      const processed = await this.deliveries.processAvailable(batchSize);
+      if (recovered !== 0 || processed !== 0) {
+        this.logger.log(
+          `Voucher retrieval email delivery cycle completed: recovered=${recovered} processed=${processed}`,
+          'VoucherRetrievalEmailDelivery',
+        );
+      }
+    } catch {
+      this.logger.error(
+        'Voucher retrieval email delivery cycle failed; retrying on the next scheduled poll.',
+        undefined,
+        'VoucherRetrievalEmailDelivery',
       );
     } finally {
       this.isRunning = false;
@@ -393,6 +450,54 @@ class VoucherDeliveryPoller
     AdminInvitationEmailDeliveryPoller,
     AdminPasswordResetEmailPoller,
     VoucherDeliveryPoller,
+    {
+      provide: VoucherRetrievalEmailDeliveryService,
+      inject: [DATABASE_CLIENT, VOUCHER_EMAIL_PROVIDER, ConfigService],
+      useFactory: (
+        database: DatabaseClient,
+        email: EmailProvider,
+        config: ConfigService,
+      ) => {
+        const keyring: SecretKeyring = createSecretKeyring({
+          activeKeyId: config.getOrThrow<string>(
+            'VOUCHER_SECRET_ENCRYPTION_KEY_ID',
+          ),
+          fingerprintKey: decodeCommunicationKey(
+            config.getOrThrow<string>('VOUCHER_PIN_FINGERPRINT_KEY'),
+          ),
+          keys: [
+            {
+              id: config.getOrThrow<string>('VOUCHER_SECRET_ENCRYPTION_KEY_ID'),
+              material: decodeCommunicationKey(
+                config.getOrThrow<string>('VOUCHER_SECRET_ENCRYPTION_KEY'),
+              ),
+            },
+          ],
+        });
+        return new VoucherRetrievalEmailDeliveryService(
+          database,
+          email,
+          keyring,
+          {
+            emailFrom: config.getOrThrow<string>('RESEND_FROM_EMAIL'),
+            maximumAutomaticAttempts: config.getOrThrow<number>(
+              'VOUCHER_RETRIEVAL_EMAIL_MAX_ATTEMPTS',
+            ),
+            maximumRetryDelayMs: config.getOrThrow<number>(
+              'VOUCHER_RETRIEVAL_EMAIL_RETRY_MAX_DELAY_MS',
+            ),
+            processingLeaseMs: config.getOrThrow<number>(
+              'VOUCHER_RETRIEVAL_EMAIL_PROCESSING_LEASE_MS',
+            ),
+            retryBaseDelayMs: config.getOrThrow<number>(
+              'VOUCHER_RETRIEVAL_EMAIL_RETRY_BASE_DELAY_MS',
+            ),
+            supportPhone: config.getOrThrow<string>('CUSTOMER_SUPPORT_PHONE'),
+          },
+        );
+      },
+    },
+    VoucherRetrievalEmailDeliveryPoller,
   ],
 })
 export class CommunicationWorkerModule {}

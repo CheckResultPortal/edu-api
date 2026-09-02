@@ -9,6 +9,7 @@ import type { OrderRateLimiter } from '../application/order-creation-service';
 
 export interface OrderRateLimitConfiguration {
   readonly ipMaximum: number;
+  readonly keyPrefix?: string;
   readonly phoneMaximum: number;
   readonly windowMs: number;
 }
@@ -43,12 +44,12 @@ export class RedisOrderRateLimiter implements OrderRateLimiter {
       await this.ensureConnected();
       if (input.clientIp !== undefined) {
         await this.consumeCounter(
-          `order-rate:ip:${safeHash('ip', input.clientIp, this.privacyHmacKey)}`,
+          `${this.keyPrefix()}:ip:${safeHash('ip', input.clientIp, this.privacyHmacKey)}`,
           this.configuration.ipMaximum,
         );
       }
       await this.consumeCounter(
-        `order-rate:phone:${safeHash(
+        `${this.keyPrefix()}:phone:${safeHash(
           'phone',
           input.phoneNumber,
           this.privacyHmacKey,
@@ -90,6 +91,10 @@ export class RedisOrderRateLimiter implements OrderRateLimiter {
     if (count > maximum) {
       throw new OrderRateLimitExceededError(Math.ceil(ttlMs / 1_000));
     }
+  }
+
+  private keyPrefix(): string {
+    return this.configuration.keyPrefix ?? 'order-rate';
   }
 }
 

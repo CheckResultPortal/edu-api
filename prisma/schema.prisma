@@ -352,6 +352,7 @@ model Order {
   items               OrderItem[]
   paymentAttempts     PaymentAttempt[]
   paymentApplication  PaymentApplication?
+  voucherRetrievalEmails VoucherRetrievalEmailDelivery[]
 
   @@index([createdAt, id])
   @@index([phoneNumber, createdAt, id])
@@ -575,6 +576,46 @@ model CommunicationAttempt {
   startedAt         DateTime                    @default(now()) @db.Timestamptz(6)
   completedAt       DateTime?                   @db.Timestamptz(6)
   delivery          CommunicationDelivery       @relation(fields: [deliveryId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([deliveryId, attemptNumber])
+  @@index([deliveryId, startedAt])
+}
+
+// Communication-owned re-delivery records. These remain separate from the
+// original allocation delivery so a customer resend never rewrites history.
+model VoucherRetrievalEmailDelivery {
+  id                   BigInt                     @id @default(autoincrement())
+  publicId             String                     @unique @default(uuid()) @db.Uuid
+  orderId              BigInt
+  destinationEmail     String
+  state                CommunicationDeliveryState @default(PENDING)
+  attemptCount         Int                        @default(0)
+  nextAttemptAt        DateTime                   @default(now()) @db.Timestamptz(6)
+  processingLeaseUntil DateTime?                  @db.Timestamptz(6)
+  sentAt               DateTime?                  @db.Timestamptz(6)
+  providerMessageId    String?
+  lastFailureCategory  String?
+  needsAttentionAt     DateTime?                  @db.Timestamptz(6)
+  createdAt            DateTime                   @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime                   @updatedAt @db.Timestamptz(6)
+  order                Order                      @relation(fields: [orderId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  attempts             VoucherRetrievalEmailAttempt[]
+
+  @@index([state, nextAttemptAt, id])
+  @@index([orderId, createdAt, id])
+}
+
+model VoucherRetrievalEmailAttempt {
+  id                BigInt                      @id @default(autoincrement())
+  deliveryId        BigInt
+  attemptNumber     Int
+  provider          String
+  outcome           CommunicationAttemptOutcome @default(PROCESSING)
+  providerMessageId String?
+  providerCode      String?
+  startedAt         DateTime                    @default(now()) @db.Timestamptz(6)
+  completedAt       DateTime?                   @db.Timestamptz(6)
+  delivery          VoucherRetrievalEmailDelivery @relation(fields: [deliveryId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   @@unique([deliveryId, attemptNumber])
   @@index([deliveryId, startedAt])

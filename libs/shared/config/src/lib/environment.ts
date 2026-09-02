@@ -185,6 +185,24 @@ export const publicApiEnvironmentSchema = httpEnvironmentSchema
       .min(1)
       .max(1_000)
       .default(10),
+    ORDER_STATUS_RATE_LIMIT_WINDOW_MS: z.coerce
+      .number()
+      .int()
+      .min(60_000)
+      .max(60 * 60 * 1_000)
+      .default(10 * 60 * 1_000),
+    ORDER_STATUS_RATE_LIMIT_IP_MAXIMUM: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(1_000)
+      .default(30),
+    ORDER_STATUS_RATE_LIMIT_CONTACT_MAXIMUM: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(1_000)
+      .default(10),
     ...paystackProviderEnvironmentShape,
     ...optionalMoolreProviderEnvironmentShape,
     ...ussdFeatureEnvironmentShape,
@@ -513,6 +531,42 @@ export const workerEnvironmentSchema = commonEnvironmentSchema
       .min(10_000)
       .max(24 * 60 * 60 * 1_000)
       .default(60_000),
+    VOUCHER_RETRIEVAL_EMAIL_BATCH_SIZE: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(100)
+      .default(25),
+    VOUCHER_RETRIEVAL_EMAIL_POLL_INTERVAL_MS: z.coerce
+      .number()
+      .int()
+      .min(1_000)
+      .max(60_000)
+      .default(5_000),
+    VOUCHER_RETRIEVAL_EMAIL_PROCESSING_LEASE_MS: z.coerce
+      .number()
+      .int()
+      .min(30_000)
+      .max(10 * 60_000)
+      .default(120_000),
+    VOUCHER_RETRIEVAL_EMAIL_MAX_ATTEMPTS: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(20)
+      .default(5),
+    VOUCHER_RETRIEVAL_EMAIL_RETRY_BASE_DELAY_MS: z.coerce
+      .number()
+      .int()
+      .min(1_000)
+      .max(60_000)
+      .default(5_000),
+    VOUCHER_RETRIEVAL_EMAIL_RETRY_MAX_DELAY_MS: z.coerce
+      .number()
+      .int()
+      .min(5_000)
+      .max(60 * 60_000)
+      .default(300_000),
   })
   .superRefine((configuration, context) => {
     if (
@@ -546,6 +600,17 @@ export const workerEnvironmentSchema = commonEnvironmentSchema
         message:
           'must be greater than or equal to VOUCHER_DELIVERY_RETRY_BASE_DELAY_MS',
         path: ['VOUCHER_DELIVERY_RETRY_MAX_DELAY_MS'],
+      });
+    }
+    if (
+      configuration.VOUCHER_RETRIEVAL_EMAIL_RETRY_MAX_DELAY_MS <
+      configuration.VOUCHER_RETRIEVAL_EMAIL_RETRY_BASE_DELAY_MS
+    ) {
+      context.addIssue({
+        code: 'custom',
+        message:
+          'must be greater than or equal to VOUCHER_RETRIEVAL_EMAIL_RETRY_BASE_DELAY_MS',
+        path: ['VOUCHER_RETRIEVAL_EMAIL_RETRY_MAX_DELAY_MS'],
       });
     }
   });

@@ -5,6 +5,8 @@ export * from './lib/application/voucher-delivery-artifacts';
 export * from './lib/application/communication-admin-operations';
 export * from './lib/application/admin-invitation-email-delivery.service';
 export * from './lib/application/admin-invitation-delivery-reader';
+export * from './lib/application/customer-voucher-retrieval';
+export * from './lib/application/voucher-retrieval-email-delivery.service';
 export * from './lib/communication-worker.module';
 export * from './lib/infrastructure/resend-email-provider';
 export * from './lib/infrastructure/moolre-sms-provider';

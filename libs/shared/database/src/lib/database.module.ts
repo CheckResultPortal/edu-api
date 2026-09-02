@@ -10,9 +10,11 @@ import { ConfigService } from '@nestjs/config';
 import { closeDatabaseClient } from './database-lifecycle';
 import { createPrismaClient } from './prisma-client.factory';
 
+import type { PrismaClient } from '../../../../../generated/prisma/client';
+
 export const DATABASE_CLIENT = Symbol('DATABASE_CLIENT');
 
-export type DatabaseClient = Awaited<ReturnType<typeof createPrismaClient>>;
+export type DatabaseClient = PrismaClient;
 
 @Injectable()
 class DatabaseClientLifecycle implements OnApplicationShutdown {

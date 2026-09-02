@@ -12,6 +12,9 @@
       "path": "../../shared/http/tsconfig.lib.json"
     },
     {
+      "path": "../communication/tsconfig.lib.json"
+    },
+    {
       "path": "../../shared/observability/tsconfig.lib.json"
     },
     {
@@ -21,10 +24,10 @@
       "path": "../../platform/outbox/tsconfig.lib.json"
     },
     {
-      "path": "../../shared/database/tsconfig.lib.json"
+      "path": "../catalog/tsconfig.lib.json"
     },
     {
-      "path": "../catalog/tsconfig.lib.json"
+      "path": "../../shared/database/tsconfig.lib.json"
     },
     {
       "path": "../../platform/idempotency/tsconfig.lib.json"

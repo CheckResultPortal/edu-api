@@ -6,6 +6,7 @@ import {
   TRANSACTIONAL_ORDER_PRODUCT_QUERY,
   type TransactionalOrderProductQuery,
 } from '@edu-api/catalog';
+import { CustomerVoucherRetrievalModule } from '@edu-api/communication';
 import {
   DATABASE_CLIENT,
   DatabaseModule,
@@ -23,12 +24,18 @@ import {
   type OrderCreationRepository,
   type OrderRateLimiter,
 } from './application/order-creation-service';
+import {
+  GUEST_ORDER_STATUS_QUERY,
+  GUEST_ORDER_STATUS_RATE_LIMITER,
+  type GuestOrderStatusQuery,
+} from './application/guest-order-status-query';
 import { PrismaOrderCreationRepository } from './infrastructure/prisma-order-creation.repository';
+import { PrismaGuestOrderStatusQuery } from './infrastructure/prisma-guest-order-status-query';
 import { RedisOrderRateLimiter } from './infrastructure/redis-order-rate-limiter';
 import { PublicOrdersController } from './presentation/public-orders.controller';
 
 @Module({
-  imports: [DatabaseModule, CatalogCoreModule],
+  imports: [DatabaseModule, CatalogCoreModule, CustomerVoucherRetrievalModule],
   providers: [
     {
       provide: ORDER_CREATION_REPOSITORY,
@@ -83,8 +90,36 @@ import { PublicOrdersController } from './presentation/public-orders.controller'
           decodePrivacyHmacKey(config),
         ),
     },
+    {
+      provide: GUEST_ORDER_STATUS_QUERY,
+      inject: [DATABASE_CLIENT],
+      useFactory: (database: DatabaseClient): GuestOrderStatusQuery =>
+        new PrismaGuestOrderStatusQuery(database),
+    },
+    {
+      provide: GUEST_ORDER_STATUS_RATE_LIMITER,
+      inject: [ConfigService],
+      useFactory: (config: ConfigService): RedisOrderRateLimiter =>
+        new RedisOrderRateLimiter(
+          createRedisClient({ REDIS_URL: config.getOrThrow('REDIS_URL') }),
+          {
+            ipMaximum: config.getOrThrow('ORDER_STATUS_RATE_LIMIT_IP_MAXIMUM'),
+            keyPrefix: 'order-status-rate',
+            phoneMaximum: config.getOrThrow(
+              'ORDER_STATUS_RATE_LIMIT_CONTACT_MAXIMUM',
+            ),
+            windowMs: config.getOrThrow('ORDER_STATUS_RATE_LIMIT_WINDOW_MS'),
+          },
+          decodePrivacyHmacKey(config),
+        ),
+    },
   ],
-  exports: [ORDER_CREATION_SERVICE, ORDER_USSD_CREATION_SERVICE],
+  exports: [
+    ORDER_CREATION_SERVICE,
+    ORDER_USSD_CREATION_SERVICE,
+    GUEST_ORDER_STATUS_QUERY,
+    GUEST_ORDER_STATUS_RATE_LIMITER,
+  ],
 })
 export class OrdersCoreModule {}
 

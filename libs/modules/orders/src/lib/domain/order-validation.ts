@@ -47,6 +47,12 @@ const orderRequestKeys = new Set([
   'quantity',
 ]);
 
+const orderStatusRequestKeys = new Set([
+  'email',
+  'orderReference',
+  'phoneNumber',
+]);
+
 export function parseGuestOrderRequest(
   value: unknown,
 ): ValidatedWebChannelOrderInput {
@@ -166,6 +172,80 @@ export function assertOrderIdempotencyKey(value: string): string {
   return value;
 }
 
+export interface GuestOrderStatusRequest {
+  readonly email?: string;
+  readonly orderReference?: string;
+  readonly phoneNumber: string;
+}
+
+/**
+ * Status lookup intentionally needs a Ghana phone number and one additional
+ * identifier. This limits contact-based order enumeration without requiring
+ * customers to create an account.
+ */
+export function parseGuestOrderStatusRequest(
+  value: unknown,
+): GuestOrderStatusRequest {
+  if (!isPlainObject(value)) {
+    throw new OrderInputValidationError('The status body must be an object.');
+  }
+  assertOnlySupportedProperties(value, orderStatusRequestKeys, 'status');
+
+  const email = optionalEmail(value.email);
+  const orderReference = optionalOrderReference(value.orderReference);
+  if ((email === undefined) === (orderReference === undefined)) {
+    throw new OrderInputValidationError(
+      'Provide exactly one of email or orderReference alongside phoneNumber.',
+    );
+  }
+
+  return {
+    ...(email === undefined ? {} : { email }),
+    ...(orderReference === undefined ? {} : { orderReference }),
+    phoneNumber: normalizeGhanaPhoneNumber(
+      requiredString(value, 'phoneNumber'),
+    ),
+  };
+}
+
+export interface GuestVoucherRetrievalRequest {
+  readonly email?: string;
+  readonly phoneNumber?: string;
+}
+
+/**
+ * A voucher-copy request is authorised by the opaque order reference in the
+ * URL plus at least one matching stored contact. If both are supplied, both
+ * must match, which is useful when the browser already has both values.
+ */
+export function parseGuestVoucherRetrievalRequest(
+  value: unknown,
+): GuestVoucherRetrievalRequest {
+  if (!isPlainObject(value)) {
+    throw new OrderInputValidationError(
+      'The voucher retrieval body must be an object.',
+    );
+  }
+  assertOnlySupportedProperties(
+    value,
+    new Set(['email', 'phoneNumber']),
+    'voucher retrieval',
+  );
+
+  const email = optionalEmail(value.email);
+  const phoneNumber = optionalPhoneNumber(value.phoneNumber);
+  if (email === undefined && phoneNumber === undefined) {
+    throw new OrderInputValidationError(
+      'Provide the order email address or phone number.',
+    );
+  }
+
+  return {
+    ...(email === undefined ? {} : { email }),
+    ...(phoneNumber === undefined ? {} : { phoneNumber }),
+  };
+}
+
 export function normalizeGhanaPhoneNumber(value: string): string {
   const compact = value.trim().replace(/[\s()-]/g, '');
   const canonical = /^0[0-9]{9}$/.test(compact)
@@ -210,6 +290,52 @@ function normalizeRequiredEmail(value: string): string {
     throw new OrderInputValidationError('Email address is invalid.');
   }
   return email;
+}
+
+function optionalEmail(value: unknown): string | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'string') {
+    throw new OrderInputValidationError('Email address must be a string.');
+  }
+  return normalizeRequiredEmail(value);
+}
+
+function optionalPhoneNumber(value: unknown): string | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'string') {
+    throw new OrderInputValidationError('Phone number must be a string.');
+  }
+  return normalizeGhanaPhoneNumber(value);
+}
+
+function optionalOrderReference(value: unknown): string | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'string') {
+    throw new OrderInputValidationError('Order reference must be a string.');
+  }
+  return normalizeOrderPublicReference(value);
+}
+
+export function normalizeOrderPublicReference(value: string): string {
+  const reference = value.trim().toLowerCase();
+  if (!isUuid(reference)) {
+    throw new OrderInputValidationError('Order reference is invalid.');
+  }
+  return reference;
+}
+
+function assertOnlySupportedProperties(
+  value: Readonly<Record<string, unknown>>,
+  supported: ReadonlySet<string>,
+  subject: string,
+): void {
+  for (const key of Object.keys(value)) {
+    if (!supported.has(key)) {
+      throw new OrderInputValidationError(
+        `The ${subject} body contains an unsupported property.`,
+      );
+    }
+  }
 }
 
 function requiredString(
