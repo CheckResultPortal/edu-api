@@ -35,7 +35,7 @@ import { RedisOrderRateLimiter } from './infrastructure/redis-order-rate-limiter
 import { PublicOrdersController } from './presentation/public-orders.controller';
 
 @Module({
-  imports: [DatabaseModule, CatalogCoreModule, CustomerVoucherRetrievalModule],
+  imports: [DatabaseModule, CatalogCoreModule],
   providers: [
     {
       provide: ORDER_CREATION_REPOSITORY,
@@ -124,7 +124,7 @@ import { PublicOrdersController } from './presentation/public-orders.controller'
 export class OrdersCoreModule {}
 
 @Module({
-  imports: [OrdersCoreModule],
+  imports: [OrdersCoreModule, CustomerVoucherRetrievalModule],
   controllers: [PublicOrdersController],
 })
 export class OrdersModule {}
