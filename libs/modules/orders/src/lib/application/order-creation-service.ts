@@ -39,7 +39,6 @@ export interface OrderCreationContext {
 export interface PersistGuestOrderInput {
   readonly deliveryPreference: OrderDeliveryPreference;
   readonly email: string | null;
-  readonly firstName: string | null;
   readonly idempotencyExpiresAt: Date;
   readonly idempotencyKey: string;
   readonly phoneNumber: string;

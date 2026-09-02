@@ -75,7 +75,6 @@ export class PrismaOrderCreationRepository implements OrderCreationRepository {
           product.sellingPriceMinor * BigInt(input.quantity);
         const order = await transaction.order.create({
           data: {
-            firstName: input.firstName,
             phoneNumber: input.phoneNumber,
             email: input.email,
             deliveryPreference: input.deliveryPreference,

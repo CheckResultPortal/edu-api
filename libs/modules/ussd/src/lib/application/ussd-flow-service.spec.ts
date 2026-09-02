@@ -1,7 +1,9 @@
 import {
   DefaultUssdFlowService,
+  type UssdCategoryListItem,
   type UssdOrderCreator,
   type UssdPaymentInitializer,
+  type UssdProductListItem,
   type UssdProductQuery,
 } from './ussd-flow-service';
 import type { CanonicalUssdRequest } from './ussd-provider';
@@ -14,13 +16,38 @@ describe('DefaultUssdFlowService', () => {
     quantityMaximum: 20,
     sessionTtlMilliseconds: 300_000,
   };
+  const categories: readonly UssdCategoryListItem[] = [
+    {
+      name: 'WAEC Result Checkers',
+      publicId: '1b3e39a9-06db-41a9-a856-5f985846951a',
+    },
+    {
+      name: 'BECE Result Checkers',
+      publicId: '3c3e39a9-06db-41a9-a856-5f985846951a',
+    },
+  ];
+  const products: readonly (UssdProductListItem & {
+    readonly catalogGroupPublicId: string;
+  })[] = [
+    {
+      catalogGroupPublicId: categories[0].publicId,
+      name: 'WAEC Result Checker',
+      publicId: '2b3e39a9-06db-41a9-a856-5f985846951a',
+      sellingPriceMinor: '1500',
+    },
+    {
+      catalogGroupPublicId: categories[1].publicId,
+      name: 'BECE Result Checker',
+      publicId: '4d3e39a9-06db-41a9-a856-5f985846951a',
+      sellingPriceMinor: '1200',
+    },
+  ];
 
   function flow(overrides?: {
-    products?: readonly {
-      name: string;
-      publicId: string;
-      sellingPriceMinor: string;
-    }[];
+    categories?: readonly UssdCategoryListItem[];
+    products?: readonly (UssdProductListItem & {
+      readonly catalogGroupPublicId: string;
+    })[];
     orderCreator?: UssdOrderCreator;
     paymentInitializer?: UssdPaymentInitializer;
   }) {
@@ -35,14 +62,11 @@ describe('DefaultUssdFlowService', () => {
       },
     };
     const productQuery: UssdProductQuery = {
-      listActiveProducts: async () =>
-        overrides?.products ?? [
-          {
-            name: 'WAEC Result Checker',
-            publicId: '2b3e39a9-06db-41a9-a856-5f985846951a',
-            sellingPriceMinor: '1500',
-          },
-        ],
+      listActiveCategories: async () => overrides?.categories ?? categories,
+      listActiveProducts: async (catalogGroupPublicId) =>
+        (overrides?.products ?? products).filter(
+          (product) => product.catalogGroupPublicId === catalogGroupPublicId,
+        ),
     };
     const orderCreator = overrides?.orderCreator ?? makeOrderCreator();
     const paymentInitializer =
@@ -71,29 +95,47 @@ describe('DefaultUssdFlowService', () => {
   };
   const context = { clientIp: '10.0.0.8' };
 
-  it('renders the product menu on a fresh dial', async () => {
+  it('renders the category menu on a fresh dial', async () => {
     const { service } = flow();
     await expect(service.handle(initialDial, context)).resolves.toEqual({
       continueSession: true,
-      message: expect.stringContaining('WAEC Result Checker GHS 15.00'),
+      message: expect.stringContaining('Choose voucher category:'),
     });
   });
 
-  it('collects a first name before showing an SMS-only summary', async () => {
+  it('shows only the voucher types inside the selected category', async () => {
+    const { service } = flow();
+    await service.handle(initialDial, context);
+
+    await expect(
+      service.handle(continuation('233244123456', '2'), context),
+    ).resolves.toEqual({
+      continueSession: true,
+      message: expect.stringContaining('BECE Result Checker GHS 12.00'),
+    });
+  });
+
+  it('goes straight to confirmation after an SMS-only choice', async () => {
     const { service, sessions } = flow();
     await service.handle(initialDial, context);
     await service.handle(continuation('233244123456', '1'), context);
-    await service.handle(continuation('233244123456', '3'), context);
     await service.handle(continuation('233244123456', '1'), context);
-    expect(sessions.get('233244123456')).toMatchObject({ state: 'FIRST_NAME' });
-    await service.handle(continuation('233244123456', 'Ama'), context);
-    const session = sessions.get('233244123456');
-    expect(session).toMatchObject({ firstName: 'Ama', state: 'CONFIRM' });
+    await service.handle(continuation('233244123456', '3'), context);
+    const outcome = await service.handle(
+      continuation('233244123456', '1'),
+      context,
+    );
+    expect(outcome.message).toContain('Confirm order:');
+    expect(sessions.get('233244123456')).toMatchObject({
+      deliveryPreference: 'SMS_ONLY',
+      state: 'CONFIRM',
+    });
   });
 
   it('collects an email when the preference includes one', async () => {
     const { service, sessions } = flow();
     await service.handle(initialDial, context);
+    await service.handle(continuation('233244123456', '1'), context);
     await service.handle(continuation('233244123456', '1'), context);
     await service.handle(continuation('233244123456', '3'), context);
     await service.handle(continuation('233244123456', '2'), context);
@@ -105,10 +147,8 @@ describe('DefaultUssdFlowService', () => {
     );
     expect(sessions.get('233244123456')).toMatchObject({
       email: 'buyer@example.com',
-      state: 'FIRST_NAME',
+      state: 'CONFIRM',
     });
-    await service.handle(continuation('233244123456', 'Ama'), context);
-    expect(sessions.get('233244123456')).toMatchObject({ state: 'CONFIRM' });
   });
 
   it('keeps a Nalo session through the delivery preference step', async () => {
@@ -118,23 +158,22 @@ describe('DefaultUssdFlowService', () => {
 
     await service.handle(sessionDial, context);
     await service.handle(continuation('233244123456', '1', sessionId), context);
+    await service.handle(continuation('233244123456', '1', sessionId), context);
     const deliveryMenu = await service.handle(
       continuation('233244123456', '3', sessionId),
       context,
     );
-    expect(deliveryMenu.message).toContain(
-      'Choose delivery method:',
-    );
+    expect(deliveryMenu.message).toContain('Choose delivery method:');
 
     const outcome = await service.handle(
       continuation('233244123456', '1', sessionId),
       context,
     );
-    expect(outcome.message).toBe('Enter your first name:');
+    expect(outcome.message).toContain('Confirm order:');
     expect(sessions.get(sessionId)).toMatchObject({
       deliveryPreference: 'SMS_ONLY',
       quantity: 3,
-      state: 'FIRST_NAME',
+      state: 'CONFIRM',
     });
   });
 
@@ -155,12 +194,13 @@ describe('DefaultUssdFlowService', () => {
     expect(orderCreator.create).toHaveBeenCalledWith(
       expect.objectContaining({
         deliveryPreference: 'SMS_ONLY',
-        firstName: 'Ama',
         phoneNumber: '+233244123456',
         quantity: 3,
       }),
       context,
     );
+    const orderCommand = (orderCreator.create as jest.Mock).mock.calls[0]?.[0];
+    expect(orderCommand).not.toHaveProperty('firstName');
     expect(paymentInitializer.initialize).toHaveBeenCalledTimes(1);
     expect(paymentInitializer.initialize).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -262,8 +302,8 @@ describe('DefaultUssdFlowService', () => {
   async function walkToSummary(service: DefaultUssdFlowService): Promise<void> {
     await service.handle(initialDial, context);
     await service.handle(continuation('233244123456', '1'), context);
+    await service.handle(continuation('233244123456', '1'), context);
     await service.handle(continuation('233244123456', '3'), context);
     await service.handle(continuation('233244123456', '1'), context);
-    await service.handle(continuation('233244123456', 'Ama'), context);
   }
 });

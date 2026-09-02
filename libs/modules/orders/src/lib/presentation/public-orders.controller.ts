@@ -90,13 +90,7 @@ export class PublicOrdersController {
     schema: {
       type: 'object',
       additionalProperties: false,
-      required: [
-        'email',
-        'firstName',
-        'phoneNumber',
-        'productPublicId',
-        'quantity',
-      ],
+      required: ['email', 'phoneNumber', 'productPublicId', 'quantity'],
       properties: {
         email: {
           type: 'string',
@@ -104,7 +98,6 @@ export class PublicOrdersController {
           description:
             'Customer email address for payment initialization and voucher delivery.',
         },
-        firstName: { type: 'string', minLength: 1, maxLength: 100 },
         phoneNumber: { type: 'string', example: '+233241234567' },
         productPublicId: { type: 'string', format: 'uuid' },
         quantity: { type: 'integer', minimum: 1, maximum: 20 },
@@ -131,7 +124,6 @@ export class PublicOrdersController {
       const order = await this.orders.create(
         {
           email: input.email,
-          firstName: input.firstName,
           idempotencyKey,
           phoneNumber: input.phoneNumber,
           productPublicId: input.productPublicId,

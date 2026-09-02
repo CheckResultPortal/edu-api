@@ -2,8 +2,10 @@ import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 import {
+  CATALOG_GROUP_QUERY,
   CATALOG_PRODUCT_QUERY,
   CatalogCoreModule,
+  type CatalogGroupQuery,
   type CatalogProductQuery,
 } from '@edu-api/catalog';
 import { DatabaseModule } from '@edu-api/database';
@@ -73,10 +75,50 @@ import { NaloUssdController } from './presentation/nalo-ussd.controller';
     },
     {
       provide: USSD_PRODUCT_QUERY,
-      inject: [CATALOG_PRODUCT_QUERY],
-      useFactory: (catalog: CatalogProductQuery): UssdProductQuery => ({
-        listActiveProducts: async (limit: number) =>
-          (await catalog.listActiveProducts({ limit })).items.map((item) => ({
+      inject: [CATALOG_GROUP_QUERY, CATALOG_PRODUCT_QUERY],
+      useFactory: (
+        groups: CatalogGroupQuery,
+        catalog: CatalogProductQuery,
+      ): UssdProductQuery => ({
+        listActiveCategories: async (limit: number) => {
+          const activeCategories: { name: string; publicId: string }[] = [];
+          let cursor: string | undefined;
+
+          do {
+            const page = await groups.listGroups({
+              ...(cursor === undefined ? {} : { cursor }),
+              limit: Math.min(limit, 100),
+            });
+            const available = await Promise.all(
+              page.items.map(async (group) => {
+                const products = await catalog.listActiveProducts({
+                  catalogGroupPublicId: group.publicId,
+                  limit: 1,
+                });
+                return products.items.length === 0 ? undefined : group;
+              }),
+            );
+            for (const group of available) {
+              if (group !== undefined) {
+                activeCategories.push({
+                  name: group.name,
+                  publicId: group.publicId,
+                });
+                if (activeCategories.length === limit) break;
+              }
+            }
+            cursor = page.nextCursor ?? undefined;
+          } while (cursor !== undefined && activeCategories.length < limit);
+
+          return activeCategories;
+        },
+        listActiveProducts: async (
+          catalogGroupPublicId: string,
+          limit: number,
+        ) =>
+          (
+            await catalog.listActiveProducts({ catalogGroupPublicId, limit })
+          ).items.map((item) => ({
             name: item.name,
             publicId: item.publicId,
             sellingPriceMinor: item.sellingPriceMinor,

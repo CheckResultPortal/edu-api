@@ -13,7 +13,6 @@ describe('guest order validation', () => {
     expect(
       validateWebGuestOrderInput({
         email: ' Buyer@Example.COM ',
-        firstName: '  Ama  ',
         phoneNumber: '024 123 4567',
         productPublicId: productPublicId.toUpperCase(),
         quantity: 20,
@@ -21,7 +20,6 @@ describe('guest order validation', () => {
     ).toEqual({
       deliveryPreference: 'SMS_AND_EMAIL',
       email: 'buyer@example.com',
-      firstName: 'Ama',
       phoneNumber: '+233241234567',
       productPublicId,
       purchaseChannel: 'WEB',
@@ -33,7 +31,6 @@ describe('guest order validation', () => {
     expect(() =>
       validateWebGuestOrderInput({
         email: 'buyer@example.com',
-        firstName: 'Ama',
         phoneNumber: '+233241234567',
         productPublicId,
         quantity,
@@ -45,7 +42,6 @@ describe('guest order validation', () => {
     expect(() =>
       parseGuestOrderRequest({
         email: 'buyer@example.com',
-        firstName: 'Ama',
         phoneNumber: '+233241234567',
         productPublicId,
         quantity: 1,
@@ -57,7 +53,6 @@ describe('guest order validation', () => {
       parseGuestOrderRequest({
         deliveryPreference: 'SMS_ONLY',
         email: 'buyer@example.com',
-        firstName: 'Ama',
         phoneNumber: '+233241234567',
         productPublicId,
         quantity: 1,
@@ -69,7 +64,6 @@ describe('guest order validation', () => {
     expect(() =>
       validateWebGuestOrderInput({
         email: 'not-an-email',
-        firstName: 'Ama',
         phoneNumber: '+2348012345678',
         productPublicId,
         quantity: 1,
@@ -81,7 +75,6 @@ describe('guest order validation', () => {
     expect(() =>
       validateWebGuestOrderInput({
         email: '',
-        firstName: 'Akosua',
         phoneNumber: '+233241234567',
         productPublicId,
         quantity: 1,
@@ -89,40 +82,16 @@ describe('guest order validation', () => {
     ).toThrow(OrderInputValidationError);
   });
 
-  it('requires a non-empty bounded first name', () => {
+  it('rejects the retired firstName request property', () => {
     expect(() =>
-      validateWebGuestOrderInput({
+      parseGuestOrderRequest({
         email: 'buyer@example.com',
-        firstName: '   ',
+        firstName: 'Ama',
         phoneNumber: '+233241234567',
         productPublicId,
         quantity: 1,
       }),
-    ).toThrow(OrderInputValidationError);
-  });
-
-  it('requires and normalizes the USSD first name', () => {
-    expect(
-      validateUssdGuestOrderInput({
-        deliveryPreference: 'SMS_ONLY',
-        firstName: '  Ama  ',
-        phoneNumber: '+233241234567',
-        productPublicId,
-        quantity: 1,
-      }),
-    ).toMatchObject({
-      firstName: 'Ama',
-      purchaseChannel: 'USSD',
-    });
-    expect(() =>
-      validateUssdGuestOrderInput({
-        deliveryPreference: 'SMS_ONLY',
-        firstName: '   ',
-        phoneNumber: '+233241234567',
-        productPublicId,
-        quantity: 1,
-      }),
-    ).toThrow(OrderInputValidationError);
+    ).toThrow('unsupported property');
   });
 
   it('requires a bounded safe idempotency key', () => {

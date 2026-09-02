@@ -42,11 +42,11 @@ function isSessionData(value: unknown): value is UssdSessionData {
   if (typeof value !== 'object' || value === null) return false;
   const state = (value as Record<string, unknown>)['state'];
   return (
+    state === 'CATEGORY' ||
     state === 'PRODUCT' ||
     state === 'QUANTITY' ||
     state === 'DELIVERY' ||
     state === 'EMAIL' ||
-    state === 'FIRST_NAME' ||
     state === 'CONFIRM' ||
     state === 'PAYMENT_PENDING'
   );

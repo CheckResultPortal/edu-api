@@ -2,7 +2,6 @@
 
 export interface CreateWebGuestOrderDraft {
   readonly email: string;
-  readonly firstName: string;
   readonly phoneNumber: string;
   readonly productPublicId: string;
   readonly quantity: number;
@@ -23,25 +22,18 @@ export type OrderDeliveryPreference =
 export interface ValidatedWebGuestOrderInput {
   readonly deliveryPreference: OrderDeliveryPreference;
   readonly email: string | null;
-  readonly firstName: string | null;
   readonly phoneNumber: string;
   readonly productPublicId: string;
   readonly purchaseChannel: PurchaseChannel;
   readonly quantity: number;
 }
 
-/**
- * Both channels require a first name and derive a trusted source. USSD derives
- * the phone from its gateway session and may omit only email for SMS delivery.
- */
 export type ValidatedWebChannelOrderInput = ValidatedWebGuestOrderInput & {
   readonly email: string;
-  readonly firstName: string;
 };
 
 const orderRequestKeys = new Set([
   'email',
-  'firstName',
   'phoneNumber',
   'productPublicId',
   'quantity',
@@ -69,7 +61,6 @@ export function parseGuestOrderRequest(
 
   return validateWebGuestOrderInput({
     email: requiredString(value, 'email'),
-    firstName: requiredString(value, 'firstName'),
     phoneNumber: requiredString(value, 'phoneNumber'),
     productPublicId: requiredString(value, 'productPublicId'),
     quantity: requiredNumber(value, 'quantity'),
@@ -99,7 +90,6 @@ export function validateWebGuestOrderInput(
   return {
     deliveryPreference: 'SMS_AND_EMAIL',
     email,
-    firstName: normalizeFirstName(input.firstName),
     phoneNumber: normalizeGhanaPhoneNumber(input.phoneNumber),
     productPublicId,
     purchaseChannel: 'WEB',
@@ -110,7 +100,6 @@ export function validateWebGuestOrderInput(
 export interface CreateUssdGuestOrderDraft {
   readonly deliveryPreference: OrderDeliveryPreference;
   readonly email?: string;
-  readonly firstName: string;
   readonly phoneNumber: string;
   readonly productPublicId: string;
   readonly quantity: number;
@@ -151,7 +140,6 @@ export function validateUssdGuestOrderInput(
   return {
     deliveryPreference: preference,
     email: requiresEmail ? normalizeRequiredEmail(input.email ?? '') : null,
-    firstName: normalizeFirstName(input.firstName),
     phoneNumber: normalizeGhanaPhoneNumber(input.phoneNumber),
     productPublicId,
     purchaseChannel: 'USSD',
@@ -257,27 +245,6 @@ export function normalizeGhanaPhoneNumber(value: string): string {
     );
   }
   return canonical;
-}
-
-function normalizeFirstName(value: string): string {
-  const firstName = value.trim().replace(/\s+/g, ' ');
-  if (
-    firstName.length === 0 ||
-    Array.from(firstName).length > 100 ||
-    containsAsciiControl(firstName)
-  ) {
-    throw new OrderInputValidationError(
-      'First name must contain 1 to 100 valid characters.',
-    );
-  }
-  return firstName;
-}
-
-function containsAsciiControl(value: string): boolean {
-  return Array.from(value).some((character) => {
-    const codePoint = character.codePointAt(0);
-    return codePoint !== undefined && (codePoint <= 31 || codePoint === 127);
-  });
 }
 
 function normalizeRequiredEmail(value: string): string {

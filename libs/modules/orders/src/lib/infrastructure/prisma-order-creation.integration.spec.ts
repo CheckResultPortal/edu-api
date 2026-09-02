@@ -122,7 +122,6 @@ describeWithDatabase('guest order creation (PostgreSQL)', () => {
     });
     expect(stored.phoneNumber).toBe('+233241234567');
     expect(stored.email).toBe('buyer@example.com');
-    expect(stored.firstName).toBe('Ama');
     expect(stored.deliveryPreference).toBe('SMS_AND_EMAIL');
     expect(stored.purchaseChannel).toBe('WEB');
     expect(stored.totalPriceMinor).toBe(BigInt(5_000));
@@ -304,7 +303,6 @@ describeWithDatabase('guest order creation (PostgreSQL)', () => {
           deliveryPreference: 'SMS_AND_EMAIL',
           purchaseChannel: 'WEB',
           email: 'buyer@example.com',
-          firstName: 'Ama',
           phoneNumber: '+233241234567',
           currency: 'GHS',
           totalPriceMinor: BigInt(52_500),
@@ -329,7 +327,6 @@ describeWithDatabase('guest order creation (PostgreSQL)', () => {
           purchaseChannel: 'USSD',
           deliveryPreference: 'SMS_ONLY',
           email: 'buyer@example.com',
-          firstName: 'Ama',
           phoneNumber: '+233241234567',
           currency: 'GHS',
           totalPriceMinor: BigInt(2_500),
@@ -351,7 +348,6 @@ describeWithDatabase('guest order creation (PostgreSQL)', () => {
         data: {
           purchaseChannel: 'USSD',
           deliveryPreference: 'EMAIL_ONLY',
-          firstName: 'Ama',
           phoneNumber: '+233241234567',
           currency: 'GHS',
           totalPriceMinor: BigInt(2_500),
@@ -373,7 +369,6 @@ describeWithDatabase('guest order creation (PostgreSQL)', () => {
         data: {
           purchaseChannel: 'WEB',
           deliveryPreference: 'SMS_ONLY',
-          firstName: 'Ama',
           phoneNumber: '+233241234567',
           currency: 'GHS',
           totalPriceMinor: BigInt(2_500),
@@ -396,7 +391,6 @@ describeWithDatabase('guest order creation (PostgreSQL)', () => {
           purchaseChannel: 'WEB',
           deliveryPreference: 'SMS_AND_EMAIL',
           email: 'buyer@example.com',
-          firstName: null,
           phoneNumber: '+233241234567',
           currency: 'GHS',
           totalPriceMinor: BigInt(2_500),
@@ -430,7 +424,6 @@ describeWithDatabase('guest order creation (PostgreSQL)', () => {
             purchaseChannel: 'USSD',
             deliveryPreference,
             ...(email === undefined ? {} : { email }),
-            firstName: 'Ama',
             phoneNumber: '+233241234567',
             currency: 'GHS',
             totalPriceMinor: BigInt(2_500),
@@ -452,7 +445,6 @@ describeWithDatabase('guest order creation (PostgreSQL)', () => {
   function command(label: string, quantity: number) {
     return {
       email: 'Buyer@Example.com',
-      firstName: 'Ama',
       idempotencyKey: idempotencyKey(label),
       phoneNumber: '024 123 4567',
       productPublicId,

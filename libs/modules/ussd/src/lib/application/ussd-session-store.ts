@@ -1,11 +1,11 @@
 export const USSD_SESSION_STORE = Symbol('USSD_SESSION_STORE');
 
 export type UssdFlowState =
+  | 'CATEGORY'
   | 'PRODUCT'
   | 'QUANTITY'
   | 'DELIVERY'
   | 'EMAIL'
-  | 'FIRST_NAME'
   | 'CONFIRM'
   | 'PAYMENT_PENDING';
 
@@ -15,6 +15,10 @@ export type UssdFlowState =
  */
 export interface UssdSessionData {
   readonly state: UssdFlowState;
+  /** True once the voucher-category menu has been rendered for this session. */
+  readonly categoryMenuShown?: boolean;
+  readonly catalogGroupPublicId?: string;
+  readonly catalogGroupName?: string;
   /** True once the product menu has been rendered for this session. */
   readonly productMenuShown?: boolean;
   readonly productPublicId?: string;
@@ -23,7 +27,6 @@ export interface UssdSessionData {
   readonly quantity?: number;
   readonly deliveryPreference?: 'SMS_ONLY' | 'EMAIL_ONLY' | 'SMS_AND_EMAIL';
   readonly email?: string;
-  readonly firstName?: string;
   /** Set when the confirm step starts so retries reuse the same references. */
   readonly confirmId?: string;
   /** Retained without contact data while a payment start is being recovered. */

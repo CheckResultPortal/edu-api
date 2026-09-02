@@ -148,13 +148,7 @@ describe('public API', () => {
     expect(
       res.data.paths['/v1/orders'].post.requestBody.content['application/json']
         .schema.required,
-    ).toEqual([
-      'email',
-      'firstName',
-      'phoneNumber',
-      'productPublicId',
-      'quantity',
-    ]);
+    ).toEqual(['email', 'phoneNumber', 'productPublicId', 'quantity']);
   });
 
   it('lists the public catalog group hierarchy', async () => {
@@ -181,7 +175,6 @@ describe('public API', () => {
         '/v1/orders',
         {
           email: 'buyer@example.com',
-          firstName: 'Ama',
           phoneNumber: '+233241234567',
           price: 1,
           productPublicId: '2b3e39a9-06db-41a9-a856-5f985846951a',
@@ -205,7 +198,6 @@ describe('public API', () => {
     const phoneNumber = `+23324${String(randomInt(10_000_000)).padStart(7, '0')}`;
     const request = {
       email: 'Buyer@Example.com',
-      firstName: 'Ama',
       phoneNumber,
       productPublicId,
       quantity: 2,
@@ -245,7 +237,6 @@ describe('public API', () => {
         {
           deliveryPreference: 'SMS_ONLY',
           email: 'buyer@example.com',
-          firstName: 'Ama',
           phoneNumber: '+233241234567',
           productPublicId,
           quantity: 1,
@@ -262,7 +253,6 @@ describe('public API', () => {
       '/v1/orders',
       {
         email: 'buyer@example.com',
-        firstName: 'Ama',
         phoneNumber: `+23324${String(randomInt(10_000_000)).padStart(7, '0')}`,
         productPublicId,
         quantity: 2,

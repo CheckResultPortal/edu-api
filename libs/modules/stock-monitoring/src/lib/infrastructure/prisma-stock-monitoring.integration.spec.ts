@@ -232,7 +232,6 @@ async function createWaitingPaidUnit(
       currency: 'GHS',
       deliveryPreference: 'SMS_AND_EMAIL',
       email: `stock-${suffix}@example.com`,
-      firstName: 'Stock',
       phoneNumber: '+233241234567',
       purchaseChannel: 'WEB',
       totalPriceMinor: BigInt(2_500),

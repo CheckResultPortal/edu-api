@@ -9,6 +9,11 @@ export const USSD_PRODUCT_QUERY = Symbol('USSD_PRODUCT_QUERY');
 export const USSD_ORDER_CREATOR = Symbol('USSD_ORDER_CREATOR');
 export const USSD_PAYMENT_INITIALIZER = Symbol('USSD_PAYMENT_INITIALIZER');
 
+export interface UssdCategoryListItem {
+  readonly name: string;
+  readonly publicId: string;
+}
+
 export interface UssdProductListItem {
   readonly name: string;
   readonly publicId: string;
@@ -16,13 +21,16 @@ export interface UssdProductListItem {
 }
 
 export interface UssdProductQuery {
-  listActiveProducts(limit: number): Promise<readonly UssdProductListItem[]>;
+  listActiveCategories(limit: number): Promise<readonly UssdCategoryListItem[]>;
+  listActiveProducts(
+    catalogGroupPublicId: string,
+    limit: number,
+  ): Promise<readonly UssdProductListItem[]>;
 }
 
 export interface UssdOrderCreationCommand {
   readonly deliveryPreference: 'SMS_ONLY' | 'EMAIL_ONLY' | 'SMS_AND_EMAIL';
   readonly email?: string;
-  readonly firstName: string;
   readonly idempotencyKey: string;
   readonly phoneNumber: string;
   readonly productPublicId: string;
@@ -75,9 +83,9 @@ const MAXIMUM_INPUT_LENGTH = 182;
 const MAXIMUM_EMAIL_LENGTH = 320;
 
 /**
- * The guest purchase conversation: product -> quantity -> delivery ->
- * (email) -> first name -> confirm -> order + Moolre prompt. The session never
- * waits for payment completion and holds no payment truth.
+ * The guest purchase conversation: category -> product -> quantity -> delivery
+ * -> (email) -> confirm -> order + Moolre prompt. The session
+ * never waits for payment completion and holds no payment truth.
  */
 export class DefaultUssdFlowService {
   constructor(
@@ -103,20 +111,20 @@ export class DefaultUssdFlowService {
       session = null;
     }
     if (session === null || session.state === undefined) {
-      session = { state: 'PRODUCT' };
+      session = { state: 'CATEGORY' };
     }
 
     switch (session.state) {
+      case 'CATEGORY':
+        return this.handleCategorySelection(request, session);
       case 'PRODUCT':
-        return this.handleProductSelection(request, session, context);
+        return this.handleProductSelection(request, session);
       case 'QUANTITY':
         return this.handleQuantity(request, session);
       case 'DELIVERY':
         return this.handleDeliveryPreference(request, session);
       case 'EMAIL':
         return this.handleEmailEntry(request, session);
-      case 'FIRST_NAME':
-        return this.handleFirstNameEntry(request, session);
       case 'CONFIRM':
         return this.handleConfirmation(request, session, context);
       case 'PAYMENT_PENDING':
@@ -124,18 +132,97 @@ export class DefaultUssdFlowService {
     }
   }
 
+  private async handleCategorySelection(
+    request: CanonicalUssdRequest,
+    session: UssdSessionData,
+  ): Promise<CanonicalUssdResponse> {
+    const categories = await this.products.listActiveCategories(
+      this.configuration.maximumProducts,
+    );
+    if (categories.length === 0) {
+      return {
+        continueSession: false,
+        message: 'No vouchers are available right now. Try again later.',
+      };
+    }
+
+    if (!session.categoryMenuShown) {
+      await this.sessions.set(
+        sessionIdentifier(request),
+        { state: 'CATEGORY', categoryMenuShown: true },
+        this.configuration.sessionTtlMilliseconds,
+      );
+      return {
+        continueSession: true,
+        message: renderCategoryMenu(categories),
+      };
+    }
+
+    const choice = parseChoice(request.input, categories.length);
+    const selected = choice === null ? undefined : categories[choice - 1];
+    if (selected === undefined) {
+      return {
+        continueSession: true,
+        message: `Invalid option.\n${renderCategoryMenu(categories)}`,
+      };
+    }
+
+    const products = await this.products.listActiveProducts(
+      selected.publicId,
+      this.configuration.maximumProducts,
+    );
+    if (products.length === 0) {
+      return {
+        continueSession: true,
+        message: `No vouchers are available in ${truncate(selected.name, 36)}.\n${renderCategoryMenu(categories)}`,
+      };
+    }
+
+    await this.sessions.set(
+      sessionIdentifier(request),
+      {
+        catalogGroupName: truncate(selected.name, 36),
+        catalogGroupPublicId: selected.publicId,
+        productMenuShown: true,
+        state: 'PRODUCT',
+      },
+      this.configuration.sessionTtlMilliseconds,
+    );
+    return {
+      continueSession: true,
+      message: renderProductMenu(products, selected.name),
+    };
+  }
+
   private async handleProductSelection(
     request: CanonicalUssdRequest,
     session: UssdSessionData,
-    context: UssdFlowContext,
   ): Promise<CanonicalUssdResponse> {
+    if (session.catalogGroupPublicId === undefined) {
+      await this.sessions.set(
+        sessionIdentifier(request),
+        { state: 'CATEGORY' },
+        this.configuration.sessionTtlMilliseconds,
+      );
+      return {
+        continueSession: true,
+        message: 'Choose a voucher category first.',
+      };
+    }
     const page = await this.products.listActiveProducts(
+      session.catalogGroupPublicId,
       this.configuration.maximumProducts,
     );
     if (page.length === 0) {
+      await this.sessions.set(
+        sessionIdentifier(request),
+        { state: 'CATEGORY' },
+        this.configuration.sessionTtlMilliseconds,
+      );
       return {
-        continueSession: false,
-        message: 'No products are available right now. Try again later.',
+        continueSession: true,
+        message:
+          'Those vouchers are no longer available. Choose another category.',
       };
     }
 
@@ -147,7 +234,10 @@ export class DefaultUssdFlowService {
       );
       return {
         continueSession: true,
-        message: renderProductMenu(page),
+        message: renderProductMenu(
+          page,
+          session.catalogGroupName ?? 'Vouchers',
+        ),
       };
     }
 
@@ -155,20 +245,22 @@ export class DefaultUssdFlowService {
     if (choice === null) {
       return {
         continueSession: true,
-        message: `Invalid option.\n${renderProductMenu(page)}`,
+        message: `Invalid option.\n${renderProductMenu(page, session.catalogGroupName ?? 'Vouchers')}`,
       };
     }
     const selected = page[choice - 1];
     if (selected === undefined) {
       return {
         continueSession: true,
-        message: `Invalid option.\n${renderProductMenu(page)}`,
+        message: `Invalid option.\n${renderProductMenu(page, session.catalogGroupName ?? 'Vouchers')}`,
       };
     }
 
     await this.sessions.set(
       sessionIdentifier(request),
       {
+        catalogGroupName: session.catalogGroupName,
+        catalogGroupPublicId: session.catalogGroupPublicId,
         productPublicId: selected.publicId,
         productName: truncate(selected.name, 40),
         state: 'QUANTITY',
@@ -234,7 +326,7 @@ export class DefaultUssdFlowService {
     }
 
     if (preference === 'SMS_ONLY') {
-      return this.enterFirstName(sessionIdentifier(request), {
+      return this.enterConfirmation(sessionIdentifier(request), {
         ...session,
         deliveryPreference: preference,
         email: undefined,
@@ -268,38 +360,9 @@ export class DefaultUssdFlowService {
       };
     }
 
-    return this.enterFirstName(sessionIdentifier(request), {
-      ...session,
-      email,
-    });
-  }
-
-  private async enterFirstName(
-    msisdn: string,
-    session: UssdSessionData,
-  ): Promise<CanonicalUssdResponse> {
-    await this.sessions.set(
-      msisdn,
-      { ...session, state: 'FIRST_NAME' },
-      this.configuration.sessionTtlMilliseconds,
-    );
-    return { continueSession: true, message: 'Enter your first name:' };
-  }
-
-  private async handleFirstNameEntry(
-    request: CanonicalUssdRequest,
-    session: UssdSessionData,
-  ): Promise<CanonicalUssdResponse> {
-    const firstName = normalizeFirstName(request.input);
-    if (firstName === null) {
-      return {
-        continueSession: true,
-        message: 'Invalid first name.\nEnter your first name:',
-      };
-    }
     return this.enterConfirmation(sessionIdentifier(request), {
       ...session,
-      firstName,
+      email,
     });
   }
 
@@ -357,7 +420,6 @@ export class DefaultUssdFlowService {
         {
           deliveryPreference: session.deliveryPreference ?? 'SMS_ONLY',
           ...(session.email === undefined ? {} : { email: session.email }),
-          firstName: session.firstName ?? '',
           idempotencyKey: `ussd-order-${session.confirmId}`,
           phoneNumber,
           productPublicId: session.productPublicId ?? '',
@@ -489,12 +551,28 @@ export class DefaultUssdFlowService {
   }
 }
 
-function renderProductMenu(products: readonly UssdProductListItem[]): string {
+function renderCategoryMenu(
+  categories: readonly UssdCategoryListItem[],
+): string {
+  const lines = categories.map(
+    (category, index) => `${index + 1}. ${truncate(category.name, 40)}`,
+  );
+  return ['Choose voucher category:', ...lines]
+    .join('\n')
+    .slice(0, MAXIMUM_INPUT_LENGTH);
+}
+
+function renderProductMenu(
+  products: readonly UssdProductListItem[],
+  categoryName: string,
+): string {
   const lines = products.map(
     (product, index) =>
       `${index + 1}. ${truncate(product.name, 40)} ${formatCedis(product.sellingPriceMinor)}`,
   );
-  return ['Buy a voucher:', ...lines].join('\n').slice(0, MAXIMUM_INPUT_LENGTH);
+  return [`${truncate(categoryName, 36)}:`, ...lines]
+    .join('\n')
+    .slice(0, MAXIMUM_INPUT_LENGTH);
 }
 
 function renderDeliveryMenu(): string {
@@ -573,19 +651,4 @@ function truncate(value: string, maximumLength: number): string {
   return value.length <= maximumLength
     ? value
     : `${value.slice(0, maximumLength - 1)}…`;
-}
-
-function normalizeFirstName(value: string): string | null {
-  const firstName = value.trim().replace(/\s+/g, ' ');
-  if (
-    firstName.length === 0 ||
-    Array.from(firstName).length > 100 ||
-    Array.from(firstName).some((character) => {
-      const codePoint = character.codePointAt(0);
-      return codePoint !== undefined && (codePoint <= 31 || codePoint === 127);
-    })
-  ) {
-    return null;
-  }
-  return firstName;
 }

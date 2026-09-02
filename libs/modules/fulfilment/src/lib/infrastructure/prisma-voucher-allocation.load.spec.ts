@@ -146,7 +146,6 @@ async function seedLoadFixture(
       currency: 'GHS',
       deliveryPreference: 'SMS_AND_EMAIL' as const,
       email: 'load-test@example.com',
-      firstName: 'Load Test',
       phoneNumber: '+233241234567',
       publicReference,
       purchaseChannel: 'WEB' as const,

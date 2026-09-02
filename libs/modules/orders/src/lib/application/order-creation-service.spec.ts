@@ -37,7 +37,6 @@ describe('DefaultOrderCreationService', () => {
       service.create(
         {
           email: 'BUYER@example.com',
-          firstName: ' Ama ',
           idempotencyKey: 'checkout:0123456789abcdef',
           phoneNumber: '0241234567',
           productPublicId: result.productPublicId,
@@ -54,7 +53,6 @@ describe('DefaultOrderCreationService', () => {
     expect(persisted).toMatchObject({
       deliveryPreference: 'SMS_AND_EMAIL',
       email: 'buyer@example.com',
-      firstName: 'Ama',
       idempotencyKey: 'checkout:0123456789abcdef',
       phoneNumber: '+233241234567',
       purchaseChannel: 'WEB',

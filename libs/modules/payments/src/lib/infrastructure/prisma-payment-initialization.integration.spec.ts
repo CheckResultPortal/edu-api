@@ -57,7 +57,6 @@ describeWithDatabase('payment initialization (PostgreSQL)', () => {
         currency: 'GHS',
         deliveryPreference: 'SMS_AND_EMAIL',
         email: 'buyer@example.com',
-        firstName: 'Ama',
         phoneNumber: '+233241234567',
         purchaseChannel: 'WEB',
         totalPriceMinor: BigInt(5_000),

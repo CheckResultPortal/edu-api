@@ -178,7 +178,6 @@ export class PrismaAdminOperationsQuery implements AdminOperationsQuery {
         publicReference: true,
         purchaseChannel: true,
         deliveryPreference: true,
-        firstName: true,
         phoneNumber: true,
         email: true,
         contactAnonymizedAt: true,
@@ -397,7 +396,6 @@ export class PrismaAdminOperationsQuery implements AdminOperationsQuery {
           select: {
             order: {
               select: {
-                firstName: true,
                 phoneNumber: true,
                 email: true,
                 purchaseChannel: true,
@@ -665,7 +663,6 @@ const orderSummarySelection = {
   publicReference: true,
   purchaseChannel: true,
   deliveryPreference: true,
-  firstName: true,
   phoneNumber: true,
   email: true,
   totalPriceMinor: true,
@@ -708,7 +705,6 @@ function orderSummary(order: OrderSummaryRow) {
       purchaseChannel: order.purchaseChannel,
       deliveryPreference: order.deliveryPreference,
       guest: {
-        firstName: order.firstName,
         phoneNumber: order.phoneNumber,
         email: order.email,
       },
