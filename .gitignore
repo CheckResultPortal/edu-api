@@ -37,6 +37,7 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+tools/
 
 # Generated archives
 *.tgz

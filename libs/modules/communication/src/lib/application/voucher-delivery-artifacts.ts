@@ -1,10 +1,20 @@
-import { dirname, resolve, sep } from 'node:path';
-
 import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces';
 
 import type { EmailAttachment } from './email-provider';
 
-const pdfMake = require('pdfmake') as typeof import('pdfmake');
+interface PdfMakeWithVfs {
+  virtualfs: {
+    writeFileSync(path: string, data: Buffer): void;
+  };
+  addFonts(fonts: Record<string, unknown>): void;
+  setLocalAccessPolicy(policy: (path: string) => boolean): void;
+  setUrlAccessPolicy(policy: (url: string) => boolean): void;
+  createPdf(definition: TDocumentDefinitions): {
+    getBuffer(): Promise<Buffer>;
+  };
+}
+
+const pdfMake = require('pdfmake') as PdfMakeWithVfs;
 
 export interface VoucherDeliveryArtifactInput {
   readonly deliveryPublicId: string;
@@ -123,24 +133,19 @@ function csvField(value: string): string {
 
 function configureFonts(): void {
   if (fontsConfigured) return;
-  const regular = require.resolve('pdfmake/fonts/Roboto/Roboto-Regular.ttf');
-  const fontsDirectory = dirname(regular);
-  const allowedPrefix = `${resolve(fontsDirectory)}${sep}`;
+  const vfsFonts = require('pdfmake/build/vfs_fonts') as Record<string, string>;
+  for (const [filename, content] of Object.entries(vfsFonts)) {
+    pdfMake.virtualfs.writeFileSync(filename, Buffer.from(content, 'base64'));
+  }
   pdfMake.addFonts({
     Roboto: {
-      normal: regular,
-      bold: require.resolve('pdfmake/fonts/Roboto/Roboto-Medium.ttf'),
-      italics: require.resolve('pdfmake/fonts/Roboto/Roboto-Italic.ttf'),
-      bolditalics: require.resolve(
-        'pdfmake/fonts/Roboto/Roboto-MediumItalic.ttf',
-      ),
+      normal: 'Roboto-Regular.ttf',
+      bold: 'Roboto-Medium.ttf',
+      italics: 'Roboto-Italic.ttf',
+      bolditalics: 'Roboto-MediumItalic.ttf',
     },
   });
-  pdfMake.setLocalAccessPolicy((path) =>
-    `${resolve(path)}${path.endsWith(sep) ? sep : ''}`.startsWith(
-      allowedPrefix,
-    ),
-  );
+  pdfMake.setLocalAccessPolicy(() => false);
   pdfMake.setUrlAccessPolicy(() => false);
   fontsConfigured = true;
 }

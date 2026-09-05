@@ -271,10 +271,12 @@ export class VoucherDeliveryService {
               }),
               idempotencyKey: reference,
             });
-    } catch {
+    } catch (error) {
       this.logger?.error(
-        `Delivery ${claimed.deliveryPublicId} failed during preparation/send.`,
-        undefined,
+        `Delivery ${claimed.deliveryPublicId} failed during preparation/send: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        error instanceof Error ? error.stack : undefined,
         'VoucherDeliveryService',
       );
       result = { category: 'PERMANENT', status: 'FAILED' };
