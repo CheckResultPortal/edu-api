@@ -46,6 +46,9 @@ export class VoucherRetrievalEmailDeliveryService {
     private readonly emailProvider: EmailProvider,
     private readonly keyring: SecretKeyring,
     private readonly options: VoucherRetrievalEmailDeliveryOptions,
+    private readonly logger?: {
+      error(message: string, trace?: string, context?: string): void;
+    },
   ) {}
 
   async processAvailable(limit: number): Promise<number> {
@@ -216,6 +219,11 @@ export class VoucherRetrievalEmailDeliveryService {
         )
       ).flat();
     } catch {
+      this.logger?.error(
+        `Preparing retrieval ${claimed.deliveryPublicId} failed.`,
+        undefined,
+        'VoucherRetrievalEmailDeliveryService',
+      );
       await this.finishFailure(
         claimed.deliveryId,
         claimed.attemptId,
@@ -521,4 +529,3 @@ function renderVoucherRetrievalEmailHtml(
 </body>
 </html>`;
 }
-

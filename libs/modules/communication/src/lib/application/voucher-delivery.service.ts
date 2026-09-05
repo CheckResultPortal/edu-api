@@ -42,6 +42,9 @@ export class VoucherDeliveryService {
     private readonly smsProvider: SmsProvider,
     private readonly keyring: SecretKeyring,
     private readonly options: VoucherDeliveryWorkerOptions,
+    private readonly logger?: {
+      error(message: string, trace?: string, context?: string): void;
+    },
   ) {}
 
   async processAvailable(limit: number): Promise<number> {
@@ -269,6 +272,11 @@ export class VoucherDeliveryService {
               idempotencyKey: reference,
             });
     } catch {
+      this.logger?.error(
+        `Delivery ${claimed.deliveryPublicId} failed during preparation/send.`,
+        undefined,
+        'VoucherDeliveryService',
+      );
       result = { category: 'PERMANENT', status: 'FAILED' };
     }
     await this.finish(
@@ -546,4 +554,3 @@ function renderVoucherDeliveryEmailHtml(
 </body>
 </html>`;
 }
-

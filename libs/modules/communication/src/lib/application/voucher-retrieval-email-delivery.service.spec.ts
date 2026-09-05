@@ -62,6 +62,7 @@ describe('VoucherRetrievalEmailDeliveryService recovery', () => {
         providerMessageId: 'provider-ref',
       }),
     };
+    const logger = { error: jest.fn() };
     const service = new VoucherRetrievalEmailDeliveryService(
       database as never,
       provider,
@@ -74,8 +75,17 @@ describe('VoucherRetrievalEmailDeliveryService recovery', () => {
         retryBaseDelayMs: 5000,
         supportPhone: '+233240000000',
       },
+      logger,
     );
-    return { service, database, provider, deliveries, attempts, updateMany };
+    return {
+      service,
+      database,
+      provider,
+      deliveries,
+      attempts,
+      updateMany,
+      logger,
+    };
   }
 
   it('persists successful delivery using the allocated credentials and stable provider reference', async () => {
@@ -100,6 +110,23 @@ describe('VoucherRetrievalEmailDeliveryService recovery', () => {
         typeof value === 'bigint' ? value.toString() : value,
       ),
     ).not.toContain('test-pin');
+  });
+
+  it('logs a preparation failure without leaking exception data', async () => {
+    const { service, logger, provider } = setup();
+    jest
+      .mocked(generateVoucherDeliveryArtifacts)
+      .mockRejectedValueOnce(new Error('sensitive-pin-and-provider-token'));
+    await service.processAvailable(1);
+    expect(logger.error).toHaveBeenCalledWith(
+      'Preparing retrieval delivery-ref failed.',
+      undefined,
+      'VoucherRetrievalEmailDeliveryService',
+    );
+    expect(JSON.stringify(logger.error.mock.calls)).not.toContain(
+      'sensitive-pin-and-provider-token',
+    );
+    expect(provider.send).not.toHaveBeenCalled();
   });
 
   it('does not downgrade a successful send when saving success fails', async () => {

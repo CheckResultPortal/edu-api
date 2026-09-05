@@ -406,12 +406,14 @@ class VoucherRetrievalEmailDeliveryPoller
         VOUCHER_EMAIL_PROVIDER,
         VOUCHER_SMS_PROVIDER,
         ConfigService,
+        StructuredLogger,
       ],
       useFactory: (
         database: DatabaseClient,
         email: EmailProvider,
         sms: SmsProvider,
         config: ConfigService,
+        logger: StructuredLogger,
       ) => {
         const keyring: SecretKeyring = createSecretKeyring({
           activeKeyId: config.getOrThrow<string>(
@@ -429,22 +431,29 @@ class VoucherRetrievalEmailDeliveryPoller
             },
           ],
         });
-        return new VoucherDeliveryService(database, email, sms, keyring, {
-          emailFrom: config.getOrThrow<string>('RESEND_FROM_EMAIL'),
-          maximumAutomaticAttempts: config.getOrThrow<number>(
-            'VOUCHER_DELIVERY_MAX_ATTEMPTS',
-          ),
-          maximumRetryDelayMs: config.getOrThrow<number>(
-            'VOUCHER_DELIVERY_RETRY_MAX_DELAY_MS',
-          ),
-          processingLeaseMs: config.getOrThrow<number>(
-            'VOUCHER_DELIVERY_PROCESSING_LEASE_MS',
-          ),
-          retryBaseDelayMs: config.getOrThrow<number>(
-            'VOUCHER_DELIVERY_RETRY_BASE_DELAY_MS',
-          ),
-          supportPhone: config.getOrThrow<string>('CUSTOMER_SUPPORT_PHONE'),
-        });
+        return new VoucherDeliveryService(
+          database,
+          email,
+          sms,
+          keyring,
+          {
+            emailFrom: config.getOrThrow<string>('RESEND_FROM_EMAIL'),
+            maximumAutomaticAttempts: config.getOrThrow<number>(
+              'VOUCHER_DELIVERY_MAX_ATTEMPTS',
+            ),
+            maximumRetryDelayMs: config.getOrThrow<number>(
+              'VOUCHER_DELIVERY_RETRY_MAX_DELAY_MS',
+            ),
+            processingLeaseMs: config.getOrThrow<number>(
+              'VOUCHER_DELIVERY_PROCESSING_LEASE_MS',
+            ),
+            retryBaseDelayMs: config.getOrThrow<number>(
+              'VOUCHER_DELIVERY_RETRY_BASE_DELAY_MS',
+            ),
+            supportPhone: config.getOrThrow<string>('CUSTOMER_SUPPORT_PHONE'),
+          },
+          logger,
+        );
       },
     },
     AdminInvitationEmailDeliveryPoller,
@@ -452,11 +461,17 @@ class VoucherRetrievalEmailDeliveryPoller
     VoucherDeliveryPoller,
     {
       provide: VoucherRetrievalEmailDeliveryService,
-      inject: [DATABASE_CLIENT, VOUCHER_EMAIL_PROVIDER, ConfigService],
+      inject: [
+        DATABASE_CLIENT,
+        VOUCHER_EMAIL_PROVIDER,
+        ConfigService,
+        StructuredLogger,
+      ],
       useFactory: (
         database: DatabaseClient,
         email: EmailProvider,
         config: ConfigService,
+        logger: StructuredLogger,
       ) => {
         const keyring: SecretKeyring = createSecretKeyring({
           activeKeyId: config.getOrThrow<string>(
@@ -494,6 +509,7 @@ class VoucherRetrievalEmailDeliveryPoller
             ),
             supportPhone: config.getOrThrow<string>('CUSTOMER_SUPPORT_PHONE'),
           },
+          logger,
         );
       },
     },
