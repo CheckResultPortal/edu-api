@@ -1,6 +1,7 @@
 import {
   DefaultUssdFlowService,
   type UssdCategoryListItem,
+  type UssdVoucherRetrieval,
   type UssdOrderCreator,
   type UssdPaymentInitializer,
   type UssdProductListItem,
@@ -15,6 +16,7 @@ describe('DefaultUssdFlowService', () => {
     paymentPendingTtlMilliseconds: 900_000,
     quantityMaximum: 20,
     sessionTtlMilliseconds: 300_000,
+    supportPhone: '+233240000000',
   };
   const categories: readonly UssdCategoryListItem[] = [
     {
@@ -50,6 +52,8 @@ describe('DefaultUssdFlowService', () => {
     })[];
     orderCreator?: UssdOrderCreator;
     paymentInitializer?: UssdPaymentInitializer;
+    retrieval?: UssdVoucherRetrieval;
+    supportPhone?: string;
   }) {
     const sessions = new Map<string, UssdSessionData>();
     const store: UssdSessionStore = {
@@ -77,7 +81,16 @@ describe('DefaultUssdFlowService', () => {
       productQuery,
       orderCreator,
       paymentInitializer,
-      configuration,
+      {
+        ...configuration,
+        ...(overrides?.supportPhone === undefined
+          ? {}
+          : { supportPhone: overrides.supportPhone }),
+      },
+      overrides?.retrieval ?? {
+        lookup: jest.fn().mockResolvedValue(null),
+        request: jest.fn(),
+      },
     );
     return {
       orderCreator,
@@ -95,17 +108,67 @@ describe('DefaultUssdFlowService', () => {
   };
   const context = { clientIp: '10.0.0.8' };
 
-  it('renders the category menu on a fresh dial', async () => {
+  it('renders the welcome message, category menu, and support option on a fresh dial', async () => {
     const { service } = flow();
-    await expect(service.handle(initialDial, context)).resolves.toEqual({
+    const result = await service.handle(initialDial, context);
+    expect(result).toEqual({
       continueSession: true,
-      message: expect.stringContaining('Choose voucher category:'),
+      message: expect.stringContaining('Welcome to EduVoucherStore'),
     });
+    expect(result.message).toContain('1. Buy voucher');
+    expect(result.message).toContain('2. Retrieve voucher');
+    expect(result.message).toContain('0. Support');
+  });
+
+  it('provides customer support information and ends session when option 0 is selected', async () => {
+    const { service, sessions } = flow();
+    await service.handle(initialDial, context);
+
+    const result = await service.handle(
+      continuation('233244123456', '0'),
+      context,
+    );
+
+    expect(result.continueSession).toBe(false);
+    expect(result.message).toContain('EduVoucher Support:');
+    expect(result.message).toContain('+233240000000');
+    expect(result.message).not.toContain('WhatsApp');
+    expect(sessions.has('233244123456')).toBe(false);
+  });
+
+  it('provides customer support information and ends session when SUPPORT text is entered', async () => {
+    const { service, sessions } = flow();
+    await service.handle(initialDial, context);
+
+    const result = await service.handle(
+      continuation('233244123456', 'support'),
+      context,
+    );
+
+    expect(result.continueSession).toBe(false);
+    expect(result.message).toContain('EduVoucher Support:');
+    expect(result.message).toContain('+233240000000');
+    expect(sessions.has('233244123456')).toBe(false);
+  });
+
+  it('displays welcome message and support contact when no vouchers are available', async () => {
+    const { service } = flow({ categories: [] });
+    const result = await service.handle(initialDial, context);
+
+    expect(result.continueSession).toBe(true);
+    expect(result.message).toContain('2. Retrieve voucher');
+    const empty = await service.handle(
+      continuation('233244123456', '1'),
+      context,
+    );
+    expect(empty.message).toContain('No vouchers are available right now');
+    expect(empty.message).toContain('2. Retrieve voucher');
   });
 
   it('shows only the voucher types inside the selected category', async () => {
     const { service } = flow();
     await service.handle(initialDial, context);
+    await service.handle(continuation('233244123456', '1'), context);
 
     await expect(
       service.handle(continuation('233244123456', '2'), context),
@@ -118,6 +181,7 @@ describe('DefaultUssdFlowService', () => {
   it('goes straight to confirmation after an SMS-only choice', async () => {
     const { service, sessions } = flow();
     await service.handle(initialDial, context);
+    await service.handle(continuation('233244123456', '1'), context);
     await service.handle(continuation('233244123456', '1'), context);
     await service.handle(continuation('233244123456', '1'), context);
     await service.handle(continuation('233244123456', '3'), context);
@@ -135,6 +199,7 @@ describe('DefaultUssdFlowService', () => {
   it('collects an email when the preference includes one', async () => {
     const { service, sessions } = flow();
     await service.handle(initialDial, context);
+    await service.handle(continuation('233244123456', '1'), context);
     await service.handle(continuation('233244123456', '1'), context);
     await service.handle(continuation('233244123456', '1'), context);
     await service.handle(continuation('233244123456', '3'), context);
@@ -157,6 +222,7 @@ describe('DefaultUssdFlowService', () => {
     const sessionDial = { ...initialDial, sessionId };
 
     await service.handle(sessionDial, context);
+    await service.handle(continuation('233244123456', '1', sessionId), context);
     await service.handle(continuation('233244123456', '1', sessionId), context);
     await service.handle(continuation('233244123456', '1', sessionId), context);
     const deliveryMenu = await service.handle(
@@ -275,6 +341,156 @@ describe('DefaultUssdFlowService', () => {
     expect(sessions.has('233244123456')).toBe(false);
   });
 
+  it('does not publish placeholder support numbers', async () => {
+    const { service } = flow({ supportPhone: '+233000000000' });
+    const home = await service.handle(initialDial, context);
+    expect(home.message).not.toContain('0. Support');
+    const support = await service.handle(
+      continuation(initialDial.msisdn, '0'),
+      context,
+    );
+    expect(support.message).not.toContain('+233000000000');
+  });
+
+  it('paginates long category names without hiding navigation', async () => {
+    const { service } = flow({
+      categories: Array.from({ length: 8 }, (_, i) => ({
+        name: String(i).repeat(40),
+        publicId: String(i),
+      })),
+    });
+    await service.handle(initialDial, context);
+    const menu = await service.handle(
+      continuation(initialDial.msisdn, '1'),
+      context,
+    );
+    expect(menu.message.length).toBeLessThanOrEqual(182);
+    expect(menu.message).toContain('9. More');
+    expect(menu.message).toContain('0. Home');
+    const next = await service.handle(
+      continuation(initialDial.msisdn, '9'),
+      context,
+    );
+    expect(next.message).toContain('2'.repeat(40));
+    const invalid = await service.handle(
+      continuation(initialDial.msisdn, '8'),
+      context,
+    );
+    expect(invalid.message.length).toBeLessThanOrEqual(182);
+    expect(invalid.message).toContain('0. Home');
+  });
+
+  it('authorizes retrieval with the session phone and reuses one key after an uncertain request', async () => {
+    const retrieval = {
+      lookup: jest.fn().mockResolvedValue({
+        status: 'DELIVERED',
+        canRequestVoucherEmail: true,
+      }),
+      request: jest
+        .fn()
+        .mockRejectedValueOnce(new Error('database'))
+        .mockResolvedValue({}),
+    };
+    const { service, sessions } = flow({ categories: [], retrieval });
+    await service.handle({ ...initialDial, sessionId: 'session-1' }, context);
+    await service.handle(
+      continuation(initialDial.msisdn, '2', 'session-1'),
+      context,
+    );
+    await service.handle(
+      continuation(initialDial.msisdn, reference, 'session-1'),
+      context,
+    );
+    expect(retrieval.lookup).toHaveBeenCalledWith({
+      phoneNumber: '+233244123456',
+      orderReference: reference,
+    });
+    expect(retrieval.request).not.toHaveBeenCalled();
+    const failed = await service.handle(
+      continuation(initialDial.msisdn, '1', 'session-1'),
+      context,
+    );
+    expect(failed.message).toContain('Retry same request');
+    const queued = await service.handle(
+      continuation(initialDial.msisdn, '1', 'session-1'),
+      context,
+    );
+    expect(queued.message).toContain('queued');
+    expect(retrieval.request.mock.calls[0]).toEqual(
+      retrieval.request.mock.calls[1],
+    );
+    expect(retrieval.request.mock.calls[0][0]).toEqual({
+      contact: { phoneNumber: '+233244123456' },
+      orderReference: reference,
+      idempotencyKey: expect.stringMatching(/^ussd-retrieval-/),
+    });
+    await service.handle(
+      continuation(initialDial.msisdn, '1', 'session-1'),
+      context,
+    );
+    expect(retrieval.request).toHaveBeenCalledTimes(2);
+    expect(sessions.get('session-1')).toEqual({ state: 'RETRIEVAL_COMPLETE' });
+  });
+
+  it.each([
+    'WAITING_FOR_STOCK',
+    'PAYMENT_PENDING',
+    'PAYMENT_FAILED',
+    'DELIVERED',
+  ])('does not queue unavailable email copies (%s)', async (status) => {
+    const retrieval = {
+      lookup: jest
+        .fn()
+        .mockResolvedValue({ status, canRequestVoucherEmail: false }),
+      request: jest.fn(),
+    };
+    const { service } = flow({ retrieval });
+    await service.handle(initialDial, context);
+    await service.handle(continuation(initialDial.msisdn, '2'), context);
+    const result = await service.handle(
+      continuation(initialDial.msisdn, reference),
+      context,
+    );
+    expect(result.continueSession).toBe(false);
+    expect(retrieval.request).not.toHaveBeenCalled();
+    expect(result.message).not.toContain('queued');
+  });
+
+  it('handles invalid/mismatched references, cancellation and expiry without a send', async () => {
+    const retrieval = {
+      lookup: jest.fn().mockResolvedValueOnce(null).mockResolvedValue({
+        status: 'DELIVERED',
+        canRequestVoucherEmail: true,
+      }),
+      request: jest.fn(),
+    };
+    const { service, sessions } = flow({ retrieval });
+    await service.handle(initialDial, context);
+    await service.handle(continuation(initialDial.msisdn, '2'), context);
+    await service.handle(continuation(initialDial.msisdn, 'bad-ref'), context);
+    expect(retrieval.lookup).not.toHaveBeenCalled();
+    const missing = await service.handle(
+      continuation(initialDial.msisdn, reference),
+      context,
+    );
+    expect(missing.message).toContain('No matching order');
+    await service.handle(continuation(initialDial.msisdn, reference), context);
+    const cancelled = await service.handle(
+      continuation(initialDial.msisdn, '0'),
+      context,
+    );
+    expect(cancelled.message).toContain('cancelled');
+    sessions.clear();
+    const expired = await service.handle(
+      continuation(initialDial.msisdn, '1'),
+      context,
+    );
+    expect(expired.message).toContain('Welcome');
+    expect(retrieval.request).not.toHaveBeenCalled();
+  });
+
+  const reference = '6b0f6e55-0f5e-4c3a-9d3e-2a7c1a111111';
+
   function makeOrderCreator(): UssdOrderCreator {
     return {
       create: jest.fn().mockResolvedValue({
@@ -301,6 +517,7 @@ describe('DefaultUssdFlowService', () => {
 
   async function walkToSummary(service: DefaultUssdFlowService): Promise<void> {
     await service.handle(initialDial, context);
+    await service.handle(continuation('233244123456', '1'), context);
     await service.handle(continuation('233244123456', '1'), context);
     await service.handle(continuation('233244123456', '1'), context);
     await service.handle(continuation('233244123456', '3'), context);

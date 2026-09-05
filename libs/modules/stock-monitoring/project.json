@@ -4,5 +4,9 @@
   "sourceRoot": "libs/modules/stock-monitoring/src",
   "projectType": "library",
   "tags": ["scope:stock-monitoring", "type:module"],
-  "targets": {}
+  "targets": {
+    "build": {
+      "outputs": ["{workspaceRoot}/dist/out-tsc/{projectRoot}"]
+    }
+  }
 }

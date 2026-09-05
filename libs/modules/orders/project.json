@@ -4,5 +4,9 @@
   "sourceRoot": "libs/modules/orders/src",
   "projectType": "library",
   "tags": ["scope:orders", "type:module"],
-  "targets": {}
+  "targets": {
+    "build": {
+      "outputs": ["{workspaceRoot}/dist/out-tsc/{projectRoot}"]
+    }
+  }
 }

@@ -9,6 +9,8 @@ import type { DatabaseClient } from '@edu-api/database';
 
 import type {
   EmailProvider,
+  EmailAttachment,
+  SendEmailResult,
   EmailProviderFailureCategory,
 } from './email-provider';
 import { generateVoucherDeliveryArtifacts } from './voucher-delivery-artifacts';
@@ -191,8 +193,9 @@ export class VoucherRetrievalEmailDeliveryService {
   }
 
   private async send(claimed: ClaimedRetrievalEmail): Promise<void> {
+    let attachments: EmailAttachment[];
     try {
-      const attachments = (
+      attachments = (
         await Promise.all(
           claimed.vouchers.map(async (voucher, index) => {
             if (!isEncryptedSecret(voucher.encryptedPin)) {
@@ -212,7 +215,19 @@ export class VoucherRetrievalEmailDeliveryService {
           }),
         )
       ).flat();
-      const result = await this.emailProvider.send({
+    } catch {
+      await this.finishFailure(
+        claimed.deliveryId,
+        claimed.attemptId,
+        claimed.leaseUntil,
+        claimed.attemptNumber,
+        'PERMANENT',
+      );
+      return;
+    }
+    let result: SendEmailResult;
+    try {
+      result = await this.emailProvider.send({
         attachments,
         from: this.options.emailFrom,
         to: claimed.destinationEmail,
@@ -221,38 +236,40 @@ export class VoucherRetrievalEmailDeliveryService {
         html: '<p>Your requested EduVoucher voucher copies are attached.</p><p>Keep the attached documents private. EduVoucher support will never ask you to post a PIN publicly.</p>',
         idempotencyKey: `voucher-retrieval-${claimed.deliveryPublicId}`,
       });
-      if (result.status === 'SENT') {
-        await this.finishSent(
-          claimed.deliveryId,
-          claimed.attemptId,
-          claimed.leaseUntil,
-          claimed.attemptNumber,
-          result.providerMessageId,
-        );
-      } else if (result.category === 'UNKNOWN_OUTCOME') {
-        await this.finishUnknown(
-          claimed.deliveryId,
-          claimed.attemptId,
-          claimed.leaseUntil,
-          claimed.attemptNumber,
-        );
-      } else {
-        await this.finishFailure(
-          claimed.deliveryId,
-          claimed.attemptId,
-          claimed.leaseUntil,
-          claimed.attemptNumber,
-          result.category,
-          result.providerCode,
-        );
-      }
     } catch {
+      await this.finishUnknown(
+        claimed.deliveryId,
+        claimed.attemptId,
+        claimed.leaseUntil,
+        claimed.attemptNumber,
+      );
+      return;
+    }
+    // Persistence errors propagate. Retain the processing lease so recovery can
+    // classify the possibly completed send as UNKNOWN, never a safe failure.
+    if (result.status === 'SENT') {
+      await this.finishSent(
+        claimed.deliveryId,
+        claimed.attemptId,
+        claimed.leaseUntil,
+        claimed.attemptNumber,
+        result.providerMessageId,
+      );
+    } else if (result.category === 'UNKNOWN_OUTCOME') {
+      await this.finishUnknown(
+        claimed.deliveryId,
+        claimed.attemptId,
+        claimed.leaseUntil,
+        claimed.attemptNumber,
+      );
+    } else {
       await this.finishFailure(
         claimed.deliveryId,
         claimed.attemptId,
         claimed.leaseUntil,
         claimed.attemptNumber,
-        'PERMANENT',
+        result.category,
+        result.providerCode,
       );
     }
   }
@@ -408,9 +425,15 @@ function isEncryptedSecret(value: unknown): value is EncryptedSecret {
   return (
     typeof value === 'object' &&
     value !== null &&
+    'algorithm' in value &&
+    value.algorithm === 'aes-256-gcm' &&
     'ciphertext' in value &&
+    typeof value.ciphertext === 'string' &&
     'iv' in value &&
+    typeof value.iv === 'string' &&
     'keyId' in value &&
-    'tag' in value
+    typeof value.keyId === 'string' &&
+    'authTag' in value &&
+    typeof value.authTag === 'string'
   );
 }

@@ -215,6 +215,20 @@ export const publicApiEnvironmentSchema = httpEnvironmentSchema
           : value,
       z.string().trim().max(1_000).optional(),
     ),
+    CUSTOMER_SUPPORT_PHONE: z.preprocess(
+      (value) =>
+        typeof value === 'string' &&
+        (value.trim() === '' || /^(?:233)?0+$/.test(value.replace(/\D/g, '')))
+          ? undefined
+          : value,
+      z
+        .string()
+        .trim()
+        .min(6)
+        .max(32)
+        .regex(/^\+?[0-9][0-9 ()-]{5,31}$/)
+        .optional(),
+    ),
     USSD_MAX_PRODUCTS: z.coerce.number().int().min(1).max(8).default(4),
     USSD_SESSION_TTL_MS: z.coerce
       .number()

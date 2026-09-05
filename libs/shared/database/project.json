@@ -4,5 +4,12 @@
   "sourceRoot": "libs/shared/database/src",
   "projectType": "library",
   "tags": ["type:shared", "scope:shared"],
-  "targets": {}
+  "targets": {
+    "build": {
+      "outputs": [
+        "{workspaceRoot}/dist/out-tsc/{projectRoot}",
+        "{workspaceRoot}/dist/out-tsc/generated/prisma"
+      ]
+    }
+  }
 }

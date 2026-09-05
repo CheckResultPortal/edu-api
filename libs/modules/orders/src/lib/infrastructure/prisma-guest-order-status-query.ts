@@ -45,6 +45,8 @@ export class PrismaGuestOrderStatusQuery implements GuestOrderStatusQuery {
     readonly orderReference: string;
     readonly phoneNumber?: string;
   }): Promise<GuestOrderRetrievalAccess | null> {
+    if (input.email === undefined && input.phoneNumber === undefined)
+      return null;
     const order = await this.database.order.findFirst({
       where: {
         publicReference: input.orderReference,

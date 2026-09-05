@@ -42,6 +42,10 @@ function isSessionData(value: unknown): value is UssdSessionData {
   if (typeof value !== 'object' || value === null) return false;
   const state = (value as Record<string, unknown>)['state'];
   return (
+    state === 'HOME' ||
+    state === 'RETRIEVAL_REFERENCE' ||
+    state === 'RETRIEVAL_CONFIRM' ||
+    state === 'RETRIEVAL_COMPLETE' ||
     state === 'CATEGORY' ||
     state === 'PRODUCT' ||
     state === 'QUANTITY' ||

@@ -7,6 +7,21 @@ import {
 } from './environment';
 
 describe('environment validation', () => {
+  it.each(['', '+233000000000'])(
+    'omits missing/placeholder USSD support contact (%s)',
+    (value) => {
+      const config = validatePublicApiEnvironment({
+        SERVICE_NAME: 'public-api',
+        DATABASE_URL: 'postgresql://user:password@localhost:5432/database',
+        REDIS_URL: 'redis://localhost:6379',
+        ORDER_PRIVACY_HMAC_KEY: privacyHmacKey,
+        ...paystackPublicEnvironment,
+        CUSTOMER_SUPPORT_PHONE: value,
+      });
+      expect(config.CUSTOMER_SUPPORT_PHONE).toBeUndefined();
+    },
+  );
+
   describe('corsAllowedOrigins', () => {
     it('normalizes a bounded exact-origin allowlist', () => {
       expect(
@@ -55,6 +70,9 @@ describe('environment validation', () => {
         ORDER_RATE_LIMIT_WINDOW_MS: 600000,
         ORDER_RATE_LIMIT_IP_MAXIMUM: 30,
         ORDER_RATE_LIMIT_PHONE_MAXIMUM: 10,
+        ORDER_STATUS_RATE_LIMIT_WINDOW_MS: 600000,
+        ORDER_STATUS_RATE_LIMIT_IP_MAXIMUM: 30,
+        ORDER_STATUS_RATE_LIMIT_CONTACT_MAXIMUM: 10,
         PAYSTACK_SECRET_KEY: paystackPublicEnvironment.PAYSTACK_SECRET_KEY,
         PAYSTACK_BASE_URL: 'https://api.paystack.co/',
         PAYSTACK_REQUEST_TIMEOUT_MS: 10000,
@@ -343,6 +361,12 @@ describe('environment validation', () => {
         STOCK_ALERT_OUTBOX_LEASE_MS: 120000,
         RECONCILIATION_BATCH_SIZE: 50,
         RECONCILIATION_POLL_INTERVAL_MS: 60000,
+        VOUCHER_RETRIEVAL_EMAIL_BATCH_SIZE: 25,
+        VOUCHER_RETRIEVAL_EMAIL_POLL_INTERVAL_MS: 5000,
+        VOUCHER_RETRIEVAL_EMAIL_PROCESSING_LEASE_MS: 120000,
+        VOUCHER_RETRIEVAL_EMAIL_MAX_ATTEMPTS: 5,
+        VOUCHER_RETRIEVAL_EMAIL_RETRY_BASE_DELAY_MS: 5000,
+        VOUCHER_RETRIEVAL_EMAIL_RETRY_MAX_DELAY_MS: 300000,
       });
     });
 

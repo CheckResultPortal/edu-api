@@ -83,6 +83,7 @@ services:
       MOOLRE_ACCOUNT_NUMBER: ${MOOLRE_ACCOUNT_NUMBER}
       MOOLRE_BASE_URL: ${MOOLRE_BASE_URL:-https://api.moolre.com/}
       MOOLRE_REQUEST_TIMEOUT_MS: ${MOOLRE_REQUEST_TIMEOUT_MS:-10000}
+      CUSTOMER_SUPPORT_PHONE: ${CUSTOMER_SUPPORT_PHONE}
     depends_on:
       postgres:
         condition: service_healthy

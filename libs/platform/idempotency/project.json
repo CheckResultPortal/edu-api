@@ -4,5 +4,9 @@
   "sourceRoot": "libs/platform/idempotency/src",
   "projectType": "library",
   "tags": ["type:platform", "scope:idempotency"],
-  "targets": {}
+  "targets": {
+    "build": {
+      "outputs": ["{workspaceRoot}/dist/out-tsc/{projectRoot}"]
+    }
+  }
 }

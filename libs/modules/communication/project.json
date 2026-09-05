@@ -4,5 +4,9 @@
   "sourceRoot": "libs/modules/communication/src",
   "projectType": "library",
   "tags": ["scope:communication", "type:module"],
-  "targets": {}
+  "targets": {
+    "build": {
+      "outputs": ["{workspaceRoot}/dist/out-tsc/{projectRoot}"]
+    }
+  }
 }

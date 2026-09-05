@@ -30,11 +30,12 @@ import {
 } from '@nestjs/swagger';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
+import { CustomerVoucherRetrievalConflictError } from '@edu-api/communication';
 import {
-  CUSTOMER_VOUCHER_RETRIEVAL,
-  CustomerVoucherRetrievalConflictError,
-  type CustomerVoucherRetrieval,
-} from '@edu-api/communication';
+  GUEST_VOUCHER_RETRIEVAL_SERVICE,
+  GuestVoucherRetrievalService,
+  GuestVoucherRetrievalUnavailableError,
+} from '../application/guest-voucher-retrieval-service';
 import { jsonApiCollection, jsonApiResource } from '@edu-api/http';
 
 import {
@@ -74,8 +75,8 @@ export class PublicOrdersController {
     private readonly statusQuery: GuestOrderStatusQuery,
     @Inject(GUEST_ORDER_STATUS_RATE_LIMITER)
     private readonly statusRateLimiter: OrderRateLimiter,
-    @Inject(CUSTOMER_VOUCHER_RETRIEVAL)
-    private readonly voucherRetrieval: CustomerVoucherRetrieval,
+    @Inject(GUEST_VOUCHER_RETRIEVAL_SERVICE)
+    private readonly voucherRetrieval: GuestVoucherRetrievalService,
   ) {}
 
   @Post()
@@ -247,30 +248,22 @@ export class PublicOrdersController {
       const idempotencyKey = assertOrderIdempotencyKey(rawIdempotencyKey);
       const orderReference = normalizeOrderPublicReference(rawOrderReference);
       const contact = parseGuestVoucherRetrievalRequest(body);
-      await this.statusRateLimiter.consume({
-        clientIp: request.ip,
-        phoneNumber: contact.phoneNumber ?? `email:${contact.email!}`,
-      });
-      const access = await this.statusQuery.findVoucherRetrievalAccess({
-        ...contact,
-        orderReference,
-      });
-      if (access === null) {
-        throw new NotFoundException({
-          code: 'ORDER_NOT_FOUND',
-          message: 'The order could not be found with those details.',
-        });
-      }
       const delivery = await this.voucherRetrieval.request({
-        destinationEmail: access.destinationEmail,
+        contact,
+        orderReference,
         idempotencyKey,
-        orderId: access.orderId,
+        clientIp: request.ip,
       });
       return jsonApiResource('voucher-retrievals', delivery.deliveryPublicId, {
         status: 'QUEUED',
       });
     } catch (error) {
-      if (error instanceof NotFoundException) throw error;
+      if (error instanceof GuestVoucherRetrievalUnavailableError) {
+        throw new NotFoundException({
+          code: 'ORDER_NOT_FOUND',
+          message: 'The order could not be found with those details.',
+        });
+      }
       if (error instanceof CustomerVoucherRetrievalConflictError) {
         throw new ConflictException({
           code: 'IDEMPOTENCY_CONFLICT',

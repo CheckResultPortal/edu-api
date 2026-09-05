@@ -8,3 +8,5 @@ export * from './lib/infrastructure/prisma-guest-order-status-query';
 export * from './lib/orders.module';
 export * from './lib/orders-payment-query.module';
 export * from './lib/orders-worker.module';
+
+export * from './lib/application/guest-voucher-retrieval-service';

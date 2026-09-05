@@ -9,7 +9,12 @@ import {
   type CatalogProductQuery,
 } from '@edu-api/catalog';
 import { DatabaseModule } from '@edu-api/database';
-import { ORDER_USSD_CREATION_SERVICE, OrdersCoreModule } from '@edu-api/orders';
+import {
+  GUEST_VOUCHER_RETRIEVAL_SERVICE,
+  type GuestVoucherRetrievalService,
+  ORDER_USSD_CREATION_SERVICE,
+  OrdersCoreModule,
+} from '@edu-api/orders';
 import {
   PaymentInitializationInProgressError,
   PAYMENT_INITIALIZATION_SERVICE,
@@ -185,6 +190,7 @@ export class UssdCoreModule {}
         USSD_ORDER_CREATOR,
         USSD_PAYMENT_INITIALIZER,
         ConfigService,
+        GUEST_VOUCHER_RETRIEVAL_SERVICE,
       ],
       useFactory: (
         sessions: UssdSessionStore,
@@ -192,6 +198,7 @@ export class UssdCoreModule {}
         orderCreator: UssdOrderCreator,
         paymentInitializer: PaymentInitializationService,
         config: ConfigService,
+        retrieval: GuestVoucherRetrievalService,
       ): DefaultUssdFlowService =>
         new DefaultUssdFlowService(
           sessions,
@@ -207,7 +214,9 @@ export class UssdCoreModule {}
             paymentPendingTtlMilliseconds: config.getOrThrow<number>(
               'USSD_PENDING_PAYMENT_TTL_MS',
             ),
+            supportPhone: config.get<string>('CUSTOMER_SUPPORT_PHONE'),
           } satisfies UssdFlowConfiguration,
+          retrieval,
         ),
     },
     {

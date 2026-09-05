@@ -1,8 +1,21 @@
+import { createHash } from 'node:crypto';
 import type {
   CanonicalUssdRequest,
   CanonicalUssdResponse,
 } from './ussd-provider';
 import type { UssdSessionData, UssdSessionStore } from './ussd-session-store';
+
+export interface UssdVoucherRetrieval {
+  lookup(input: {
+    phoneNumber: string;
+    orderReference: string;
+  }): Promise<{ status: string; canRequestVoucherEmail: boolean } | null>;
+  request(input: {
+    orderReference: string;
+    contact: { phoneNumber: string };
+    idempotencyKey: string;
+  }): Promise<unknown>;
+}
 
 export const USSD_FLOW_SERVICE = Symbol('USSD_FLOW_SERVICE');
 export const USSD_PRODUCT_QUERY = Symbol('USSD_PRODUCT_QUERY');
@@ -70,6 +83,7 @@ export interface UssdFlowConfiguration {
   readonly paymentPendingTtlMilliseconds: number;
   readonly quantityMaximum: number;
   readonly sessionTtlMilliseconds: number;
+  readonly supportPhone?: string;
 }
 
 export interface UssdFlowContext {
@@ -79,7 +93,6 @@ export interface UssdFlowContext {
 /** Injectable flow contract; the class below is the only implementation. */
 export type UssdFlowService = DefaultUssdFlowService;
 
-const MAXIMUM_INPUT_LENGTH = 182;
 const MAXIMUM_EMAIL_LENGTH = 320;
 
 /**
@@ -94,6 +107,7 @@ export class DefaultUssdFlowService {
     private readonly orderCreator: UssdOrderCreator,
     private readonly paymentInitializer: UssdPaymentInitializer,
     private readonly configuration: UssdFlowConfiguration,
+    private readonly retrieval: UssdVoucherRetrieval,
   ) {}
 
   async handle(
@@ -111,10 +125,21 @@ export class DefaultUssdFlowService {
       session = null;
     }
     if (session === null || session.state === undefined) {
-      session = { state: 'CATEGORY' };
+      return this.showHome(request);
     }
 
     switch (session.state) {
+      case 'HOME':
+        return this.handleHome(request);
+      case 'RETRIEVAL_REFERENCE':
+        return this.handleRetrievalReference(request);
+      case 'RETRIEVAL_CONFIRM':
+        return this.handleRetrievalConfirmation(request, session);
+      case 'RETRIEVAL_COMPLETE':
+        return {
+          continueSession: false,
+          message: 'Your voucher email copy request is queued.',
+        };
       case 'CATEGORY':
         return this.handleCategorySelection(request, session);
       case 'PRODUCT':
@@ -132,51 +157,249 @@ export class DefaultUssdFlowService {
     }
   }
 
-  private async handleCategorySelection(
+  private async showHome(
     request: CanonicalUssdRequest,
-    session: UssdSessionData,
+    prefix = '',
   ): Promise<CanonicalUssdResponse> {
-    const categories = await this.products.listActiveCategories(
-      this.configuration.maximumProducts,
+    await this.sessions.set(
+      sessionIdentifier(request),
+      { state: 'HOME' },
+      this.configuration.sessionTtlMilliseconds,
     );
-    if (categories.length === 0) {
+    return {
+      continueSession: true,
+      message: [
+        prefix,
+        'Welcome to EduVoucherStore',
+        '1. Buy voucher',
+        '2. Retrieve voucher',
+        ...(this.supportPhone() ? ['0. Support'] : []),
+      ]
+        .filter(Boolean)
+        .join('\n'),
+    };
+  }
+
+  private supportPhone(): string | undefined {
+    const phone = this.configuration.supportPhone?.trim();
+    return phone && !/^(?:233)?0+$/.test(phone.replace(/\D/g, ''))
+      ? phone
+      : undefined;
+  }
+
+  private async handleHome(
+    request: CanonicalUssdRequest,
+  ): Promise<CanonicalUssdResponse> {
+    const input = request.input.trim().toUpperCase();
+    if (input === '0' || input === 'SUPPORT') {
+      await this.sessions.delete(sessionIdentifier(request));
       return {
         continueSession: false,
-        message: 'No vouchers are available right now. Try again later.',
+        message: this.supportPhone()
+          ? `EduVoucher Support:\nCall: ${this.supportPhone()}`
+          : 'Support contact is currently unavailable. Please try again later.',
       };
     }
-
-    if (!session.categoryMenuShown) {
+    if (input === '1')
+      return this.handleCategorySelection(
+        { ...request, input: '' },
+        { state: 'CATEGORY' },
+      );
+    if (input === '2') {
       await this.sessions.set(
         sessionIdentifier(request),
-        { state: 'CATEGORY', categoryMenuShown: true },
+        { state: 'RETRIEVAL_REFERENCE' },
         this.configuration.sessionTtlMilliseconds,
       );
       return {
         continueSession: true,
-        message: renderCategoryMenu(categories),
+        message: 'Enter your order reference:\n0. Home',
       };
     }
+    return this.showHome(request, 'Invalid option.');
+  }
 
-    const choice = parseChoice(request.input, categories.length);
-    const selected = choice === null ? undefined : categories[choice - 1];
-    if (selected === undefined) {
+  private async handleRetrievalReference(
+    request: CanonicalUssdRequest,
+  ): Promise<CanonicalUssdResponse> {
+    if (request.input.trim() === '0') return this.showHome(request);
+    const reference = request.input.trim().toLowerCase();
+    if (
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(
+        reference,
+      )
+    )
       return {
         continueSession: true,
-        message: `Invalid option.\n${renderCategoryMenu(categories)}`,
+        message: 'Invalid order reference. Enter the full reference:\n0. Home',
+      };
+    const phoneNumber = canonicalizeMsisdn(request.msisdn);
+    if (phoneNumber === null)
+      return { continueSession: false, message: 'Invalid session.' };
+    try {
+      const order = await this.retrieval.lookup({
+        phoneNumber,
+        orderReference: reference,
+      });
+      if (order === null)
+        return {
+          continueSession: true,
+          message:
+            'No matching order. Check the reference and use the phone used to purchase.\n0. Home',
+        };
+      if (!order.canRequestVoucherEmail) {
+        await this.sessions.delete(sessionIdentifier(request));
+        const status =
+          order.status === 'WAITING_FOR_STOCK'
+            ? 'Payment received. Waiting for stock.'
+            : order.status === 'PAYMENT_PENDING'
+              ? 'Payment is still being verified.'
+              : order.status === 'PAYMENT_FAILED'
+                ? 'Payment did not complete.'
+                : 'Email copies are unavailable for this order.';
+        return {
+          continueSession: false,
+          message: [
+            status,
+            ...(this.supportPhone() ? [`Support: ${this.supportPhone()}`] : []),
+          ].join('\n'),
+        };
+      }
+      const key =
+        'ussd-retrieval-' +
+        createHash('sha256')
+          .update(
+            JSON.stringify([
+              sessionIdentifier(request),
+              phoneNumber,
+              reference,
+            ]),
+          )
+          .digest('hex');
+      await this.sessions.set(
+        sessionIdentifier(request),
+        {
+          state: 'RETRIEVAL_CONFIRM',
+          retrievalOrderReference: reference,
+          retrievalKey: key,
+        },
+        this.configuration.sessionTtlMilliseconds,
+      );
+      return {
+        continueSession: true,
+        message:
+          'Send the same vouchers to the email saved on your order?\n1. Send email copy\n0. Cancel',
+      };
+    } catch {
+      return {
+        continueSession: true,
+        message: 'Unable to retrieve now. Please try later.\n0. Home',
       };
     }
+  }
+
+  private async handleRetrievalConfirmation(
+    request: CanonicalUssdRequest,
+    session: UssdSessionData,
+  ): Promise<CanonicalUssdResponse> {
+    if (request.input.trim() === '0') {
+      await this.sessions.delete(sessionIdentifier(request));
+      return { continueSession: false, message: 'Retrieval cancelled.' };
+    }
+    if (request.input.trim() !== '1')
+      return {
+        continueSession: true,
+        message: '1. Send email copy\n0. Cancel',
+      };
+    const phoneNumber = canonicalizeMsisdn(request.msisdn);
+    if (
+      !phoneNumber ||
+      !session.retrievalOrderReference ||
+      !session.retrievalKey
+    )
+      return this.showHome(request, 'Session expired.');
+    try {
+      await this.retrieval.request({
+        orderReference: session.retrievalOrderReference,
+        contact: { phoneNumber },
+        idempotencyKey: session.retrievalKey,
+      });
+      await this.sessions.set(
+        sessionIdentifier(request),
+        { state: 'RETRIEVAL_COMPLETE' },
+        this.configuration.sessionTtlMilliseconds,
+      );
+      return {
+        continueSession: false,
+        message: 'Your voucher email copy request is queued.',
+      };
+    } catch {
+      return {
+        continueSession: true,
+        message:
+          'Unable to confirm the request yet.\n1. Retry same request\n0. Cancel',
+      };
+    }
+  }
+
+  private async handleCategorySelection(
+    request: CanonicalUssdRequest,
+    session: UssdSessionData,
+  ): Promise<CanonicalUssdResponse> {
+    if (request.input.trim() === '0' && session.categoryMenuShown)
+      return this.showHome(request);
+    const categories = await this.products.listActiveCategories(
+      this.configuration.maximumProducts,
+    );
+    if (categories.length === 0)
+      return this.showHome(request, 'No vouchers are available right now.');
+    const page = menuPage(session.menuPage, categories.length);
+    if (!session.categoryMenuShown) {
+      await this.sessions.set(
+        sessionIdentifier(request),
+        { state: 'CATEGORY', categoryMenuShown: true, menuPage: 0 },
+        this.configuration.sessionTtlMilliseconds,
+      );
+      return {
+        continueSession: true,
+        message: renderCategoryMenu(categories, 0),
+      };
+    }
+    if (request.input.trim() === '9' && categories.length > MENU_PAGE_SIZE) {
+      const next = (page + 1) % Math.ceil(categories.length / MENU_PAGE_SIZE);
+      await this.sessions.set(
+        sessionIdentifier(request),
+        { ...session, menuPage: next },
+        this.configuration.sessionTtlMilliseconds,
+      );
+      return {
+        continueSession: true,
+        message: renderCategoryMenu(categories, next),
+      };
+    }
+    const choice = parseChoice(
+      request.input,
+      Math.min(MENU_PAGE_SIZE, categories.length - page * MENU_PAGE_SIZE),
+    );
+    const selected =
+      choice === null
+        ? undefined
+        : categories[page * MENU_PAGE_SIZE + choice - 1];
+    if (selected === undefined)
+      return {
+        continueSession: true,
+        message: renderCategoryMenu(categories, page, 'Invalid option.'),
+      };
 
     const products = await this.products.listActiveProducts(
       selected.publicId,
       this.configuration.maximumProducts,
     );
-    if (products.length === 0) {
+    if (products.length === 0)
       return {
         continueSession: true,
-        message: `No vouchers are available in ${truncate(selected.name, 36)}.\n${renderCategoryMenu(categories)}`,
+        message: renderCategoryMenu(categories, page, 'Category unavailable.'),
       };
-    }
 
     await this.sessions.set(
       sessionIdentifier(request),
@@ -209,6 +432,7 @@ export class DefaultUssdFlowService {
         message: 'Choose a voucher category first.',
       };
     }
+    if (request.input.trim() === '0') return this.showHome(request);
     const page = await this.products.listActiveProducts(
       session.catalogGroupPublicId,
       this.configuration.maximumProducts,
@@ -241,20 +465,41 @@ export class DefaultUssdFlowService {
       };
     }
 
-    const choice = parseChoice(request.input, page.length);
-    if (choice === null) {
+    const pageIndex = menuPage(session.menuPage, page.length);
+    if (request.input.trim() === '9' && page.length > MENU_PAGE_SIZE) {
+      const next = (pageIndex + 1) % Math.ceil(page.length / MENU_PAGE_SIZE);
+      await this.sessions.set(
+        sessionIdentifier(request),
+        { ...session, menuPage: next },
+        this.configuration.sessionTtlMilliseconds,
+      );
       return {
         continueSession: true,
-        message: `Invalid option.\n${renderProductMenu(page, session.catalogGroupName ?? 'Vouchers')}`,
+        message: renderProductMenu(
+          page,
+          session.catalogGroupName ?? 'Vouchers',
+          next,
+        ),
       };
     }
-    const selected = page[choice - 1];
-    if (selected === undefined) {
+    const choice = parseChoice(
+      request.input,
+      Math.min(MENU_PAGE_SIZE, page.length - pageIndex * MENU_PAGE_SIZE),
+    );
+    const selected =
+      choice === null
+        ? undefined
+        : page[pageIndex * MENU_PAGE_SIZE + choice - 1];
+    if (selected === undefined)
       return {
         continueSession: true,
-        message: `Invalid option.\n${renderProductMenu(page, session.catalogGroupName ?? 'Vouchers')}`,
+        message: renderProductMenu(
+          page,
+          session.catalogGroupName ?? 'Vouchers',
+          pageIndex,
+          'Invalid option.',
+        ),
       };
-    }
 
     await this.sessions.set(
       sessionIdentifier(request),
@@ -551,28 +796,52 @@ export class DefaultUssdFlowService {
   }
 }
 
+const MENU_PAGE_SIZE = 2;
+function menuPage(value: number | undefined, length: number): number {
+  return value !== undefined &&
+    Number.isInteger(value) &&
+    value >= 0 &&
+    value < Math.ceil(length / MENU_PAGE_SIZE)
+    ? value
+    : 0;
+}
 function renderCategoryMenu(
   categories: readonly UssdCategoryListItem[],
+  page = 0,
+  prefix = '',
 ): string {
-  const lines = categories.map(
-    (category, index) => `${index + 1}. ${truncate(category.name, 40)}`,
-  );
-  return ['Choose voucher category:', ...lines]
-    .join('\n')
-    .slice(0, MAXIMUM_INPUT_LENGTH);
+  return [
+    prefix,
+    'Choose voucher category:',
+    ...categories
+      .slice(page * MENU_PAGE_SIZE, (page + 1) * MENU_PAGE_SIZE)
+      .map((category, index) => `${index + 1}. ${truncate(category.name, 40)}`),
+    ...(categories.length > MENU_PAGE_SIZE ? ['9. More'] : []),
+    '0. Home',
+  ]
+    .filter(Boolean)
+    .join('\n');
 }
-
 function renderProductMenu(
   products: readonly UssdProductListItem[],
   categoryName: string,
+  page = 0,
+  prefix = '',
 ): string {
-  const lines = products.map(
-    (product, index) =>
-      `${index + 1}. ${truncate(product.name, 40)} ${formatCedis(product.sellingPriceMinor)}`,
-  );
-  return [`${truncate(categoryName, 36)}:`, ...lines]
-    .join('\n')
-    .slice(0, MAXIMUM_INPUT_LENGTH);
+  return [
+    prefix,
+    `${truncate(categoryName, 24)}:`,
+    ...products
+      .slice(page * MENU_PAGE_SIZE, (page + 1) * MENU_PAGE_SIZE)
+      .map(
+        (product, index) =>
+          `${index + 1}. ${truncate(product.name, 24)} ${formatCedis(product.sellingPriceMinor)}`,
+      ),
+    ...(products.length > MENU_PAGE_SIZE ? ['9. More'] : []),
+    '0. Home',
+  ]
+    .filter(Boolean)
+    .join('\n');
 }
 
 function renderDeliveryMenu(): string {

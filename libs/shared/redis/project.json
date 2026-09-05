@@ -4,5 +4,9 @@
   "sourceRoot": "libs/shared/redis/src",
   "projectType": "library",
   "tags": ["type:shared", "scope:shared"],
-  "targets": {}
+  "targets": {
+    "build": {
+      "outputs": ["{workspaceRoot}/dist/out-tsc/{projectRoot}"]
+    }
+  }
 }

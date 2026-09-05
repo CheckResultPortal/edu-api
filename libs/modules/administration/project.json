@@ -4,5 +4,9 @@
   "sourceRoot": "libs/modules/administration/src",
   "projectType": "library",
   "tags": ["scope:administration", "type:module"],
-  "targets": {}
+  "targets": {
+    "build": {
+      "outputs": ["{workspaceRoot}/dist/out-tsc/{projectRoot}"]
+    }
+  }
 }

@@ -4,5 +4,9 @@
   "sourceRoot": "libs/modules/payments/src",
   "projectType": "library",
   "tags": ["scope:payments", "type:module"],
-  "targets": {}
+  "targets": {
+    "build": {
+      "outputs": ["{workspaceRoot}/dist/out-tsc/{projectRoot}"]
+    }
+  }
 }

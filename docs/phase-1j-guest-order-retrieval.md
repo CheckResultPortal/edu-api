@@ -9,6 +9,12 @@ facts; it does not write payment, allocation, voucher, or communication state.
 The public API exposes an order-status lookup and queues a secure email resend
 of already fulfilled vouchers. Customer accounts are not introduced.
 
+USSD now exposes the same stored-email copy capability from its Retrieve voucher
+home-menu option. It uses the canonical session phone plus the order reference
+and shares the Orders application authorization/rate-limit service with web.
+SMS-only orders receive status/support guidance; SMS copies are not enabled.
+See [implementation and operations](ussd-retrieval-implementation.md).
+
 ## Guest authorisation and privacy
 
 The status lookup accepts a canonical Ghana phone number plus either:

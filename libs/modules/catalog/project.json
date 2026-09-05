@@ -4,5 +4,9 @@
   "sourceRoot": "libs/modules/catalog/src",
   "projectType": "library",
   "tags": ["scope:catalog", "type:module"],
-  "targets": {}
+  "targets": {
+    "build": {
+      "outputs": ["{workspaceRoot}/dist/out-tsc/{projectRoot}"]
+    }
+  }
 }

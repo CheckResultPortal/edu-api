@@ -6,7 +6,11 @@ import {
   TRANSACTIONAL_ORDER_PRODUCT_QUERY,
   type TransactionalOrderProductQuery,
 } from '@edu-api/catalog';
-import { CustomerVoucherRetrievalModule } from '@edu-api/communication';
+import {
+  CUSTOMER_VOUCHER_RETRIEVAL,
+  type CustomerVoucherRetrieval,
+  CustomerVoucherRetrievalModule,
+} from '@edu-api/communication';
 import {
   DATABASE_CLIENT,
   DatabaseModule,
@@ -29,14 +33,31 @@ import {
   GUEST_ORDER_STATUS_RATE_LIMITER,
   type GuestOrderStatusQuery,
 } from './application/guest-order-status-query';
+import {
+  GUEST_VOUCHER_RETRIEVAL_SERVICE,
+  GuestVoucherRetrievalService,
+} from './application/guest-voucher-retrieval-service';
 import { PrismaOrderCreationRepository } from './infrastructure/prisma-order-creation.repository';
 import { PrismaGuestOrderStatusQuery } from './infrastructure/prisma-guest-order-status-query';
 import { RedisOrderRateLimiter } from './infrastructure/redis-order-rate-limiter';
 import { PublicOrdersController } from './presentation/public-orders.controller';
 
 @Module({
-  imports: [DatabaseModule, CatalogCoreModule],
+  imports: [DatabaseModule, CatalogCoreModule, CustomerVoucherRetrievalModule],
   providers: [
+    {
+      provide: GUEST_VOUCHER_RETRIEVAL_SERVICE,
+      inject: [
+        GUEST_ORDER_STATUS_QUERY,
+        GUEST_ORDER_STATUS_RATE_LIMITER,
+        CUSTOMER_VOUCHER_RETRIEVAL,
+      ],
+      useFactory: (
+        query: GuestOrderStatusQuery,
+        limiter: OrderRateLimiter,
+        deliveries: CustomerVoucherRetrieval,
+      ) => new GuestVoucherRetrievalService(query, limiter, deliveries),
+    },
     {
       provide: ORDER_CREATION_REPOSITORY,
       inject: [DATABASE_CLIENT, TRANSACTIONAL_ORDER_PRODUCT_QUERY],
@@ -115,6 +136,7 @@ import { PublicOrdersController } from './presentation/public-orders.controller'
     },
   ],
   exports: [
+    GUEST_VOUCHER_RETRIEVAL_SERVICE,
     ORDER_CREATION_SERVICE,
     ORDER_USSD_CREATION_SERVICE,
     GUEST_ORDER_STATUS_QUERY,

@@ -1,6 +1,10 @@
 export const USSD_SESSION_STORE = Symbol('USSD_SESSION_STORE');
 
 export type UssdFlowState =
+  | 'HOME'
+  | 'RETRIEVAL_REFERENCE'
+  | 'RETRIEVAL_CONFIRM'
+  | 'RETRIEVAL_COMPLETE'
   | 'CATEGORY'
   | 'PRODUCT'
   | 'QUANTITY'
@@ -15,6 +19,9 @@ export type UssdFlowState =
  */
 export interface UssdSessionData {
   readonly state: UssdFlowState;
+  readonly menuPage?: number;
+  readonly retrievalOrderReference?: string;
+  readonly retrievalKey?: string;
   /** True once the voucher-category menu has been rendered for this session. */
   readonly categoryMenuShown?: boolean;
   readonly catalogGroupPublicId?: string;
