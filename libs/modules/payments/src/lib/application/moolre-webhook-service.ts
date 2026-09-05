@@ -7,12 +7,15 @@ import type { PaymentProvider } from './payment-provider';
 export const MOOLRE_WEBHOOK_SERVICE = Symbol('MOOLRE_WEBHOOK_SERVICE');
 
 /**
- * Moolre collection callbacks are unsigned notifications. A P01 payload is
+ * Moolre collection callbacks authenticate with their shared secret. A P01 payload is
  * never treated as proof of payment: the referenced transaction is re-verified
  * through the provider status endpoint and only a verified success is recorded.
  */
 export interface MoolreWebhookService {
-  handle(rawBody: Buffer, signature: string | undefined): Promise<PaymentSuccessOutcome>;
+  handle(
+    rawBody: Buffer,
+    signature: string | undefined,
+  ): Promise<PaymentSuccessOutcome>;
 }
 
 export class DefaultMoolreVerificationWebhookService
@@ -23,7 +26,9 @@ export class DefaultMoolreVerificationWebhookService
     private readonly repository: PaymentSuccessRepository,
   ) {
     if (provider.code !== 'MOOLRE') {
-      throw new Error('The Moolre webhook service requires the Moolre provider.');
+      throw new Error(
+        'The Moolre webhook service requires the Moolre provider.',
+      );
     }
   }
 

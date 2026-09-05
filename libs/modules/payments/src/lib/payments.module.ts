@@ -86,6 +86,7 @@ import { PublicPaymentsController } from './presentation/public-payments.control
           apiUser: config.getOrThrow<string>('MOOLRE_API_USER'),
           publicKey: config.getOrThrow<string>('MOOLRE_PUBLIC_KEY'),
           accountNumber: config.getOrThrow<string>('MOOLRE_ACCOUNT_NUMBER'),
+          webhookSecret: config.get<string>('MOOLRE_WEBHOOK_SECRET'),
         });
       },
     },

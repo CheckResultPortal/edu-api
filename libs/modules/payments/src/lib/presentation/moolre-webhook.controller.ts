@@ -7,6 +7,7 @@ import {
   Post,
   RawBody,
   ServiceUnavailableException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
@@ -14,11 +15,16 @@ import {
   ApiOperation,
   ApiProduces,
   ApiTags,
+  ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 
 import { jsonApiResource } from '@edu-api/http';
 
-import { PaymentProcessingUnavailableError } from '../application/payment-errors';
+import {
+  PaymentProcessingUnavailableError,
+  PaymentWebhookAuthenticationError,
+  PaymentWebhookPayloadError,
+} from '../application/payment-errors';
 import { PaymentProviderRequestError } from '../application/payment-provider';
 import {
   MOOLRE_WEBHOOK_SERVICE,
@@ -39,6 +45,7 @@ export class MoolreWebhookController {
   @ApiOperation({ summary: 'Receive a Moolre collection notification' })
   @ApiOkResponse({ description: 'The notification was acknowledged.' })
   @ApiBadRequestResponse({ description: 'The payload is malformed.' })
+  @ApiUnauthorizedResponse({ description: 'The callback secret is invalid.' })
   async handleWebhook(@RawBody() rawBody: Buffer | undefined) {
     try {
       if (rawBody === undefined) {
@@ -51,6 +58,16 @@ export class MoolreWebhookController {
         outcome,
       });
     } catch (error) {
+      if (error instanceof PaymentWebhookAuthenticationError) {
+        throw new UnauthorizedException(
+          'The payment webhook could not be authenticated.',
+        );
+      }
+      if (error instanceof PaymentWebhookPayloadError) {
+        throw new BadRequestException(
+          'The payment webhook payload is invalid.',
+        );
+      }
       // Verification against the status endpoint is idempotent, so any
       // transient failure is safe for Moolre to redeliver.
       if (

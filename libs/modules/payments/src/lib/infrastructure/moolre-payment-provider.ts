@@ -1,6 +1,9 @@
-import { createHash } from 'node:crypto';
+import { createHash, timingSafeEqual } from 'node:crypto';
 
-import { PaymentWebhookPayloadError } from '../application/payment-errors';
+import {
+  PaymentWebhookAuthenticationError,
+  PaymentWebhookPayloadError,
+} from '../application/payment-errors';
 import {
   PaymentProviderRequestError,
   type AuthenticatedProviderWebhook,
@@ -12,6 +15,7 @@ import {
 } from '../application/payment-provider';
 
 export interface MoolrePaymentProviderConfiguration {
+  readonly webhookSecret?: string;
   readonly baseUrl: string;
   readonly requestTimeoutMs: number;
   /** Moolre username sent as X-API-USER. */
@@ -55,8 +59,8 @@ export class MoolrePaymentProvider implements PaymentProvider {
   }
 
   /**
-   * Moolre collection callbacks carry no signature. Structural validation
-   * only: the returned NOTIFICATION must be re-verified through verify()
+   * Moolre collection callbacks authenticate with data.secret. The returned
+   * NOTIFICATION must still be re-verified through verify()
    * before any success effect is committed.
    */
   authenticateWebhook(
@@ -64,6 +68,20 @@ export class MoolrePaymentProvider implements PaymentProvider {
     _signature: string | undefined,
   ): AuthenticatedProviderWebhook {
     const payload = parseJsonObject(rawBody.toString('utf8'));
+    const data = requiredObject(payload, 'data');
+    const secret = data['secret'];
+    const expected = this.configuration.webhookSecret;
+    if (
+      typeof secret !== 'string' ||
+      !secret ||
+      !expected ||
+      !timingSafeEqual(
+        createHash('sha256').update(secret).digest(),
+        createHash('sha256').update(expected).digest(),
+      )
+    ) {
+      throw new PaymentWebhookAuthenticationError();
+    }
     const code = payload['code'];
     if (typeof code !== 'string' || code.length === 0 || code.length > 32) {
       throw new PaymentWebhookPayloadError();
@@ -74,7 +92,6 @@ export class MoolrePaymentProvider implements PaymentProvider {
     if (typeof status !== 'number' || !Number.isInteger(status)) {
       throw new PaymentWebhookPayloadError();
     }
-    const data = requiredObject(payload, 'data');
     const providerReference = requiredReference(data, 'externalref');
 
     return {

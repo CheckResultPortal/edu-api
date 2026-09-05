@@ -159,6 +159,7 @@ const ussdFeatureEnvironmentShape = {
 
 export const publicApiEnvironmentSchema = httpEnvironmentSchema
   .extend({
+    MOOLRE_WEBHOOK_SECRET: optionalEnvironmentString(1, 512),
     PORT: z.coerce.number().int().min(1).max(65_535).default(3001),
     ORDER_PRIVACY_HMAC_KEY: base64KeySchema,
     ORDER_IDEMPOTENCY_TTL_MS: z.coerce
@@ -283,6 +284,7 @@ export const publicApiEnvironmentSchema = httpEnvironmentSchema
       ['MOOLRE_PUBLIC_KEY', configuration.MOOLRE_PUBLIC_KEY],
       ['MOOLRE_ACCOUNT_NUMBER', configuration.MOOLRE_ACCOUNT_NUMBER],
       ['NALO_USER_ID', configuration.NALO_USER_ID],
+      ['MOOLRE_WEBHOOK_SECRET', configuration.MOOLRE_WEBHOOK_SECRET],
     ] as const;
 
     for (const [field, value] of requiredFields) {

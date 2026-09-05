@@ -45,6 +45,23 @@ describe('environment validation', () => {
     });
   });
   describe('public API', () => {
+    it.each([undefined, ''])(
+      'requires a callback secret with USSD enabled (%s)',
+      (secret) => {
+        expect(() =>
+          validatePublicApiEnvironment({
+            SERVICE_NAME: 'public-api',
+            DATABASE_URL: 'postgresql://user:password@localhost:5432/database',
+            REDIS_URL: 'redis://localhost:6379',
+            ORDER_PRIVACY_HMAC_KEY: privacyHmacKey,
+            ...paystackPublicEnvironment,
+            ...naloUssdEnvironment,
+            ...moolrePaymentEnvironment,
+            MOOLRE_WEBHOOK_SECRET: secret,
+          }),
+        ).toThrow('MOOLRE_WEBHOOK_SECRET');
+      },
+    );
     it('applies valid defaults', () => {
       const configuration = validatePublicApiEnvironment({
         SERVICE_NAME: 'public-api',
@@ -83,6 +100,7 @@ describe('environment validation', () => {
         MOOLRE_BASE_URL: 'https://api.moolre.com/',
         MOOLRE_REQUEST_TIMEOUT_MS: 10000,
         USSD_ENABLED: true,
+        MOOLRE_WEBHOOK_SECRET: 'test-callback-secret',
         NALO_USER_ID: naloUssdEnvironment.NALO_USER_ID,
         NALO_TRUSTED_SOURCE_IPS: naloUssdEnvironment.NALO_TRUSTED_SOURCE_IPS,
         USSD_MAX_PRODUCTS: 4,
@@ -420,6 +438,7 @@ const paystackPublicEnvironment = {
 } as const;
 
 const moolrePaymentEnvironment = {
+  MOOLRE_WEBHOOK_SECRET: 'test-callback-secret',
   MOOLRE_API_USER: 'edu-integration',
   MOOLRE_PUBLIC_KEY: 'pk_test_0123456789012345678901234567890',
   MOOLRE_ACCOUNT_NUMBER: '100000157291',

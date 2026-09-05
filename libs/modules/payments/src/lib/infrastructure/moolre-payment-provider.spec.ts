@@ -1,4 +1,7 @@
-import { PaymentWebhookPayloadError } from '../application/payment-errors';
+import {
+  PaymentWebhookAuthenticationError,
+  PaymentWebhookPayloadError,
+} from '../application/payment-errors';
 import {
   MoolrePaymentProvider,
   formatMajorAmount,
@@ -6,6 +9,7 @@ import {
 } from './moolre-payment-provider';
 
 const configuration = {
+  webhookSecret: 'test-callback-secret',
   accountNumber: '100000157291',
   apiUser: 'edu-integration',
   baseUrl: 'https://api.moolre.com/',
@@ -17,7 +21,29 @@ describe('MoolrePaymentProvider', () => {
   afterEach(() => jest.restoreAllMocks());
 
   describe('authenticateWebhook', () => {
-    it('returns an unsigned NOTIFICATION that requires server-side verification', () => {
+    it.each([undefined, '', 'wrong', 123, null])(
+      'rejects invalid secret %s',
+      (secret) => {
+        const payload = JSON.parse(collectionWebhook().toString());
+        payload.data.secret = secret;
+        expect(() =>
+          createProvider().authenticateWebhook(
+            Buffer.from(JSON.stringify(payload)),
+            undefined,
+          ),
+        ).toThrow(PaymentWebhookAuthenticationError);
+      },
+    );
+    it('fails closed without configured secret', () => {
+      const provider = new MoolrePaymentProvider({
+        ...configuration,
+        webhookSecret: undefined,
+      });
+      expect(() =>
+        provider.authenticateWebhook(collectionWebhook(), undefined),
+      ).toThrow(PaymentWebhookAuthenticationError);
+    });
+    it('returns an authenticated NOTIFICATION that requires server-side verification', () => {
       const rawBody = collectionWebhook();
 
       expect(createProvider().authenticateWebhook(rawBody, undefined)).toEqual({
@@ -30,19 +56,36 @@ describe('MoolrePaymentProvider', () => {
 
     it('acknowledges other status codes without a payment effect', () => {
       const rawBody = Buffer.from(
-        JSON.stringify({ code: 'PX99', message: 'Unknown', status: 0, data: {} }),
+        JSON.stringify({
+          code: 'PX99',
+          message: 'Unknown',
+          status: 0,
+          data: { secret: configuration.webhookSecret },
+        }),
       );
 
-      expect(
-        createProvider().authenticateWebhook(rawBody, undefined),
-      ).toEqual({ kind: 'IGNORED' });
+      expect(createProvider().authenticateWebhook(rawBody, undefined)).toEqual({
+        kind: 'IGNORED',
+      });
     });
 
     it.each([
-      ['missing code', { message: 'x', status: 1 }],
+      [
+        'missing code',
+        {
+          message: 'x',
+          status: 1,
+          data: { secret: configuration.webhookSecret },
+        },
+      ],
       [
         'missing external reference',
-        { code: 'P01', message: 'ok', status: 1, data: {} },
+        {
+          code: 'P01',
+          message: 'ok',
+          status: 1,
+          data: { secret: configuration.webhookSecret },
+        },
       ],
       [
         'non-object transaction data',
@@ -107,7 +150,10 @@ describe('MoolrePaymentProvider', () => {
         createProvider().initialize({ ...input, payerPhoneNumber: undefined }),
       ).rejects.toMatchObject({ category: 'INVALID_REQUEST' });
       await expect(
-        createProvider().initialize({ ...input, payerPhoneNumber: '0999999999' }),
+        createProvider().initialize({
+          ...input,
+          payerPhoneNumber: '0999999999',
+        }),
       ).rejects.toMatchObject({ category: 'INVALID_REQUEST' });
     });
 
@@ -160,21 +206,25 @@ describe('MoolrePaymentProvider', () => {
     };
 
     it('normalizes a successful status check onto the canonical success shape', async () => {
-      const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValue(
-        response({ code: 'SS01', data: successData, status: 1 }),
-      );
+      const fetchMock = jest
+        .spyOn(global, 'fetch')
+        .mockResolvedValue(
+          response({ code: 'SS01', data: successData, status: 1 }),
+        );
 
-      await expect(createProvider().verify('EDU-payment-one')).resolves.toEqual({
-        kind: 'PAYMENT_SUCCEEDED',
-        success: {
-          amountMinor: BigInt(5_000),
-          currency: 'GHS',
-          paidAt: new Date('2026-08-21T10:15:20.000Z'),
-          providerReference: 'EDU-payment-one',
-          providerStatus: 'success',
-          providerTransactionId: '34008096',
+      await expect(createProvider().verify('EDU-payment-one')).resolves.toEqual(
+        {
+          kind: 'PAYMENT_SUCCEEDED',
+          success: {
+            amountMinor: BigInt(5_000),
+            currency: 'GHS',
+            paidAt: new Date('2026-08-21T10:15:20.000Z'),
+            providerReference: 'EDU-payment-one',
+            providerStatus: 'success',
+            providerTransactionId: '34008096',
+          },
         },
-      });
+      );
 
       const [, options] = fetchMock.mock.calls[0];
       expect(JSON.parse(String(options?.body))).toEqual({
@@ -187,18 +237,30 @@ describe('MoolrePaymentProvider', () => {
 
     it('treats a failed terminal status as terminal and pending as retryable', async () => {
       const provider = createProvider();
-      jest.spyOn(global, 'fetch').mockResolvedValue(
-        response({ code: 'SS01', data: { ...successData, txstatus: 2 }, status: 1 }),
-      );
+      jest
+        .spyOn(global, 'fetch')
+        .mockResolvedValue(
+          response({
+            code: 'SS01',
+            data: { ...successData, txstatus: 2 },
+            status: 1,
+          }),
+        );
       await expect(provider.verify('EDU-payment-one')).resolves.toEqual({
         isTerminal: true,
         kind: 'NOT_SUCCEEDED',
         providerStatus: 'txstatus_2',
       });
 
-      jest.spyOn(global, 'fetch').mockResolvedValue(
-        response({ code: 'SS01', data: { ...successData, txstatus: 0 }, status: 1 }),
-      );
+      jest
+        .spyOn(global, 'fetch')
+        .mockResolvedValue(
+          response({
+            code: 'SS01',
+            data: { ...successData, txstatus: 0 },
+            status: 1,
+          }),
+        );
       await expect(provider.verify('EDU-payment-one')).resolves.toEqual({
         isTerminal: false,
         kind: 'NOT_SUCCEEDED',
@@ -217,15 +279,13 @@ describe('MoolrePaymentProvider', () => {
         category: 'TEMPORARY',
       });
 
-      jest
-        .spyOn(global, 'fetch')
-        .mockResolvedValue(
-          response({
-            code: 'SS01',
-            data: { ...successData, externalref: 'someone-else' },
-            status: 1,
-          }),
-        );
+      jest.spyOn(global, 'fetch').mockResolvedValue(
+        response({
+          code: 'SS01',
+          data: { ...successData, externalref: 'someone-else' },
+          status: 1,
+        }),
+      );
       await expect(provider.verify('EDU-payment-one')).rejects.toMatchObject({
         category: 'UNKNOWN_OUTCOME',
       });
@@ -270,6 +330,7 @@ function collectionWebhook(): Buffer {
       data: {
         externalref: 'EDU-payment-one',
         transactionid: '34008096',
+        secret: configuration.webhookSecret,
       },
       message: 'Transaction Successful',
       status: 1,
