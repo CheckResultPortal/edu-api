@@ -33,7 +33,7 @@ export async function generateVoucherDeliveryArtifacts(
     pageMargins: [36, 36, 36, 36],
     defaultStyle: { font: 'Roboto', color: '#172033', fontSize: 10 },
     content: [
-      { text: 'EDUVOUCHER', color: '#3157d5', bold: true, fontSize: 11 },
+      { text: 'EDUVOUCHER', color: '#19533e', bold: true, fontSize: 11 },
       {
         text: 'Your result-checker voucher',
         bold: true,
@@ -59,7 +59,7 @@ export async function generateVoucherDeliveryArtifacts(
             {
               text: `Official result-checker site: ${input.resultCheckerUrl}`,
               link: input.resultCheckerUrl,
-              color: '#3157d5',
+              color: '#19533e',
               margin: [0, 0, 0, 4] as [number, number, number, number],
             },
           ]),

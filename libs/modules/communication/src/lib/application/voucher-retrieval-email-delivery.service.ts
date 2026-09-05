@@ -466,34 +466,34 @@ function renderVoucherRetrievalEmailHtml(
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Your Requested EduVoucher Copies</title>
 </head>
-<body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
-  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f1f5f9; padding: 32px 16px;">
+<body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f8fafc; padding: 32px 16px;">
     <tr>
       <td align="center">
-        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 580px; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1); border: 1px solid #e2e8f0;">
+        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 580px; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05); border: 1px solid #e2e8f0;">
           <tr>
-            <td style="background-color: #1e3a8a; padding: 28px 32px; text-align: center;">
+            <td style="background-color: #0c3529; padding: 28px 32px; text-align: center; border-bottom: 3px solid #ddb954;">
               <div style="font-size: 22px; font-weight: 800; letter-spacing: 2px; color: #ffffff; text-transform: uppercase;">EDUVOUCHER</div>
-              <div style="font-size: 13px; color: #bfdbfe; margin-top: 4px; font-weight: 500;">Voucher Recovery Service</div>
+              <div style="font-size: 13px; color: #a6d7c0; margin-top: 4px; font-weight: 500;">Voucher Recovery Service</div>
             </td>
           </tr>
           <tr>
             <td style="padding: 32px 32px 24px 32px;">
-              <h1 style="margin: 0 0 8px 0; font-size: 20px; font-weight: 700; color: #0f172a; line-height: 1.3;">Your Requested Voucher Copies</h1>
+              <h1 style="margin: 0 0 8px 0; font-size: 20px; font-weight: 700; color: #0c3529; line-height: 1.3;">Your Requested Voucher Copies</h1>
               <p style="margin: 0 0 20px 0; font-size: 14px; color: #64748b; line-height: 1.5;">You requested a copy of your purchased result-checker voucher documents.</p>
               <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 20px;">
                 <tr>
-                  <td style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px;">
-                    <span style="font-size: 13px; color: #64748b;">Order Reference:</span>
-                    <strong style="font-size: 14px; font-family: monospace; color: #0f172a; margin-left: 8px;">${escapeHtml(input.orderPublicReference)}</strong>
+                  <td style="background-color: #ebf7f1; border: 1px solid #d0ebdd; border-radius: 8px; padding: 12px 16px;">
+                    <span style="font-size: 13px; color: #479e79;">Order Reference:</span>
+                    <strong style="font-size: 14px; font-family: monospace; color: #0c3529; margin-left: 8px;">${escapeHtml(input.orderPublicReference)}</strong>
                   </td>
                 </tr>
               </table>
               <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
                 <tr>
                   <td>
-                    <div style="font-size: 14px; font-weight: 700; color: #166534; margin-bottom: 6px;">📄 Voucher Documents Attached</div>
-                    <div style="font-size: 13px; color: #15803d; line-height: 1.5;">
+                    <div style="font-size: 14px; font-weight: 700; color: #19533e; margin-bottom: 6px;">📄 Voucher Documents Attached</div>
+                    <div style="font-size: 13px; color: #23674d; line-height: 1.5;">
                       Your official voucher copies (PDF and CSV format) containing your Serial Number and PIN are attached to this email. You can view, save, or print them directly.
                     </div>
                   </td>
@@ -507,10 +507,10 @@ function renderVoucherRetrievalEmailHtml(
           <tr>
             <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px 32px; text-align: center;">
               <p style="margin: 0 0 6px 0; font-size: 13px; color: #64748b;">
-                Need help? Contact support: <strong style="color: #0f172a;">${escapeHtml(input.supportPhone)}</strong>
+                Need help? Contact support: <strong style="color: #0c3529;">${escapeHtml(input.supportPhone)}</strong>
               </p>
               <p style="margin: 0; font-size: 12px; color: #94a3b8;">
-                &copy; EduVoucher &bull; <a href="https://eduvoucherstore.com" target="_blank" rel="noopener noreferrer" style="color: #2563eb; text-decoration: none;">eduvoucherstore.com</a>
+                &copy; EduVoucher &bull; <a href="https://eduvoucherstore.com" target="_blank" rel="noopener noreferrer" style="color: #23674d; text-decoration: none; font-weight: 600;">eduvoucherstore.com</a>
               </p>
             </td>
           </tr>
