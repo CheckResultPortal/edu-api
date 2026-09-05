@@ -308,6 +308,12 @@ export const adminApiEnvironmentSchema = httpEnvironmentSchema.extend({
 
 export const workerEnvironmentSchema = commonEnvironmentSchema
   .extend({
+    USSD_PAYMENT_PROMPT_POLL_INTERVAL_MS: z.coerce
+      .number()
+      .int()
+      .min(1000)
+      .max(60000)
+      .default(1000),
     ...adminIdentityEnvironmentShape,
     ...voucherImportEnvironmentShape,
     ...orderMaintenanceEnvironmentShape,

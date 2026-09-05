@@ -32,6 +32,7 @@ import {
 } from './application/payment-success-service';
 import { PaymentsCoreModule } from './payments.module';
 import { UssdPaymentPromptOutboxConsumer } from './infrastructure/ussd-payment-prompt-outbox-consumer';
+import { UssdPaymentPromptPoller } from './infrastructure/ussd-payment-prompt-poller';
 
 @Injectable()
 class PaymentRecoveryPoller
@@ -43,7 +44,6 @@ class PaymentRecoveryPoller
   constructor(
     @Inject(PAYMENT_RECOVERY_SERVICE)
     private readonly recovery: PaymentRecoveryService,
-    private readonly ussdPrompts: UssdPaymentPromptOutboxConsumer,
     private readonly config: ConfigService,
     private readonly logger: StructuredLogger,
   ) {}
@@ -65,18 +65,14 @@ class PaymentRecoveryPoller
     if (this.isRunning) return;
     this.isRunning = true;
     try {
-      const prompts = await this.ussdPrompts.processAvailable(
-        this.config.getOrThrow<number>('USSD_PAYMENT_PROMPT_BATCH_SIZE'),
-      );
       const result = await this.recovery.runCycle();
       if (
-        prompts !== 0 ||
         result.applied !== 0 ||
         result.needsAttention !== 0 ||
         result.cleanedIdempotencyRecords !== 0
       ) {
         this.logger.log(
-          `Payment recovery dispatched ${prompts} USSD prompt event(s), claimed ${result.claimed}, applied ${result.applied}, needs-attention ${result.needsAttention}, cleaned-idempotency ${result.cleanedIdempotencyRecords}.`,
+          `Payment recovery claimed ${result.claimed}, applied ${result.applied}, needs-attention ${result.needsAttention}, cleaned-idempotency ${result.cleanedIdempotencyRecords}.`,
           'PaymentRecovery',
         );
       }
@@ -167,6 +163,7 @@ class PaymentRecoveryPoller
         }),
     },
     PaymentRecoveryPoller,
+    UssdPaymentPromptPoller,
   ],
 })
 export class PaymentsWorkerModule {}

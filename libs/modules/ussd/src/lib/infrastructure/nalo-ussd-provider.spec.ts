@@ -20,6 +20,8 @@ describe('NaloUssdProvider', () => {
       input: '714*5#',
       isNewSession: true,
       moolreChannel: '13',
+      paymentPromptInstructions:
+        'If delayed, dial *170# and check pending approvals.',
       msisdn: '233244123456',
       network: 'MTN',
       sessionId: 'nalo-session-1',
@@ -37,6 +39,8 @@ describe('NaloUssdProvider', () => {
       }),
     ).toEqual({
       input: '2',
+      paymentPromptInstructions:
+        'If delayed, check pending approvals in your MoMo menu.',
       isNewSession: false,
       msisdn: '233244123456',
       sessionId: 'nalo-session-1',

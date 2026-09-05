@@ -710,10 +710,11 @@ export class DefaultUssdFlowService {
       return {
         continueSession: false,
         message:
-          `Approve the Mobile Money prompt on ${phoneNumber} ` +
-          `for ${formatCedis(order.totalPriceMinor)}.\n` +
+          `Approve the Mobile Money prompt for ${formatCedis(order.totalPriceMinor)} when it arrives.\n` +
           (order.customerCode ? `Order code: ${order.customerCode}\n` : '') +
-          'Your voucher will be delivered after payment.',
+          (request.paymentPromptInstructions ??
+            'If delayed, check pending approvals in your MoMo menu.') +
+          '\nDo not pay again.',
       };
     } catch {
       // The order/payment services own their durable state and retries; the

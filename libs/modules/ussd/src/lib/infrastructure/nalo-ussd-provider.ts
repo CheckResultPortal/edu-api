@@ -4,6 +4,7 @@ import type {
   UssdProvider,
 } from '../application/ussd-provider';
 import { UssdRequestError } from '../application/ussd-errors';
+import { paymentPromptInstructions } from './payment-prompt-instructions';
 
 export interface NaloUssdProviderConfiguration {
   /** The USERID Nalo assigned to this service; untrusted payloads must match. */
@@ -52,6 +53,11 @@ export class NaloUssdProvider implements UssdProvider {
       isNewSession: parsed.isNewSession,
       msisdn: parsed.msisdn,
       sessionId: parsed.sessionId,
+      paymentPromptInstructions: paymentPromptInstructions(
+        parsed.network === undefined
+          ? undefined
+          : resolveMoolreChannel(parsed.network),
+      ),
       ...(parsed.network === undefined ? {} : { network: parsed.network }),
       ...(parsed.network === undefined
         ? {}

@@ -14,6 +14,8 @@ export interface CanonicalUssdRequest {
   readonly network?: string;
   /** Moolre collection channel derived from the gateway network. */
   readonly moolreChannel?: string;
+  /** Safe network-wallet guidance supplied by the gateway adapter. */
+  readonly paymentPromptInstructions?: string;
 }
 
 /** Provider-neutral outgoing USSD screen. */
