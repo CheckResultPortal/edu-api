@@ -109,7 +109,12 @@ export class MoolrePaymentProvider implements PaymentProvider {
     if (payer === undefined) {
       throw new PaymentProviderRequestError('INVALID_REQUEST');
     }
-    const channel = input.moolreChannel ?? moolreChannelForPhoneNumber(payer);
+    const normalizedPayer = normalizeMoolrePayerPhone(payer);
+    if (normalizedPayer === null) {
+      throw new PaymentProviderRequestError('INVALID_REQUEST');
+    }
+    const channel =
+      input.moolreChannel ?? moolreChannelForPhoneNumber(normalizedPayer);
     if (channel === null) {
       throw new PaymentProviderRequestError('INVALID_REQUEST');
     }
@@ -124,7 +129,7 @@ export class MoolrePaymentProvider implements PaymentProvider {
       channel,
       currency: input.currency,
       externalref: input.providerReference,
-      payer,
+      payer: normalizedPayer,
     });
 
     if (payload.code === CODE_OTP_REQUIRED) {
@@ -225,17 +230,29 @@ export class MoolrePaymentProvider implements PaymentProvider {
 }
 
 /**
+ * Normalizes phone numbers (E.164 +233, 233, or local 0...) to the 10-digit
+ * local Ghana format (0XXXXXXXXX) required by Moolre collection API.
+ */
+export function normalizeMoolrePayerPhone(phoneNumber: string): string | null {
+  const normalized = phoneNumber.replace(/[\s()-]/g, '');
+  const local = normalized.startsWith('+233')
+    ? `0${normalized.slice(4)}`
+    : normalized.startsWith('233')
+      ? `0${normalized.slice(3)}`
+      : normalized;
+  if (!/^0[0-9]{9}$/.test(local)) return null;
+  return local;
+}
+
+/**
  * Resolves the Moolre collection channel from a Ghana mobile prefix.
  * Returns null for numbers that cannot be routed.
  */
 export function moolreChannelForPhoneNumber(
   phoneNumber: string,
 ): string | null {
-  const normalized = phoneNumber.replace(/[\s()-]/g, '');
-  const local = normalized.startsWith('+233')
-    ? `0${normalized.slice(4)}`
-    : normalized;
-  if (!/^0[0-9]{9}$/.test(local)) return null;
+  const local = normalizeMoolrePayerPhone(phoneNumber);
+  if (local === null) return null;
   const prefix = local.slice(0, 3);
   if (['024', '025', '053', '054', '055', '059'].includes(prefix)) {
     return CHANNEL_MTN;

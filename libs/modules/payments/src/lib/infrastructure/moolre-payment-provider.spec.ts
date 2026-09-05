@@ -145,6 +145,23 @@ describe('MoolrePaymentProvider', () => {
       });
     });
 
+    it('normalizes international format (+233) to local 10-digit format for Moolre', async () => {
+      const fetchMock = jest
+        .spyOn(global, 'fetch')
+        .mockResolvedValue(response({ code: 'TR099', status: 1 }));
+      const provider = createProvider();
+
+      await provider.initialize({
+        ...input,
+        payerPhoneNumber: '+233244123456',
+      });
+
+      const [, options] = fetchMock.mock.calls[0];
+      expect(JSON.parse(String(options?.body))).toMatchObject({
+        payer: '0244123456',
+      });
+    });
+
     it('rejects initialization without a routable payer number', async () => {
       await expect(
         createProvider().initialize({ ...input, payerPhoneNumber: undefined }),

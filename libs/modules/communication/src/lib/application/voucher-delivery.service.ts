@@ -256,7 +256,16 @@ export class VoucherDeliveryService {
               to: claimed.destination,
               subject: 'Your EduVoucher result checker voucher',
               text: `${text}\n\n${support}`,
-              html: `<p>Your EduVoucher result checker voucher.</p><p>Serial: <strong>${escapeHtml(claimed.serialNumber)}</strong><br>PIN: <strong>${escapeHtml(pin)}</strong></p><p>${escapeHtml(support)}</p><p>Your PDF and CSV voucher copies are attached.</p>`,
+              html: renderVoucherDeliveryEmailHtml({
+                orderPublicReference: claimed.orderPublicReference,
+                pin,
+                productName: claimed.productName,
+                ...(claimed.resultCheckerUrl === undefined
+                  ? {}
+                  : { resultCheckerUrl: claimed.resultCheckerUrl }),
+                serialNumber: claimed.serialNumber,
+                supportPhone: this.options.supportPhone,
+              }),
               idempotencyKey: reference,
             });
     } catch {
@@ -403,3 +412,138 @@ function escapeHtml(value: string): string {
       ] as string,
   );
 }
+
+interface VoucherDeliveryEmailHtmlInput {
+  readonly orderPublicReference: string;
+  readonly pin: string;
+  readonly productName: string;
+  readonly resultCheckerUrl?: string;
+  readonly serialNumber: string;
+  readonly supportPhone: string;
+}
+
+function renderVoucherDeliveryEmailHtml(
+  input: VoucherDeliveryEmailHtmlInput,
+): string {
+  const resultCheckerButton = input.resultCheckerUrl
+    ? `
+    <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 0 0 24px 0;">
+      <tr>
+        <td align="center">
+          <table border="0" cellspacing="0" cellpadding="0">
+            <tr>
+              <td align="center" style="border-radius: 8px; background-color: #2563eb;">
+                <a href="${escapeHtml(input.resultCheckerUrl)}" target="_blank" rel="noopener noreferrer" style="display: inline-block; padding: 13px 28px; font-size: 14px; font-weight: 700; color: #ffffff; text-decoration: none; border-radius: 8px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                  Open Official Result Checker Portal &rarr;
+                </a>
+              </td>
+            </tr>
+          </table>
+          <div style="margin-top: 8px; font-size: 12px; color: #94a3b8;">
+            Direct link: <a href="${escapeHtml(input.resultCheckerUrl)}" target="_blank" rel="noopener noreferrer" style="color: #2563eb; text-decoration: underline;">${escapeHtml(input.resultCheckerUrl)}</a>
+          </div>
+        </td>
+      </tr>
+    </table>`
+    : '';
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your EduVoucher Result Checker Voucher</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f1f5f9; padding: 32px 16px;">
+    <tr>
+      <td align="center">
+        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 580px; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1); border: 1px solid #e2e8f0;">
+          <tr>
+            <td style="background-color: #1e3a8a; padding: 28px 32px; text-align: center;">
+              <div style="font-size: 22px; font-weight: 800; letter-spacing: 2px; color: #ffffff; text-transform: uppercase;">EDUVOUCHER</div>
+              <div style="font-size: 13px; color: #bfdbfe; margin-top: 4px; font-weight: 500;">Official Result Checker Delivery</div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 32px 32px 24px 32px;">
+              <h1 style="margin: 0 0 8px 0; font-size: 20px; font-weight: 700; color: #0f172a; line-height: 1.3;">Your Voucher is Ready</h1>
+              <p style="margin: 0 0 20px 0; font-size: 14px; color: #64748b; line-height: 1.5;">Thank you for your purchase. Your result-checker voucher details are below.</p>
+              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 24px;">
+                <tr>
+                  <td style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px;">
+                    <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                      <tr>
+                        <td style="font-size: 13px; color: #64748b;">Product:</td>
+                        <td align="right" style="font-size: 14px; font-weight: 600; color: #0f172a;">${escapeHtml(input.productName)}</td>
+                      </tr>
+                      <tr>
+                        <td style="font-size: 13px; color: #64748b; padding-top: 6px;">Order Ref:</td>
+                        <td align="right" style="font-size: 13px; font-family: monospace; font-weight: 600; color: #475569; padding-top: 6px;">${escapeHtml(input.orderPublicReference)}</td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border: 2px solid #2563eb; border-radius: 10px; overflow: hidden; margin-bottom: 24px;">
+                <tr>
+                  <td style="background-color: #eff6ff; padding: 10px 16px; border-bottom: 1px solid #dbeafe;">
+                    <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #1d4ed8;">Voucher Credentials</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 20px 20px 16px 20px;">
+                    <div style="font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Serial Number</div>
+                    <div style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace; font-size: 17px; font-weight: 700; color: #0f172a; letter-spacing: 1px; margin-bottom: 16px; word-break: break-all;">${escapeHtml(input.serialNumber)}</div>
+                    <div style="height: 1px; background-color: #e2e8f0; margin-bottom: 16px;"></div>
+                    <div style="font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">Voucher PIN</div>
+                    <div style="background-color: #f0fdf4; border: 1.5px dashed #22c55e; border-radius: 8px; padding: 12px 16px; text-align: center;">
+                      <span style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace; font-size: 24px; font-weight: 800; color: #15803d; letter-spacing: 2px; word-break: break-all;">${escapeHtml(input.pin)}</span>
+                    </div>
+                  </td>
+                </tr>
+              </table>
+              ${resultCheckerButton}
+              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f8fafc; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+                <tr>
+                  <td>
+                    <div style="font-size: 13px; font-weight: 700; color: #1e293b; margin-bottom: 8px;">How to check your result:</div>
+                    <ol style="margin: 0; padding-left: 20px; font-size: 13px; color: #475569; line-height: 1.6;">
+                      <li>Visit the official result checker portal${input.resultCheckerUrl ? ' linked above' : ''}.</li>
+                      <li>Enter your Index Number, Exam Type, and Exam Year.</li>
+                      <li>Enter your <strong>Serial Number</strong> and <strong>PIN</strong> exactly as shown above.</li>
+                      <li>Submit to view and print your official result slip.</li>
+                    </ol>
+                  </td>
+                </tr>
+              </table>
+              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 20px;">
+                <tr>
+                  <td style="background-color: #f1f5f9; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #475569; line-height: 1.5;">
+                    📎 <strong>PDF &amp; CSV Copies:</strong> Printable PDF and spreadsheet CSV copies of this voucher are attached to this email for your records.
+                  </td>
+                </tr>
+              </table>
+              <p style="margin: 0; font-size: 12px; color: #94a3b8; text-align: center; line-height: 1.4;">
+                🔒 Keep this PIN secure. EduVoucher support will never ask you to share your PIN publicly.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px 32px; text-align: center;">
+              <p style="margin: 0 0 6px 0; font-size: 13px; color: #64748b;">
+                Need help? Contact support: <strong style="color: #0f172a;">${escapeHtml(input.supportPhone)}</strong>
+              </p>
+              <p style="margin: 0; font-size: 12px; color: #94a3b8;">
+                &copy; EduVoucher &bull; <a href="https://eduvoucherstore.com" target="_blank" rel="noopener noreferrer" style="color: #2563eb; text-decoration: none;">eduvoucherstore.com</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
