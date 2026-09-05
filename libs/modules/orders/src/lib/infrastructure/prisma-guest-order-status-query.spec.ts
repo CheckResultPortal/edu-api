@@ -2,6 +2,11 @@ import { PrismaGuestOrderStatusQuery } from './prisma-guest-order-status-query';
 import { normalizeOrderPublicReference } from '../domain/order-validation';
 
 describe('customer order references', () => {
+  it('normalizes the branded code to the stored six digits', () => {
+    expect(normalizeOrderPublicReference(' EDUPAY-123456 ')).toBe('123456');
+    expect(normalizeOrderPublicReference('edupay-123456')).toBe('123456');
+    expect(() => normalizeOrderPublicReference('EDUPAY-1234')).toThrow();
+  });
   it.each([
     '123456',
     '6b0f6e55-0f5e-4c3a-9d3e-2a7c1a111111',

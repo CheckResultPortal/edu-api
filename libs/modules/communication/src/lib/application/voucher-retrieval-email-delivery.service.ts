@@ -134,6 +134,7 @@ export class VoucherRetrievalEmailDeliveryService {
             order: {
               select: {
                 publicReference: true,
+                customerCode: true,
                 items: {
                   select: {
                     product: { select: { name: true, resultCheckerUrl: true } },
@@ -184,7 +185,9 @@ export class VoucherRetrievalEmailDeliveryService {
         deliveryPublicId: delivery.publicId,
         destinationEmail: delivery.destinationEmail,
         leaseUntil,
-        orderPublicReference: delivery.order.publicReference,
+        orderPublicReference: delivery.order.customerCode
+          ? `EDUPAY-${delivery.order.customerCode}`
+          : delivery.order.publicReference,
         vouchers: units.map((unit) => ({
           encryptedPin: unit.allocation!.voucher.encryptedPin,
           productName: item.product.name,

@@ -169,7 +169,12 @@ export class VoucherDeliveryService {
                 allocation: {
                   select: {
                     fulfilmentUnit: {
-                      select: { orderPublicReference: true },
+                      select: {
+                        orderPublicReference: true,
+                        orderItem: {
+                          select: { order: { select: { customerCode: true } } },
+                        },
+                      },
                     },
                     product: {
                       select: { name: true, resultCheckerUrl: true },
@@ -201,8 +206,11 @@ export class VoucherDeliveryService {
         destination: delivery.destination,
         encryptedPin: delivery.communication.allocation.voucher.encryptedPin,
         leaseUntil,
-        orderPublicReference:
-          delivery.communication.allocation.fulfilmentUnit.orderPublicReference,
+        orderPublicReference: delivery.communication.allocation.fulfilmentUnit
+          .orderItem?.order.customerCode
+          ? `EDUPAY-${delivery.communication.allocation.fulfilmentUnit.orderItem.order.customerCode}`
+          : delivery.communication.allocation.fulfilmentUnit
+              .orderPublicReference,
         productName: delivery.communication.allocation.product.name,
         ...(delivery.communication.allocation.product.resultCheckerUrl === null
           ? {}
@@ -233,7 +241,7 @@ export class VoucherDeliveryService {
       if (!isEncryptedSecret(claimed.encryptedPin))
         throw new Error('Invalid encrypted voucher PIN.');
       const pin = decryptSecret(claimed.encryptedPin, this.keyring);
-      const text = `EduVoucher result checker voucher. Serial: ${claimed.serialNumber}. PIN: ${pin}`;
+      const text = `EduVoucher\nOrder: ${claimed.orderPublicReference}\n${claimed.productName}\nSerial: ${claimed.serialNumber}\nPIN: ${pin}\nKeep your voucher private.`;
       const reference = referenceFor(claimed.deliveryPublicId);
       const support = `For support, call ${this.options.supportPhone}.`;
       result =

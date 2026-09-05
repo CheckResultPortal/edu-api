@@ -284,7 +284,10 @@ function optionalOrderReference(value: unknown): string | undefined {
 }
 
 export function normalizeOrderPublicReference(value: string): string {
-  const reference = value.trim().toLowerCase();
+  const reference = value
+    .trim()
+    .toLowerCase()
+    .replace(/^edupay-(?=[1-9][0-9]{5}$)/, '');
   if (
     !isUuid(reference) &&
     !/^[1-9][0-9]{5}$/.test(reference) &&
