@@ -32,7 +32,7 @@ export class PrismaGuestOrderStatusQuery implements GuestOrderStatusQuery {
     const order = await this.database.order.findFirst({
       where: {
         phoneNumber,
-        publicReference: orderReference,
+        ...referenceFilter(orderReference),
         contactAnonymizedAt: null,
       },
       select: ORDER_SELECT,
@@ -45,11 +45,16 @@ export class PrismaGuestOrderStatusQuery implements GuestOrderStatusQuery {
     readonly orderReference: string;
     readonly phoneNumber?: string;
   }): Promise<GuestOrderRetrievalAccess | null> {
+    if (
+      /^[0-9]{6}$/.test(input.orderReference) &&
+      input.phoneNumber === undefined
+    )
+      return null;
     if (input.email === undefined && input.phoneNumber === undefined)
       return null;
     const order = await this.database.order.findFirst({
       where: {
-        publicReference: input.orderReference,
+        ...referenceFilter(input.orderReference),
         contactAnonymizedAt: null,
         ...(input.email === undefined ? {} : { email: input.email }),
         ...(input.phoneNumber === undefined
@@ -79,6 +84,7 @@ export class PrismaGuestOrderStatusQuery implements GuestOrderStatusQuery {
 }
 
 const ORDER_SELECT = {
+  customerCode: true,
   publicReference: true,
   email: true,
   totalPriceMinor: true,
@@ -109,7 +115,19 @@ const ORDER_SELECT = {
   },
 } satisfies Prisma.OrderSelect;
 
+function referenceFilter(reference: string): Prisma.OrderWhereInput {
+  if (/^[0-9]{6}$/.test(reference)) return { customerCode: reference };
+  if (reference.startsWith('EDU-'))
+    return {
+      paymentAttempts: {
+        some: { provider: 'PAYSTACK', providerReference: reference },
+      },
+    };
+  return { publicReference: reference };
+}
+
 function summarizeOrder(order: {
+  customerCode: string | null;
   publicReference: string;
   email: string | null;
   totalPriceMinor: bigint;
@@ -144,6 +162,7 @@ function summarizeOrder(order: {
       order.paymentApplication !== null &&
       hasEveryUnitAllocated(units),
     publicReference: order.publicReference,
+    customerCode: order.customerCode,
     productName: item?.product.name ?? 'Unknown product',
     quantity: units.length || (item?.quantity ?? 0),
     totalPriceMinor: order.totalPriceMinor.toString(),

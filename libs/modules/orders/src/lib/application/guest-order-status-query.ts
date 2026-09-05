@@ -12,6 +12,7 @@ export type GuestOrderLifecycleStatus =
   | 'DELIVERED';
 
 export interface GuestOrderSummary {
+  readonly customerCode?: string | null;
   readonly canRequestVoucherEmail: boolean;
   readonly publicReference: string;
   readonly productName: string;

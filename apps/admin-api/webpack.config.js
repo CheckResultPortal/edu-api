@@ -13,6 +13,9 @@ module.exports = {
     new NxAppWebpackPlugin({
       target: 'node',
       compiler: 'tsc',
+      // Docker runs the separate typecheck gate before bundling. Avoid the
+      // duplicate forked checker that can hang with TS project references.
+      typeCheckOptions: false,
       main: './src/main.ts',
       tsConfig: './tsconfig.app.json',
       optimization: false,

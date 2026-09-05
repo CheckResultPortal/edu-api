@@ -337,6 +337,7 @@ model StockMonitoringSweepState {
 }
 
 model Order {
+  customerCode        String?                 @unique @db.VarChar(6)
   id                  BigInt                  @id @default(autoincrement())
   publicReference     String                  @unique @default(uuid()) @db.Uuid
   purchaseChannel     PurchaseChannel

@@ -380,57 +380,62 @@ describe('DefaultUssdFlowService', () => {
     expect(invalid.message).toContain('0. Home');
   });
 
-  it('authorizes retrieval with the session phone and reuses one key after an uncertain request', async () => {
-    const retrieval = {
-      lookup: jest.fn().mockResolvedValue({
-        status: 'DELIVERED',
-        canRequestVoucherEmail: true,
-      }),
-      request: jest
-        .fn()
-        .mockRejectedValueOnce(new Error('database'))
-        .mockResolvedValue({}),
-    };
-    const { service, sessions } = flow({ categories: [], retrieval });
-    await service.handle({ ...initialDial, sessionId: 'session-1' }, context);
-    await service.handle(
-      continuation(initialDial.msisdn, '2', 'session-1'),
-      context,
-    );
-    await service.handle(
-      continuation(initialDial.msisdn, reference, 'session-1'),
-      context,
-    );
-    expect(retrieval.lookup).toHaveBeenCalledWith({
-      phoneNumber: '+233244123456',
-      orderReference: reference,
-    });
-    expect(retrieval.request).not.toHaveBeenCalled();
-    const failed = await service.handle(
-      continuation(initialDial.msisdn, '1', 'session-1'),
-      context,
-    );
-    expect(failed.message).toContain('Retry same request');
-    const queued = await service.handle(
-      continuation(initialDial.msisdn, '1', 'session-1'),
-      context,
-    );
-    expect(queued.message).toContain('queued');
-    expect(retrieval.request.mock.calls[0]).toEqual(
-      retrieval.request.mock.calls[1],
-    );
-    expect(retrieval.request.mock.calls[0][0]).toEqual({
-      contact: { phoneNumber: '+233244123456' },
-      orderReference: reference,
-      idempotencyKey: expect.stringMatching(/^ussd-retrieval-/),
-    });
-    await service.handle(
-      continuation(initialDial.msisdn, '1', 'session-1'),
-      context,
-    );
-    expect(retrieval.request).toHaveBeenCalledTimes(2);
-    expect(sessions.get('session-1')).toEqual({ state: 'RETRIEVAL_COMPLETE' });
-  });
+  it.each(['6b0f6e55-0f5e-4c3a-9d3e-2a7c1a111111', '123456'])(
+    'authorizes retrieval for %s with the session phone and reuses one key after an uncertain request',
+    async (reference) => {
+      const retrieval = {
+        lookup: jest.fn().mockResolvedValue({
+          status: 'DELIVERED',
+          canRequestVoucherEmail: true,
+        }),
+        request: jest
+          .fn()
+          .mockRejectedValueOnce(new Error('database'))
+          .mockResolvedValue({}),
+      };
+      const { service, sessions } = flow({ categories: [], retrieval });
+      await service.handle({ ...initialDial, sessionId: 'session-1' }, context);
+      await service.handle(
+        continuation(initialDial.msisdn, '2', 'session-1'),
+        context,
+      );
+      await service.handle(
+        continuation(initialDial.msisdn, reference, 'session-1'),
+        context,
+      );
+      expect(retrieval.lookup).toHaveBeenCalledWith({
+        phoneNumber: '+233244123456',
+        orderReference: reference,
+      });
+      expect(retrieval.request).not.toHaveBeenCalled();
+      const failed = await service.handle(
+        continuation(initialDial.msisdn, '1', 'session-1'),
+        context,
+      );
+      expect(failed.message).toContain('Retry same request');
+      const queued = await service.handle(
+        continuation(initialDial.msisdn, '1', 'session-1'),
+        context,
+      );
+      expect(queued.message).toContain('queued');
+      expect(retrieval.request.mock.calls[0]).toEqual(
+        retrieval.request.mock.calls[1],
+      );
+      expect(retrieval.request.mock.calls[0][0]).toEqual({
+        contact: { phoneNumber: '+233244123456' },
+        orderReference: reference,
+        idempotencyKey: expect.stringMatching(/^ussd-retrieval-/),
+      });
+      await service.handle(
+        continuation(initialDial.msisdn, '1', 'session-1'),
+        context,
+      );
+      expect(retrieval.request).toHaveBeenCalledTimes(2);
+      expect(sessions.get('session-1')).toEqual({
+        state: 'RETRIEVAL_COMPLETE',
+      });
+    },
+  );
 
   it.each([
     'WAITING_FOR_STOCK',

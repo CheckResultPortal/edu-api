@@ -18,6 +18,7 @@ export const ORDER_USSD_CREATION_SERVICE = Symbol(
 );
 
 export interface GuestOrder {
+  readonly customerCode?: string | null;
   readonly currency: 'GHS';
   readonly deliveryPreference: OrderDeliveryPreference;
   readonly productPublicId: string;

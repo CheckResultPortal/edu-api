@@ -133,6 +133,7 @@ export class PublicOrdersController {
         { clientIp: request.ip },
       );
       return jsonApiResource('orders', order.publicReference, {
+        customerCode: order.customerCode ?? null,
         currency: order.currency,
         deliveryPreference: order.deliveryPreference,
         productPublicId: order.productPublicId,
@@ -159,7 +160,11 @@ export class PublicOrdersController {
       properties: {
         phoneNumber: { type: 'string', example: '+233241234567' },
         email: { type: 'string', maxLength: 320 },
-        orderReference: { type: 'string', format: 'uuid' },
+        orderReference: {
+          type: 'string',
+          description:
+            'Six-digit customer code, legacy order UUID, or Paystack EDU reference. Phone number is required.',
+        },
       },
     },
   })
@@ -193,6 +198,7 @@ export class PublicOrdersController {
           id: order.publicReference,
           attributes: {
             canRequestVoucherEmail: order.canRequestVoucherEmail,
+            customerCode: order.customerCode ?? null,
             createdAt: order.createdAt.toISOString(),
             currency: order.currency,
             productName: order.productName,

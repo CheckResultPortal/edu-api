@@ -1,4 +1,5 @@
 import { Prisma } from '../../../../../../generated/prisma/client';
+import { randomInt } from 'node:crypto';
 
 import { type TransactionalOrderProductQuery } from '@edu-api/catalog';
 import type { DatabaseClient } from '@edu-api/database';
@@ -29,6 +30,10 @@ export class PrismaOrderCreationRepository implements OrderCreationRepository {
       try {
         return await this.createTransaction(input);
       } catch (error) {
+        if (isCustomerCodeConflict(error)) {
+          if (attempt < 3) continue;
+          throw new OrderCreationUnavailableError();
+        }
         if (isIdempotencyClaimConflict(error)) {
           return this.replayOrConflict(input);
         }
@@ -75,6 +80,7 @@ export class PrismaOrderCreationRepository implements OrderCreationRepository {
           product.sellingPriceMinor * BigInt(input.quantity);
         const order = await transaction.order.create({
           data: {
+            customerCode: randomInt(100000, 1000000).toString(),
             phoneNumber: input.phoneNumber,
             email: input.email,
             deliveryPreference: input.deliveryPreference,
@@ -94,6 +100,7 @@ export class PrismaOrderCreationRepository implements OrderCreationRepository {
           select: {
             id: true,
             publicReference: true,
+            customerCode: true,
             purchaseChannel: true,
             currency: true,
             deliveryPreference: true,
@@ -186,6 +193,7 @@ export class PrismaOrderCreationRepository implements OrderCreationRepository {
       select: {
         id: true,
         publicReference: true,
+        customerCode: true,
         purchaseChannel: true,
         currency: true,
         deliveryPreference: true,
@@ -205,6 +213,7 @@ export class PrismaOrderCreationRepository implements OrderCreationRepository {
 }
 
 function toGuestOrder(order: {
+  readonly customerCode: string | null;
   readonly currency: string;
   readonly deliveryPreference: string;
   readonly items: readonly {
@@ -232,6 +241,7 @@ function toGuestOrder(order: {
     deliveryPreference: order.deliveryPreference,
     productPublicId: item.product.publicId,
     publicReference: order.publicReference,
+    customerCode: order.customerCode,
     purchaseChannel: order.purchaseChannel,
     quantity: item.quantity,
     totalPriceMinor: order.totalPriceMinor.toString(),
@@ -246,6 +256,14 @@ function isPrismaError(error: unknown, code: string): boolean {
     'code' in error &&
     error.code === code
   );
+}
+
+function isCustomerCodeConflict(error: unknown): boolean {
+  if (!isPrismaError(error, 'P2002')) return false;
+  const target = (error as { meta?: { target?: unknown } }).meta?.target;
+  return Array.isArray(target)
+    ? target.includes('customerCode')
+    : typeof target === 'string' && target.includes('Order_customerCode_key');
 }
 
 function isIdempotencyClaimConflict(error: unknown): boolean {

@@ -37,6 +37,12 @@ export class GuestVoucherRetrievalService {
   }) {
     const orderReference = normalizeOrderPublicReference(input.orderReference);
     const contact = parseGuestVoucherRetrievalRequest(input.contact);
+    if (
+      /^[0-9]{6}$/.test(orderReference) &&
+      contact.phoneNumber === undefined
+    ) {
+      throw new GuestVoucherRetrievalUnavailableError();
+    }
     const idempotencyKey = assertOrderIdempotencyKey(input.idempotencyKey);
     await this.limiter.consume({
       clientIp: input.clientIp,

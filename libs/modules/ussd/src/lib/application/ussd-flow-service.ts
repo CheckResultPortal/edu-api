@@ -51,6 +51,7 @@ export interface UssdOrderCreationCommand {
 }
 
 export interface UssdCreatedOrder {
+  readonly customerCode?: string | null;
   readonly currency: string;
   readonly publicReference: string;
   readonly totalPriceMinor: string;
@@ -225,13 +226,14 @@ export class DefaultUssdFlowService {
     if (request.input.trim() === '0') return this.showHome(request);
     const reference = request.input.trim().toLowerCase();
     if (
+      !/^[1-9][0-9]{5}$/.test(reference) &&
       !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(
         reference,
       )
     )
       return {
         continueSession: true,
-        message: 'Invalid order reference. Enter the full reference:\n0. Home',
+        message: 'Enter your six-digit code or full order reference:\n0. Home',
       };
     const phoneNumber = canonicalizeMsisdn(request.msisdn);
     if (phoneNumber === null)
@@ -710,6 +712,7 @@ export class DefaultUssdFlowService {
         message:
           `Approve the Mobile Money prompt on ${phoneNumber} ` +
           `for ${formatCedis(order.totalPriceMinor)}.\n` +
+          (order.customerCode ? `Order code: ${order.customerCode}\n` : '') +
           'Your voucher will be delivered after payment.',
       };
     } catch {

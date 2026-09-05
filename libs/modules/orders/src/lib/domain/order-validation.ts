@@ -285,10 +285,16 @@ function optionalOrderReference(value: unknown): string | undefined {
 
 export function normalizeOrderPublicReference(value: string): string {
   const reference = value.trim().toLowerCase();
-  if (!isUuid(reference)) {
+  if (
+    !isUuid(reference) &&
+    !/^[1-9][0-9]{5}$/.test(reference) &&
+    !/^edu-[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(
+      reference,
+    )
+  ) {
     throw new OrderInputValidationError('Order reference is invalid.');
   }
-  return reference;
+  return reference.startsWith('edu-') ? `EDU-${reference.slice(4)}` : reference;
 }
 
 function assertOnlySupportedProperties(

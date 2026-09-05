@@ -33,6 +33,23 @@ describe('GuestVoucherRetrievalService', () => {
     idempotencyKey: 'retrieval-test-request-123',
   };
 
+  it('requires phone verification for short-code retrieval', async () => {
+    const { service, query } = setup();
+    await expect(
+      service.request({
+        ...request,
+        orderReference: '123456',
+        contact: { email: 'stored@example.test' },
+      }),
+    ).rejects.toBeInstanceOf(GuestVoucherRetrievalUnavailableError);
+    expect(query.findVoucherRetrievalAccess).not.toHaveBeenCalled();
+    await service.request({ ...request, orderReference: '123456' });
+    expect(query.findVoucherRetrievalAccess).toHaveBeenCalledWith({
+      orderReference: '123456',
+      phoneNumber: '+233244123456',
+    });
+  });
+
   it('normalizes contacts and uses only the authorized stored destination', async () => {
     const { service, query, deliveries, limiter } = setup();
     await service.request(request);
