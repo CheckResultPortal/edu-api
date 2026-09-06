@@ -3,6 +3,9 @@ import { normalizeOrderPublicReference } from '../domain/order-validation';
 
 describe('customer order references', () => {
   it('normalizes the branded code to the stored six digits', () => {
+    expect(normalizeOrderPublicReference('EDUPAY123456')).toBe('123456');
+    expect(normalizeOrderPublicReference('edupay123456')).toBe('123456');
+    expect(() => normalizeOrderPublicReference('EDUPAY1234')).toThrow();
     expect(normalizeOrderPublicReference(' EDUPAY-123456 ')).toBe('123456');
     expect(normalizeOrderPublicReference('edupay-123456')).toBe('123456');
     expect(() => normalizeOrderPublicReference('EDUPAY-1234')).toThrow();

@@ -81,6 +81,7 @@ export interface AdminOperationsQuery {
   }): Promise<AdminQueryPage>;
 
   listVouchers(input: {
+    readonly catalogGroupPublicId?: string;
     readonly cursor?: string;
     readonly limit: number;
     readonly productPublicId?: string;

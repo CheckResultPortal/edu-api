@@ -322,6 +322,7 @@ export class PrismaAdminOperationsQuery implements AdminOperationsQuery {
         lowStockThreshold: true,
         sellingPriceMinor: true,
         currency: true,
+        catalogGroup: { select: { publicId: true, name: true } },
         stockMonitoringState: { select: { state: true, updatedAt: true } },
       },
     });
@@ -355,6 +356,7 @@ export class PrismaAdminOperationsQuery implements AdminOperationsQuery {
           sellingPriceMinor: product.sellingPriceMinor.toString(),
           currency: product.currency,
           lowStockThreshold: product.lowStockThreshold,
+          catalogGroupPublicId: product.catalogGroup.publicId,
           stockLevel: product.stockMonitoringState?.state ?? 'NORMAL',
           stockMeasuredAt:
             product.stockMonitoringState?.updatedAt.toISOString() ?? null,
@@ -543,6 +545,7 @@ export class PrismaAdminOperationsQuery implements AdminOperationsQuery {
   }
 
   async listVouchers(input: {
+    readonly catalogGroupPublicId?: string;
     readonly cursor?: string;
     readonly limit: number;
     readonly productPublicId?: string;
@@ -551,9 +554,14 @@ export class PrismaAdminOperationsQuery implements AdminOperationsQuery {
   }): Promise<AdminQueryPage> {
     const vouchers = await this.database.voucher.findMany({
       where: {
-        ...(input.productPublicId === undefined
-          ? {}
-          : { product: { publicId: input.productPublicId } }),
+        product: {
+          ...(input.productPublicId === undefined
+            ? {}
+            : { publicId: input.productPublicId }),
+          ...(input.catalogGroupPublicId === undefined
+            ? {}
+            : { catalogGroup: { publicId: input.catalogGroupPublicId } }),
+        },
         ...(input.serialNumber === undefined
           ? {}
           : { serialNumber: input.serialNumber }),

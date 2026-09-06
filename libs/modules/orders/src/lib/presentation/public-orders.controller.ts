@@ -134,7 +134,7 @@ export class PublicOrdersController {
       );
       return jsonApiResource('orders', order.publicReference, {
         customerCode: order.customerCode
-          ? `EDUPAY-${order.customerCode}`
+          ? `EDUPAY${order.customerCode}`
           : null,
         currency: order.currency,
         deliveryPreference: order.deliveryPreference,
@@ -201,7 +201,7 @@ export class PublicOrdersController {
           attributes: {
             canRequestVoucherEmail: order.canRequestVoucherEmail,
             customerCode: order.customerCode
-              ? `EDUPAY-${order.customerCode}`
+              ? `EDUPAY${order.customerCode}`
               : null,
             createdAt: order.createdAt.toISOString(),
             currency: order.currency,

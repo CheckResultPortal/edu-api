@@ -5,13 +5,13 @@ describe('compact voucher SMS', () => {
     expect(
       renderVoucherSms({
         productName: 'WASSCE',
-        orderReference: 'EDUPAY-123456',
+        orderReference: 'EDUPAY123456',
         serialNumber: '001234',
         pin: '00001234',
         resultCheckerUrl: 'https://ghana.waecdirect.org/',
       }),
     ).toBe(
-      'WASSCE\nOrder: EDUPAY-123456\nSerial: 001234\nPIN: 00001234\nhttps://ghana.waecdirect.org/',
+      'WASSCE\nOrder: EDUPAY123456\nSerial: 001234\nPIN: 00001234\nhttps://ghana.waecdirect.org/',
     );
   });
   it('omits absent links without inventing a category', () => {

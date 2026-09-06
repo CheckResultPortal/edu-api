@@ -227,7 +227,7 @@ export class DefaultUssdFlowService {
     const reference = request.input
       .trim()
       .toLowerCase()
-      .replace(/^edupay-(?=[1-9][0-9]{5}$)/, '');
+      .replace(/^edupay-?(?=[1-9][0-9]{5}$)/, '');
     if (
       !/^[1-9][0-9]{5}$/.test(reference) &&
       !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(
@@ -714,7 +714,7 @@ export class DefaultUssdFlowService {
         continueSession: false,
         message:
           `Approve ${formatCedis(order.totalPriceMinor)} on the MoMo prompt.\n` +
-          (order.customerCode ? `Order: EDUPAY-${order.customerCode}\n` : '') +
+          (order.customerCode ? `Order: EDUPAY${order.customerCode}\n` : '') +
           (request.paymentPromptInstructions ??
             'If delayed, check pending approvals in your MoMo menu.') +
           '\nDo not pay again.',

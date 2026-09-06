@@ -76,8 +76,19 @@ export class AdminOperationsController {
   @ApiOkResponse({ description: 'Sales, stock, backlog, and delivery totals.' })
   @ApiQuery({ name: 'from', required: false, type: String })
   @ApiQuery({ name: 'to', required: false, type: String })
-  async dashboard(@Query('from') from: unknown, @Query('to') to: unknown) {
-    const window = dateWindow(from, to);
+  @ApiQuery({ name: 'range', required: false, enum: ['all'] })
+  async dashboard(
+    @Query('from') from: unknown,
+    @Query('to') to: unknown,
+    @Query('range') range?: unknown,
+  ) {
+    if (range !== undefined && range !== 'all') invalid('range');
+    if (range === 'all' && (from !== undefined || to !== undefined))
+      invalid('date window');
+    const window =
+      from === undefined && to === undefined
+        ? { from: new Date(0), to: new Date() }
+        : dateWindow(from, to);
     return jsonApiResource(
       'operations-dashboard',
       `${window.from.toISOString()}_${window.to.toISOString()}`,
@@ -184,15 +195,31 @@ export class AdminOperationsController {
   @ApiOperation({
     summary: 'Search voucher inventory without exposing voucher PINs',
   })
+  @ApiQuery({ name: 'catalogGroupPublicId', required: false, type: String })
+  @ApiQuery({ name: 'productPublicId', required: false, type: String })
+  @ApiQuery({ name: 'status', required: false, enum: ['AVAILABLE', 'SOLD'] })
   async vouchers(
     @Query('productPublicId') productPublicId: unknown,
     @Query('serialNumber') serialNumber: unknown,
     @Query('status') status: unknown,
     @Query('cursor') cursor: unknown,
     @Query('limit') limit: unknown,
+    @Query('catalogGroupPublicId') catalogGroupPublicId?: unknown,
   ) {
     const product = optionalString(productPublicId, 'productPublicId');
+    const category = optionalString(
+      catalogGroupPublicId,
+      'catalogGroupPublicId',
+    );
     const page = await this.operations.listVouchers({
+      ...(category === undefined
+        ? {}
+        : {
+            catalogGroupPublicId: requiredUuid(
+              category,
+              'catalogGroupPublicId',
+            ),
+          }),
       limit: pageLimit(limit),
       ...(optionalString(cursor, 'cursor') === undefined
         ? {}
@@ -392,14 +419,8 @@ function optionalEnum<const T extends readonly string[]>(
 
 function dateWindow(from: unknown, to: unknown) {
   const end = to === undefined ? new Date() : requiredDate(to, 'to');
-  const start =
-    from === undefined
-      ? new Date(end.getTime() - 24 * 60 * 60 * 1_000)
-      : requiredDate(from, 'from');
-  if (
-    start >= end ||
-    end.getTime() - start.getTime() > 366 * 24 * 60 * 60 * 1_000
-  ) {
+  const start = from === undefined ? new Date(0) : requiredDate(from, 'from');
+  if (start >= end || start.getTime() < 0) {
     invalid('date window');
   }
   return { from: start, to: end };

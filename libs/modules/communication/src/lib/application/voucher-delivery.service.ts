@@ -209,7 +209,7 @@ export class VoucherDeliveryService {
         leaseUntil,
         orderPublicReference: delivery.communication.allocation.fulfilmentUnit
           .orderItem?.order.customerCode
-          ? `EDUPAY-${delivery.communication.allocation.fulfilmentUnit.orderItem.order.customerCode}`
+          ? `EDUPAY${delivery.communication.allocation.fulfilmentUnit.orderItem.order.customerCode}`
           : delivery.communication.allocation.fulfilmentUnit
               .orderPublicReference,
         productName: delivery.communication.allocation.product.name,

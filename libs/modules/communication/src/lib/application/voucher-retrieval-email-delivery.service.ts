@@ -186,7 +186,7 @@ export class VoucherRetrievalEmailDeliveryService {
         destinationEmail: delivery.destinationEmail,
         leaseUntil,
         orderPublicReference: delivery.order.customerCode
-          ? `EDUPAY-${delivery.order.customerCode}`
+          ? `EDUPAY${delivery.order.customerCode}`
           : delivery.order.publicReference,
         vouchers: units.map((unit) => ({
           encryptedPin: unit.allocation!.voucher.encryptedPin,
