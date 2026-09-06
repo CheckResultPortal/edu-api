@@ -44,7 +44,7 @@ class VoucherAllocationPoller
     void this.runCycle();
     const allocationPollInterval = this.config.get<number>(
       'VOUCHER_ALLOCATION_POLL_INTERVAL_MS',
-      5_000,
+      1_000,
     );
     const restockPollInterval = this.config.get<number>(
       'RESTOCK_DRAIN_POLL_INTERVAL_MS',

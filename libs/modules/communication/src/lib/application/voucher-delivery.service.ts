@@ -1,4 +1,5 @@
 import { randomInt } from 'node:crypto';
+import { renderVoucherSms } from './voucher-sms';
 
 import {
   decryptSecret,
@@ -247,7 +248,13 @@ export class VoucherDeliveryService {
       result =
         claimed.channel === 'SMS'
           ? await this.smsProvider.send({
-              message: text,
+              message: renderVoucherSms({
+                productName: claimed.productName,
+                orderReference: claimed.orderPublicReference,
+                serialNumber: claimed.serialNumber,
+                pin,
+                resultCheckerUrl: claimed.resultCheckerUrl,
+              }),
               reference,
               to: claimed.destination,
             })

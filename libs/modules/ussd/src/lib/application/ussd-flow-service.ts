@@ -713,7 +713,7 @@ export class DefaultUssdFlowService {
       return {
         continueSession: false,
         message:
-          `Approve the Mobile Money prompt for ${formatCedis(order.totalPriceMinor)} when it arrives.\n` +
+          `Approve ${formatCedis(order.totalPriceMinor)} on the MoMo prompt.\n` +
           (order.customerCode ? `Order: EDUPAY-${order.customerCode}\n` : '') +
           (request.paymentPromptInstructions ??
             'If delayed, check pending approvals in your MoMo menu.') +

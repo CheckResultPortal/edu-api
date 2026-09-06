@@ -390,7 +390,7 @@ export const workerEnvironmentSchema = commonEnvironmentSchema
       .int()
       .min(1_000)
       .max(60_000)
-      .default(5_000),
+      .default(1_000),
     VOUCHER_DELIVERY_PROCESSING_LEASE_MS: z.coerce
       .number()
       .int()
@@ -444,7 +444,7 @@ export const workerEnvironmentSchema = commonEnvironmentSchema
       .int()
       .min(1_000)
       .max(60_000)
-      .default(5_000),
+      .default(1_000),
     VOUCHER_ALLOCATION_LEASE_MS: z.coerce
       .number()
       .int()

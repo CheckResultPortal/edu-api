@@ -255,7 +255,8 @@ describe('DefaultUssdFlowService', () => {
     );
 
     expect(outcome.continueSession).toBe(false);
-    expect(outcome.message).toContain('Approve the Mobile Money prompt');
+    expect(outcome.message).toContain('on the MoMo prompt.');
+    expect(outcome.message.length).toBeLessThanOrEqual(182);
     expect(orderCreator.create).toHaveBeenCalledTimes(1);
     expect(orderCreator.create).toHaveBeenCalledWith(
       expect.objectContaining({
