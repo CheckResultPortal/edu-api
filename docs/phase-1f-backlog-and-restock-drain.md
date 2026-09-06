@@ -54,7 +54,7 @@ result is a successful event consumption, not a failure or a payment reversal.
 
 Relevant worker settings are `RESTOCK_DRAIN_OUTBOX_BATCH_SIZE`,
 `RESTOCK_DRAIN_CHUNK_SIZE`, `RESTOCK_DRAIN_RECOVERY_PRODUCT_BATCH_SIZE`,
-`RESTOCK_DRAIN_POLL_INTERVAL_MS`, `RESTOCK_DRAIN_LEASE_MS`,
+`RESTOCK_DRAIN_LEASE_MS`,
 `RESTOCK_DRAIN_MAX_ATTEMPTS`, `RESTOCK_DRAIN_RETRY_BASE_DELAY_MS`, and
 `RESTOCK_DRAIN_RETRY_MAX_DELAY_MS`. The poller logs only safe counts and an
 event's internal reference; dashboards/alerts must track waiting count and
@@ -79,3 +79,5 @@ rewrite sold vouchers, allocations, or paid units.
   leases recover safely; invalid events need attention without payload logging.
 - Load certification exercises 50,000 waiting units plus 50,000 restocked
   vouchers with bounded memory and configured chunks.
+
+Normal work is now event-triggered; see [worker wakeups](event-driven-worker-processing.md). Recovery uses WORKER_RECOVERY_INTERVAL_MS.

@@ -3,6 +3,7 @@ import {
   OnApplicationBootstrap,
   OnApplicationShutdown,
 } from '@nestjs/common';
+import { DatabaseWorkSignals } from '@edu-api/database';
 import { ConfigService } from '@nestjs/config';
 import { StructuredLogger } from '@edu-api/observability';
 import { UssdPaymentPromptOutboxConsumer } from './ussd-payment-prompt-outbox-consumer';
@@ -11,13 +12,14 @@ import { UssdPaymentPromptOutboxConsumer } from './ussd-payment-prompt-outbox-co
 export class UssdPaymentPromptPoller
   implements OnApplicationBootstrap, OnApplicationShutdown
 {
-  private interval: NodeJS.Timeout | undefined;
+  private unsubscribe?: () => void;
   private running = false;
 
   constructor(
     private readonly prompts: UssdPaymentPromptOutboxConsumer,
     private readonly config: ConfigService,
     private readonly logger: StructuredLogger,
+    private readonly signals: DatabaseWorkSignals,
   ) {}
 
   onApplicationBootstrap(): void {
@@ -26,19 +28,17 @@ export class UssdPaymentPromptPoller
       !this.config.getOrThrow<boolean>('USSD_ENABLED')
     )
       return;
-    void this.runCycle();
-    this.interval = setInterval(
-      () => void this.runCycle(),
-      this.config.getOrThrow<number>('USSD_PAYMENT_PROMPT_POLL_INTERVAL_MS'),
+    this.unsubscribe = this.signals.watch(['UssdPaymentPromptRequested'], () =>
+      this.runCycle(),
     );
   }
 
   onApplicationShutdown(): void {
-    if (this.interval !== undefined) clearInterval(this.interval);
+    this.unsubscribe?.();
   }
 
-  private async runCycle(): Promise<void> {
-    if (this.running) return;
+  private async runCycle(): Promise<boolean> {
+    if (this.running) return false;
     this.running = true;
     try {
       const processed = await this.prompts.processAvailable(
@@ -49,12 +49,17 @@ export class UssdPaymentPromptPoller
           `USSD prompt cycle processed ${processed} event(s); check payment state for provider outcome.`,
           'UssdPaymentPrompt',
         );
+      return (
+        processed >=
+        this.config.getOrThrow<number>('USSD_PAYMENT_PROMPT_BATCH_SIZE')
+      );
     } catch {
       this.logger.error(
-        'USSD prompt dispatch cycle failed; retrying next poll.',
+        'USSD prompt dispatch cycle failed; recovery will retry.',
         undefined,
         'UssdPaymentPrompt',
       );
+      return false;
     } finally {
       this.running = false;
     }

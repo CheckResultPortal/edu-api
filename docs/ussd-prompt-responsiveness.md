@@ -8,24 +8,22 @@ OTP skip. Mould VotesService.initiateUssdVote explicitly omits the ID for NALO;
 EduVoucher's omission matches that path. Mould enqueues prompt dispatch immediately,
 whereas EduVoucher previously shared a 30-second loop with payment recovery.
 
-Separate the existing durable prompt consumer from the 30-second payment
-recovery loop. Poll prompts every second with bounded batches and one active
-cycle per process. Keep PostgreSQL leases, stale-outcome verification, idempotency,
-and allocation/payment invariants unchanged. This adds a bounded indexed outbox
-query at the configured interval and avoids slow recovery delaying new prompts.
-No provider calls enter a transaction. No schema migration or secret changes.
+Prompt dispatch is separate from payment recovery and now subscribes to committed
+UssdPaymentPromptRequested notifications. Bounded batches continue immediately
+until drained. PostgreSQL leases, stale-outcome verification, idempotency and
+payment invariants remain unchanged. The notification migration is required.
+No provider calls enter a transaction and no secret configuration changes.
 
 Handset copy says to approve when the prompt arrives and gives the known wallet
 menu for the gateway's network. It never asserts that a queued prompt was sent.
 Unknown networks get generic wallet-menu instructions. Keep messages within 182
 characters and retain the order code and no-repeat-payment instruction.
 
-Runtime setting: USSD_PAYMENT_PROMPT_POLL_INTERVAL_MS (default 1000, 1000-60000).
+The earlier polling setting is removed. Prompt requests now wake the worker after commit; see [event-triggered processing](event-driven-worker-processing.md).
 Monitor dispatch counts, errors and outbox age. Roll back configuration/code if
-database polling pressure exceeds budget. A provider requiring OTP remains an
-unresolved integration outcome; faster polling cannot fix it.
+database pressure exceeds budget. A provider requiring OTP remains an
+unresolved integration outcome; immediate dispatch cannot fix it.
 
-Acceptance: prompt poller runs independently, cannot overlap itself, skips tests,
+Acceptance: prompt consumer runs independently, cannot overlap itself, skips tests,
 stops on shutdown and retries errors; network copy and 182-character budget tested;
-typecheck and worker build pass. Existing delivery-service working-tree edits are
-unrelated and must be preserved.
+typecheck and worker build pass.

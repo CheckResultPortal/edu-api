@@ -1,67 +1,52 @@
 import { UssdPaymentPromptPoller } from './ussd-payment-prompt-poller';
 
-describe('independent USSD prompt polling', () => {
-  beforeEach(() => jest.useFakeTimers());
-  afterEach(() => jest.useRealTimers());
+describe('event-triggered USSD prompts', () => {
   function setup(enabled = true, environment = 'production') {
     const processAvailable = jest.fn().mockResolvedValue(0);
     const values: Record<string, unknown> = {
       NODE_ENV: environment,
       USSD_ENABLED: enabled,
       USSD_PAYMENT_PROMPT_BATCH_SIZE: 25,
-      USSD_PAYMENT_PROMPT_POLL_INTERVAL_MS: 2000,
     };
     const logger = { log: jest.fn(), error: jest.fn() };
+    const stop = jest.fn();
+    const signals = { watch: jest.fn().mockReturnValue(stop) };
     const poller = new UssdPaymentPromptPoller(
       { processAvailable } as never,
       { getOrThrow: (key: string) => values[key] } as never,
       logger as never,
+      signals as never,
     );
-    return { processAvailable, poller, logger };
-  }
-  it('starts promptly, retries failure and stops on shutdown', async () => {
-    const { processAvailable, poller, logger } = setup();
-    processAvailable.mockRejectedValueOnce(new Error('secret provider text'));
     poller.onApplicationBootstrap();
-    await jest.advanceTimersByTimeAsync(2000);
-    expect(processAvailable).toHaveBeenCalledTimes(2);
+    return { processAvailable, signals, poller, stop, logger };
+  }
+  it('subscribes to committed prompt requests and immediately continues full batches', async () => {
+    const { signals, processAvailable, poller, stop } = setup();
+    expect(signals.watch.mock.calls[0][0]).toEqual([
+      'UssdPaymentPromptRequested',
+    ]);
+    const run = signals.watch.mock.calls[0][1];
+    processAvailable.mockResolvedValueOnce(25);
+    expect(await run()).toBe(true);
+    expect(await run()).toBe(false);
+    poller.onApplicationShutdown();
+    expect(stop).toHaveBeenCalledTimes(1);
+  });
+  it('leaves errors to recovery without logging provider secrets', async () => {
+    const { signals, processAvailable, logger } = setup();
+    processAvailable.mockRejectedValueOnce(new Error('secret provider text'));
+    expect(await signals.watch.mock.calls[0][1]()).toBe(false);
     expect(logger.error).toHaveBeenCalled();
     expect(JSON.stringify(logger.error.mock.calls)).not.toContain(
       'secret provider text',
     );
-    poller.onApplicationShutdown();
-    await jest.advanceTimersByTimeAsync(6000);
-    expect(processAvailable).toHaveBeenCalledTimes(2);
-  });
-  it('never overlaps a slow dispatch cycle', async () => {
-    const { processAvailable, poller } = setup();
-    let finish!: (value: number) => void;
-    processAvailable.mockReturnValueOnce(
-      new Promise<number>((resolve) => {
-        finish = resolve;
-      }),
-    );
-    poller.onApplicationBootstrap();
-    await jest.advanceTimersByTimeAsync(6000);
-    expect(processAvailable).toHaveBeenCalledTimes(1);
-    finish(0);
-    await jest.advanceTimersByTimeAsync(2000);
-    expect(processAvailable).toHaveBeenCalledTimes(2);
-    poller.onApplicationShutdown();
   });
   it.each([
     [false, 'production'],
     [true, 'test'],
-  ])(
-    'does not run when disabled or testing (%s, %s)',
-    async (enabled, environment) => {
-      const { processAvailable, poller } = setup(
-        enabled as boolean,
-        environment as string,
-      );
-      poller.onApplicationBootstrap();
-      await jest.advanceTimersByTimeAsync(6000);
-      expect(processAvailable).not.toHaveBeenCalled();
-    },
-  );
+  ])('does not subscribe when disabled (%s, %s)', (enabled, environment) => {
+    expect(
+      setup(enabled as boolean, environment as string).signals.watch,
+    ).not.toHaveBeenCalled();
+  });
 });

@@ -9,6 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import {
   DATABASE_CLIENT,
   DatabaseModule,
+  DatabaseWorkSignals,
   type DatabaseClient,
 } from '@edu-api/database';
 import { createSecretKeyring, type SecretKeyring } from '@edu-api/encryption';
@@ -144,7 +145,7 @@ class AdminPasswordResetEmailPoller
 class VoucherDeliveryPoller
   implements OnApplicationBootstrap, OnApplicationShutdown
 {
-  private interval: NodeJS.Timeout | undefined;
+  private unsubscribe?: () => void;
   private isRunning = false;
 
   constructor(
@@ -152,23 +153,23 @@ class VoucherDeliveryPoller
     private readonly deliveries: VoucherDeliveryService,
     private readonly config: ConfigService,
     private readonly logger: StructuredLogger,
+    private readonly signals: DatabaseWorkSignals,
   ) {}
 
   onApplicationBootstrap(): void {
     if (this.config.getOrThrow<string>('NODE_ENV') === 'test') return;
-    void this.runCycle();
-    this.interval = setInterval(
-      () => void this.runCycle(),
-      this.config.getOrThrow<number>('VOUCHER_DELIVERY_POLL_INTERVAL_MS'),
+    this.unsubscribe = this.signals.watch(
+      ['VoucherAllocated', 'CommunicationDelivery'],
+      () => this.runCycle(),
     );
   }
 
   onApplicationShutdown(): void {
-    if (this.interval !== undefined) clearInterval(this.interval);
+    this.unsubscribe?.();
   }
 
-  private async runCycle(): Promise<void> {
-    if (this.isRunning) return;
+  private async runCycle(): Promise<boolean> {
+    if (this.isRunning) return false;
     this.isRunning = true;
     try {
       const batchSize = this.config.getOrThrow<number>(
@@ -184,12 +185,18 @@ class VoucherDeliveryPoller
           'VoucherDelivery',
         );
       }
+      return (
+        obligations >= batchSize ||
+        recovered >= batchSize ||
+        delivered >= batchSize
+      );
     } catch {
       this.logger.error(
         'Voucher delivery cycle failed; retrying on the next scheduled poll.',
         undefined,
         'VoucherDelivery',
       );
+      return false;
     } finally {
       this.isRunning = false;
     }
@@ -200,32 +207,30 @@ class VoucherDeliveryPoller
 class VoucherRetrievalEmailDeliveryPoller
   implements OnApplicationBootstrap, OnApplicationShutdown
 {
-  private interval: NodeJS.Timeout | undefined;
+  private unsubscribe?: () => void;
   private isRunning = false;
 
   constructor(
     private readonly deliveries: VoucherRetrievalEmailDeliveryService,
     private readonly config: ConfigService,
     private readonly logger: StructuredLogger,
+    private readonly signals: DatabaseWorkSignals,
   ) {}
 
   onApplicationBootstrap(): void {
     if (this.config.getOrThrow<string>('NODE_ENV') === 'test') return;
-    void this.runCycle();
-    this.interval = setInterval(
-      () => void this.runCycle(),
-      this.config.getOrThrow<number>(
-        'VOUCHER_RETRIEVAL_EMAIL_POLL_INTERVAL_MS',
-      ),
+    this.unsubscribe = this.signals.watch(
+      ['VoucherRetrievalEmailDelivery'],
+      () => this.runCycle(),
     );
   }
 
   onApplicationShutdown(): void {
-    if (this.interval !== undefined) clearInterval(this.interval);
+    this.unsubscribe?.();
   }
 
-  private async runCycle(): Promise<void> {
-    if (this.isRunning) return;
+  private async runCycle(): Promise<boolean> {
+    if (this.isRunning) return false;
     this.isRunning = true;
     try {
       const batchSize = this.config.getOrThrow<number>(
@@ -240,12 +245,14 @@ class VoucherRetrievalEmailDeliveryPoller
           'VoucherRetrievalEmailDelivery',
         );
       }
+      return recovered >= batchSize || processed >= batchSize;
     } catch {
       this.logger.error(
         'Voucher retrieval email delivery cycle failed; retrying on the next scheduled poll.',
         undefined,
         'VoucherRetrievalEmailDelivery',
       );
+      return false;
     } finally {
       this.isRunning = false;
     }

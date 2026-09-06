@@ -127,7 +127,7 @@ maximum of 20 allocations and contains no network calls.
   secrets or customer contact data.
 
 Worker settings are VOUCHER_ALLOCATION_OUTBOX_BATCH_SIZE,
-VOUCHER_ALLOCATION_POLL_INTERVAL_MS, VOUCHER_ALLOCATION_LEASE_MS,
+VOUCHER_ALLOCATION_LEASE_MS,
 VOUCHER_ALLOCATION_MAX_ATTEMPTS,
 VOUCHER_ALLOCATION_RETRY_BASE_DELAY_MS, and
 VOUCHER_ALLOCATION_RETRY_MAX_DELAY_MS.
@@ -183,3 +183,5 @@ Automated coverage includes:
 The next approved delivery unit is Phase 1F: zero-stock paid backlog behavior,
 followed by Phase 1G restock drain. Those phases must reuse this allocator and
 must not introduce a second allocation writer.
+
+Normal work is now event-triggered; see [worker wakeups](event-driven-worker-processing.md). Recovery uses WORKER_RECOVERY_INTERVAL_MS.

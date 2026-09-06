@@ -10,6 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import {
   DATABASE_CLIENT,
   DatabaseModule,
+  DatabaseWorkSignals,
   type DatabaseClient,
 } from '@edu-api/database';
 import { StructuredLogger } from '@edu-api/observability';
@@ -26,7 +27,7 @@ import { VoucherStockAddedOutboxConsumer } from './infrastructure/voucher-stock-
 class VoucherAllocationPoller
   implements OnApplicationBootstrap, OnApplicationShutdown
 {
-  private interval: NodeJS.Timeout | undefined;
+  private unsubscribe?: () => void;
   private isRunning = false;
 
   constructor(
@@ -37,31 +38,23 @@ class VoucherAllocationPoller
     @Inject(DATABASE_CLIENT) private readonly database: DatabaseClient,
     private readonly config: ConfigService,
     private readonly logger: StructuredLogger,
+    private readonly signals: DatabaseWorkSignals,
   ) {}
 
   onApplicationBootstrap(): void {
     if (this.config.get<string>('NODE_ENV') === 'test') return;
-    void this.runCycle();
-    const allocationPollInterval = this.config.get<number>(
-      'VOUCHER_ALLOCATION_POLL_INTERVAL_MS',
-      1_000,
-    );
-    const restockPollInterval = this.config.get<number>(
-      'RESTOCK_DRAIN_POLL_INTERVAL_MS',
-      5_000,
-    );
-    this.interval = setInterval(
-      () => void this.runCycle(),
-      Math.min(allocationPollInterval, restockPollInterval),
+    this.unsubscribe = this.signals.watch(
+      ['PaymentSucceeded', 'VoucherStockAdded'],
+      () => this.runCycle(),
     );
   }
 
   onApplicationShutdown(): void {
-    if (this.interval !== undefined) clearInterval(this.interval);
+    this.unsubscribe?.();
   }
 
-  private async runCycle(): Promise<void> {
-    if (this.isRunning) return;
+  private async runCycle(): Promise<boolean> {
+    if (this.isRunning) return false;
     this.isRunning = true;
     try {
       const batchSize = this.config.get<number>(
@@ -85,12 +78,19 @@ class VoucherAllocationPoller
           'VoucherAllocation',
         );
       }
+      return (
+        consumedEvents >= batchSize ||
+        consumedStockEvents >=
+          this.config.get<number>('RESTOCK_DRAIN_OUTBOX_BATCH_SIZE', 10) ||
+        recovered.allocated > 0
+      );
     } catch (error) {
       this.logger.error(
         `Voucher allocation cycle failed (failure=${safeFailureKind(error)}); retrying on next interval.`,
         undefined,
         'VoucherAllocation',
       );
+      return false;
     } finally {
       this.isRunning = false;
     }

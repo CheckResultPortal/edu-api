@@ -13,16 +13,4 @@ Long credentials or product names may require multipart SMS; never truncate them
 Validate exact credential preservation and optional URL rendering, USSD flow tests,
 typecheck and lint. No migration; rollback restores copy only.
 
-Allocation and delivery now default to one-second polling. Bounded batches,
-non-overlap guards, leases and idempotency are unchanged. Under idle healthy
-conditions this reduces combined scheduling wait from roughly ten seconds to
-two seconds maximum; processing and provider time are additional.
-This is not an end-to-end latency guarantee. Allocation's shared recovery loop
-also runs more often: monitor DB query load, pool pressure and backlog age.
-Existing production overrides still apply. Set worker runtime variables
-VOUCHER_ALLOCATION_POLL_INTERVAL_MS=1000 and
-VOUCHER_DELIVERY_POLL_INTERVAL_MS=1000. Restore both to 5000 if DB pressure rises.
-No migration is required. Payment verification and retry backoff are unchanged.
-The production log attachment is missing, so confirmation/provider latency is
-unmeasured. Compare approval, verified payment, allocation and channel acceptance
-timestamps with safe order references; never log voucher credentials.
+Scheduling is now event-triggered; see [event-driven worker processing](event-driven-worker-processing.md) for recovery settings and rollout. The earlier one-second polling change is superseded.

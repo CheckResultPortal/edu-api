@@ -308,12 +308,12 @@ export const adminApiEnvironmentSchema = httpEnvironmentSchema.extend({
 
 export const workerEnvironmentSchema = commonEnvironmentSchema
   .extend({
-    USSD_PAYMENT_PROMPT_POLL_INTERVAL_MS: z.coerce
+    WORKER_RECOVERY_INTERVAL_MS: z.coerce
       .number()
       .int()
       .min(1000)
       .max(60000)
-      .default(1000),
+      .default(5000),
     ...adminIdentityEnvironmentShape,
     ...voucherImportEnvironmentShape,
     ...orderMaintenanceEnvironmentShape,
@@ -385,12 +385,6 @@ export const workerEnvironmentSchema = commonEnvironmentSchema
       .min(1)
       .max(100)
       .default(25),
-    VOUCHER_DELIVERY_POLL_INTERVAL_MS: z.coerce
-      .number()
-      .int()
-      .min(1_000)
-      .max(60_000)
-      .default(1_000),
     VOUCHER_DELIVERY_PROCESSING_LEASE_MS: z.coerce
       .number()
       .int()
@@ -439,12 +433,6 @@ export const workerEnvironmentSchema = commonEnvironmentSchema
       .min(1)
       .max(100)
       .default(10),
-    VOUCHER_ALLOCATION_POLL_INTERVAL_MS: z.coerce
-      .number()
-      .int()
-      .min(1_000)
-      .max(60_000)
-      .default(1_000),
     VOUCHER_ALLOCATION_LEASE_MS: z.coerce
       .number()
       .int()
@@ -487,12 +475,6 @@ export const workerEnvironmentSchema = commonEnvironmentSchema
       .min(1)
       .max(100)
       .default(10),
-    RESTOCK_DRAIN_POLL_INTERVAL_MS: z.coerce
-      .number()
-      .int()
-      .min(1_000)
-      .max(60 * 60 * 1_000)
-      .default(5_000),
     RESTOCK_DRAIN_LEASE_MS: z.coerce
       .number()
       .int()
@@ -559,12 +541,6 @@ export const workerEnvironmentSchema = commonEnvironmentSchema
       .min(1)
       .max(100)
       .default(25),
-    VOUCHER_RETRIEVAL_EMAIL_POLL_INTERVAL_MS: z.coerce
-      .number()
-      .int()
-      .min(1_000)
-      .max(60_000)
-      .default(5_000),
     VOUCHER_RETRIEVAL_EMAIL_PROCESSING_LEASE_MS: z.coerce
       .number()
       .int()
