@@ -34,7 +34,7 @@ export class PrismaCatalogProductQuery implements CatalogProductQuery {
           : { catalogGroup: { publicId: input.catalogGroupPublicId } }),
       },
       select: productSelection,
-      orderBy: [{ code: 'asc' }, { id: 'asc' }],
+      orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }, { id: 'asc' }],
       ...(input.cursor === undefined
         ? {}
         : {
@@ -66,6 +66,7 @@ const productSelection = {
   sellingPriceMinor: true,
   currency: true,
   resultCheckerUrl: true,
+  sortOrder: true,
   catalogGroup: { select: { publicId: true } },
 } as const;
 
@@ -78,6 +79,7 @@ function toActiveCatalogProduct(product: {
   readonly publicId: string;
   readonly resultCheckerUrl: string | null;
   readonly sellingPriceMinor: bigint;
+  readonly sortOrder: number;
 }): ActiveCatalogProduct {
   return {
     catalogGroupPublicId: product.catalogGroup.publicId,
@@ -88,5 +90,6 @@ function toActiveCatalogProduct(product: {
     publicId: product.publicId,
     resultCheckerUrl: product.resultCheckerUrl,
     sellingPriceMinor: product.sellingPriceMinor.toString(),
+    sortOrder: product.sortOrder,
   };
 }

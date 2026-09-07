@@ -52,6 +52,7 @@ export interface CatalogProduct {
   readonly publicId: string;
   readonly resultCheckerUrl: string | null;
   readonly sellingPriceMinor: string;
+  readonly sortOrder: number;
 }
 
 export interface CatalogProductChange {
@@ -82,6 +83,7 @@ export interface CreateCatalogProductInput {
   readonly name: string;
   readonly resultCheckerUrl?: string;
   readonly sellingPriceMinor: string;
+  readonly sortOrder?: number;
 }
 
 export interface UpdateCatalogProductInput {
@@ -91,6 +93,7 @@ export interface UpdateCatalogProductInput {
   readonly lowStockThreshold?: number;
   readonly name?: string;
   readonly resultCheckerUrl?: string | null;
+  readonly sortOrder?: number;
 }
 
 export interface ChangeCatalogProductPriceInput {

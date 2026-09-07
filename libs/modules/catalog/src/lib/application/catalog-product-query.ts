@@ -11,6 +11,7 @@ export interface ActiveCatalogProduct {
   readonly publicId: string;
   readonly resultCheckerUrl: string | null;
   readonly sellingPriceMinor: string;
+  readonly sortOrder: number;
 }
 
 export interface ActiveCatalogProductsPage {

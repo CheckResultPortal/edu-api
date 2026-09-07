@@ -106,6 +106,7 @@ const productCreateRequestSchema: RequestBodySchema = {
     name: { type: 'string', maxLength: 160 },
     resultCheckerUrl: { type: 'string', format: 'uri', maxLength: 2048 },
     sellingPriceMinor: { type: 'string', pattern: '^[1-9]\\d*$' },
+    sortOrder: { type: 'integer', minimum: 0 },
   },
 };
 
@@ -125,6 +126,7 @@ const productUpdateRequestSchema: RequestBodySchema = {
       maxLength: 2048,
       nullable: true,
     },
+    sortOrder: { type: 'integer', minimum: 0 },
   },
 };
 
@@ -403,6 +405,7 @@ function catalogProductResource(
       name: product.name,
       resultCheckerUrl: product.resultCheckerUrl,
       sellingPriceMinor: product.sellingPriceMinor,
+      sortOrder: product.sortOrder,
     }),
     ...(meta === undefined ? {} : { meta }),
   };
@@ -457,6 +460,7 @@ function parseCreateProductBody(body: unknown): CreateCatalogProductInput {
     'name',
     'resultCheckerUrl',
     'sellingPriceMinor',
+    'sortOrder',
   ]);
   return {
     catalogGroupPublicId: requiredString(object, 'catalogGroupPublicId'),
@@ -471,6 +475,9 @@ function parseCreateProductBody(body: unknown): CreateCatalogProductInput {
       ? {}
       : { resultCheckerUrl: optionalString(object, 'resultCheckerUrl') }),
     sellingPriceMinor: requiredString(object, 'sellingPriceMinor'),
+    ...(optionalInteger(object, 'sortOrder') === undefined
+      ? {}
+      : { sortOrder: optionalInteger(object, 'sortOrder') }),
   };
 }
 
@@ -482,6 +489,7 @@ function parseUpdateProductBody(body: unknown): UpdateCatalogProductInput {
     'lowStockThreshold',
     'name',
     'resultCheckerUrl',
+    'sortOrder',
   ]);
   const description = optionalNullableString(object, 'description');
   const resultCheckerUrl = optionalNullableString(object, 'resultCheckerUrl');
@@ -502,6 +510,9 @@ function parseUpdateProductBody(body: unknown): UpdateCatalogProductInput {
       ? {}
       : { name: optionalString(object, 'name') }),
     ...(resultCheckerUrl === undefined ? {} : { resultCheckerUrl }),
+    ...(optionalInteger(object, 'sortOrder') === undefined
+      ? {}
+      : { sortOrder: optionalInteger(object, 'sortOrder') }),
   };
 }
 

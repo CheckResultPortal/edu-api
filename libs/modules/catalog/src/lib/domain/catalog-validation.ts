@@ -14,6 +14,7 @@ export interface CatalogProductDraft {
   readonly name: string;
   readonly resultCheckerUrl?: string;
   readonly sellingPriceMinor: string;
+  readonly sortOrder?: number;
 }
 
 export interface CatalogGroupPatch {
@@ -30,6 +31,7 @@ export interface CatalogProductPatch {
   readonly lowStockThreshold?: number;
   readonly name?: string;
   readonly resultCheckerUrl?: string | null;
+  readonly sortOrder?: number;
 }
 
 const publicIdPattern =
@@ -87,6 +89,9 @@ export function assertValidCatalogProductDraft(
     draft.lowStockThreshold,
     'Product low-stock threshold',
   );
+  if (draft.sortOrder !== undefined) {
+    assertNonNegativeInteger(draft.sortOrder, 'Product sort order');
+  }
 }
 
 export function assertValidCatalogGroupPatch(patch: CatalogGroupPatch): void {
@@ -122,7 +127,8 @@ export function assertValidCatalogProductPatch(
     patch.description === undefined &&
     patch.lowStockThreshold === undefined &&
     patch.name === undefined &&
-    patch.resultCheckerUrl === undefined
+    patch.resultCheckerUrl === undefined &&
+    patch.sortOrder === undefined
   ) {
     throw new Error('Product update must contain at least one field.');
   }
@@ -152,6 +158,9 @@ export function assertValidCatalogProductPatch(
       patch.lowStockThreshold,
       'Product low-stock threshold',
     );
+  }
+  if (patch.sortOrder !== undefined) {
+    assertNonNegativeInteger(patch.sortOrder, 'Product sort order');
   }
 }
 

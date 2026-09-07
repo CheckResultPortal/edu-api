@@ -312,7 +312,7 @@ export class PrismaAdminOperationsQuery implements AdminOperationsQuery {
         ? {}
         : { cursor: { publicId: input.cursor }, skip: 1 }),
       take: input.limit + 1,
-      orderBy: { publicId: 'asc' },
+      orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }, { publicId: 'asc' }],
       select: {
         id: true,
         publicId: true,
@@ -322,6 +322,7 @@ export class PrismaAdminOperationsQuery implements AdminOperationsQuery {
         lowStockThreshold: true,
         sellingPriceMinor: true,
         currency: true,
+        sortOrder: true,
         catalogGroup: { select: { publicId: true, name: true } },
         stockMonitoringState: { select: { state: true, updatedAt: true } },
       },
@@ -356,6 +357,7 @@ export class PrismaAdminOperationsQuery implements AdminOperationsQuery {
           sellingPriceMinor: product.sellingPriceMinor.toString(),
           currency: product.currency,
           lowStockThreshold: product.lowStockThreshold,
+          sortOrder: product.sortOrder,
           catalogGroupPublicId: product.catalogGroup.publicId,
           stockLevel: product.stockMonitoringState?.state ?? 'NORMAL',
           stockMeasuredAt:

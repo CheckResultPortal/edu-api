@@ -114,6 +114,9 @@ export class PrismaCatalogAdminService implements CatalogAdminService {
           ? {}
           : { resultCheckerUrl: input.resultCheckerUrl }),
         sellingPriceMinor: BigInt(input.sellingPriceMinor),
+        ...(input.sortOrder === undefined
+          ? {}
+          : { sortOrder: input.sortOrder }),
       },
       select: productSelection,
     });
@@ -159,6 +162,9 @@ export class PrismaCatalogAdminService implements CatalogAdminService {
         ...(input.resultCheckerUrl === undefined
           ? {}
           : { resultCheckerUrl: input.resultCheckerUrl }),
+        ...(input.sortOrder === undefined
+          ? {}
+          : { sortOrder: input.sortOrder }),
       },
       select: productSelection,
     });
@@ -350,6 +356,7 @@ const productSelection = {
   currency: true,
   resultCheckerUrl: true,
   lowStockThreshold: true,
+  sortOrder: true,
   isActive: true,
   catalogGroup: { select: { publicId: true } },
 } as const;
@@ -366,6 +373,7 @@ type ProductRecord = {
   readonly publicId: string;
   readonly resultCheckerUrl: string | null;
   readonly sellingPriceMinor: bigint;
+  readonly sortOrder: number;
 };
 
 function toCatalogGroup(group: {
@@ -396,5 +404,6 @@ function toCatalogProduct(product: ProductRecord): CatalogProduct {
     publicId: product.publicId,
     resultCheckerUrl: product.resultCheckerUrl,
     sellingPriceMinor: product.sellingPriceMinor.toString(),
+    sortOrder: product.sortOrder,
   };
 }

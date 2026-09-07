@@ -284,6 +284,7 @@ model Product {
   currency             String                @db.Char(3)
   resultCheckerUrl     String?
   lowStockThreshold    Int                   @default(0)
+  sortOrder            Int                   @default(0)
   isActive             Boolean               @default(true)
   createdAt            DateTime              @default(now()) @db.Timestamptz(6)
   updatedAt            DateTime              @updatedAt @db.Timestamptz(6)
@@ -296,7 +297,7 @@ model Product {
   stockMonitoringState StockMonitoringState?
   stockAlerts          StockAlert[]
 
-  @@index([catalogGroupId, code, id])
+  @@index([catalogGroupId, sortOrder, code, id])
 }
 
 // Stock Monitoring owns operational alert state. It is deliberately separate
