@@ -370,7 +370,7 @@ export class DefaultUssdFlowService {
         message: renderCategoryMenu(categories, 0),
       };
     }
-    if (request.input.trim() === '9' && categories.length > MENU_PAGE_SIZE) {
+    if (request.input.trim() === '6' && categories.length > MENU_PAGE_SIZE) {
       const next = (page + 1) % Math.ceil(categories.length / MENU_PAGE_SIZE);
       await this.sessions.set(
         sessionIdentifier(request),
@@ -471,7 +471,7 @@ export class DefaultUssdFlowService {
     }
 
     const pageIndex = menuPage(session.menuPage, page.length);
-    if (request.input.trim() === '9' && page.length > MENU_PAGE_SIZE) {
+    if (request.input.trim() === '6' && page.length > MENU_PAGE_SIZE) {
       const next = (pageIndex + 1) % Math.ceil(page.length / MENU_PAGE_SIZE);
       await this.sessions.set(
         sessionIdentifier(request),
@@ -803,7 +803,7 @@ export class DefaultUssdFlowService {
   }
 }
 
-const MENU_PAGE_SIZE = 2;
+const MENU_PAGE_SIZE = 5;
 function menuPage(value: number | undefined, length: number): number {
   return value !== undefined &&
     Number.isInteger(value) &&
@@ -822,8 +822,8 @@ function renderCategoryMenu(
     'Choose voucher category:',
     ...categories
       .slice(page * MENU_PAGE_SIZE, (page + 1) * MENU_PAGE_SIZE)
-      .map((category, index) => `${index + 1}. ${truncate(category.name, 40)}`),
-    ...(categories.length > MENU_PAGE_SIZE ? ['9. More'] : []),
+      .map((category, index) => `${index + 1}. ${truncate(category.name, 22)}`),
+    ...(categories.length > MENU_PAGE_SIZE ? ['6. More'] : []),
     '0. Home',
   ]
     .filter(Boolean)
@@ -837,14 +837,14 @@ function renderProductMenu(
 ): string {
   return [
     prefix,
-    `${truncate(categoryName, 24)}:`,
+    `${truncate(categoryName, 20)}:`,
     ...products
       .slice(page * MENU_PAGE_SIZE, (page + 1) * MENU_PAGE_SIZE)
       .map(
         (product, index) =>
-          `${index + 1}. ${truncate(product.name, 24)} ${formatCedis(product.sellingPriceMinor)}`,
+          `${index + 1}. ${truncate(product.name, 20)} ${formatCedis(product.sellingPriceMinor)}`,
       ),
-    ...(products.length > MENU_PAGE_SIZE ? ['9. More'] : []),
+    ...(products.length > MENU_PAGE_SIZE ? ['6. More'] : []),
     '0. Home',
   ]
     .filter(Boolean)

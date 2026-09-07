@@ -178,6 +178,85 @@ describe('DefaultUssdFlowService', () => {
     });
   });
 
+  it('paginates categories with 5 items per page and 6. More option', async () => {
+    const manyCategories: UssdCategoryListItem[] = [
+      { name: 'Cat One', publicId: 'cat-1' },
+      { name: 'Cat Two', publicId: 'cat-2' },
+      { name: 'Cat Three', publicId: 'cat-3' },
+      { name: 'Cat Four', publicId: 'cat-4' },
+      { name: 'Cat Five', publicId: 'cat-5' },
+      { name: 'Cat Six', publicId: 'cat-6' },
+      { name: 'Cat Seven', publicId: 'cat-7' },
+    ];
+    const { service } = flow({ categories: manyCategories });
+    await service.handle(initialDial, context);
+    const page0 = await service.handle(
+      continuation('233244123456', '1'),
+      context,
+    );
+
+    expect(page0.message).toContain('1. Cat One');
+    expect(page0.message).toContain('5. Cat Five');
+    expect(page0.message).not.toContain('Cat Six');
+    expect(page0.message).toContain('6. More');
+    expect(page0.message).toContain('0. Home');
+
+    // Page to next screen
+    const page1 = await service.handle(
+      continuation('233244123456', '6'),
+      context,
+    );
+    expect(page1.message).toContain('1. Cat Six');
+    expect(page1.message).toContain('2. Cat Seven');
+    expect(page1.message).toContain('6. More');
+    expect(page1.message).toContain('0. Home');
+
+    // 0 returns home from page 1
+    const home = await service.handle(
+      continuation('233244123456', '0'),
+      context,
+    );
+    expect(home.message).toContain('Welcome to EduVoucherStore');
+  });
+
+  it('paginates products with 5 items per page and 6. More option', async () => {
+    const singleCat: UssdCategoryListItem[] = [
+      { name: 'Vouchers', publicId: 'cat-1' },
+    ];
+    const manyProducts = Array.from({ length: 7 }, (_, i) => ({
+      catalogGroupPublicId: 'cat-1',
+      name: `Voucher Product ${i + 1}`,
+      publicId: `prod-${i + 1}`,
+      sellingPriceMinor: '2000',
+    }));
+    const { service } = flow({
+      categories: singleCat,
+      products: manyProducts,
+    });
+    await service.handle(initialDial, context);
+    await service.handle(continuation('233244123456', '1'), context);
+    const prodPage0 = await service.handle(
+      continuation('233244123456', '1'),
+      context,
+    );
+
+    expect(prodPage0.message).toContain('1. Voucher Product 1 GHS 20.00');
+    expect(prodPage0.message).toContain('5. Voucher Product 5 GHS 20.00');
+    expect(prodPage0.message).not.toContain('Voucher Product 6');
+    expect(prodPage0.message).toContain('6. More');
+    expect(prodPage0.message).toContain('0. Home');
+
+    // Page forward to see product 6 & 7
+    const prodPage1 = await service.handle(
+      continuation('233244123456', '6'),
+      context,
+    );
+    expect(prodPage1.message).toContain('1. Voucher Product 6 GHS 20.00');
+    expect(prodPage1.message).toContain('2. Voucher Product 7 GHS 20.00');
+    expect(prodPage1.message).toContain('6. More');
+    expect(prodPage1.message).toContain('0. Home');
+  });
+
   it('goes straight to confirmation after an SMS-only choice', async () => {
     const { service, sessions } = flow();
     await service.handle(initialDial, context);
@@ -366,13 +445,13 @@ describe('DefaultUssdFlowService', () => {
       context,
     );
     expect(menu.message.length).toBeLessThanOrEqual(182);
-    expect(menu.message).toContain('9. More');
+    expect(menu.message).toContain('6. More');
     expect(menu.message).toContain('0. Home');
     const next = await service.handle(
-      continuation(initialDial.msisdn, '9'),
+      continuation(initialDial.msisdn, '6'),
       context,
     );
-    expect(next.message).toContain('2'.repeat(40));
+    expect(next.message).toContain('5'.repeat(21));
     const invalid = await service.handle(
       continuation(initialDial.msisdn, '8'),
       context,
